@@ -1,11 +1,13 @@
-import Image from 'next/image';
+import Hero from './components/Hero';
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <div className="text-center">Welcome to Agonus!</div>
-
-      <div></div>
-    </div>
+    <main>
+      <section className="p-8 text-center">
+        <h1 className="text-8xl font-bold animate-pulse text-white">Agonus</h1>
+        <p className="text-gray-300">Developed by Blockchain UCI</p>
+        <Hero />
+      </section>
+    </main>
   );
 }
