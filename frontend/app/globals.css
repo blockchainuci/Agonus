@@ -50,7 +50,7 @@
 
 
 body {
-  font-family: var(--font-sans), Georgia, Times, serif, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, serif, Helvetica, sans-serif;
   background: var(--background);
   min-height: var(--min-height);
   background-attachment: var(--background-attachment); 
