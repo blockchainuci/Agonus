@@ -1,6 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import {components, animations, typography, spacing, effects} from '../../design-tokens';
+
 import {
   Card,
   CardContent,
@@ -59,11 +61,11 @@ export const agents = [
 ];
 
 const badgeColors = {
-  blue: 'bg-blue-400/10 text-blue-400',
-  red: 'bg-red-400/10 text-red-400',
-  yellow: 'bg-yellow-400/10 text-yellow-500',
-  green: 'bg-green-400/10 text-green-400',
-  purple: 'bg-purple-400/10 text-purple-400',
+  blue: 'bg-blue-400/10 text-blue-400 border border-blue-400/20',
+  red: 'bg-red-400/10 text-red-400 border border-red-400/20',
+  yellow: 'bg-yellow-400/10 text-yellow-500 border border-yellow-400/20',
+  green: 'bg-green-400/10 text-green-400 border border-green-400/20',
+  purple: 'bg-purple-400/10 text-purple-400 border border-purple-400/20',
 };
 
 export function AgentCard({
@@ -75,14 +77,14 @@ export function AgentCard({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={animations.fadeInUp.initial}
+      whileInView={animations.fadeInUp.animate}
       viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      whileHover={{ scale: 1.05, y: -10 }}
+      transition={{ ...animations.fadeInUp.transition, delay: index * 0.1 }}
+      whileHover={animations.hoverLift.whileHover}
       className="h-full"
     >
-      <Card className="bg-gray-800/50 border-white/10 hover:bg-gray-800/70 transition-colors h-full flex flex-col">
+      <Card className={`${components.card.base} ${components.card.hover} h-full flex flex-col`}>
         <CardHeader className="text-center">
           <motion.div
             className="text-6xl mb-4"
@@ -91,28 +93,30 @@ export function AgentCard({
           >
             {agent.emoji}
           </motion.div>
-          <CardTitle className="text-white text-xl">{agent.name}</CardTitle>
-          <CardDescription className="text-gray-300">
+          <CardTitle className={`${typography.h4} text-white`}>
+            {agent.name}
+          </CardTitle>
+          <CardDescription className={`${typography.body.sm} text-gray-300`}>
             {agent.strategy}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col items-center gap-3">
+        <CardContent className={`flex-1 flex flex-col items-center ${spacing.content.sm}`}>
           <span
-            className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${
+            className={`inline-flex items-center ${effects.rounded.base} px-3 py-1 ${typography.label} ${
               badgeColors[agent.badgeColor as keyof typeof badgeColors]
             }`}
           >
             {agent.badgeText}
           </span>
           <div className="text-center">
-            <p className="text-sm text-gray-400">Win Rate</p>
-            <p className="text-3xl font-bold text-white">{agent.winRate}%</p>
+            <p className={`${typography.body.sm} text-gray-400`}>Win Rate</p>
+            <p className={`${typography.h3} text-white`}>{agent.winRate}%</p>
           </div>
         </CardContent>
         <CardFooter className="flex justify-center">
           <button
             type="button"
-            className="inline-flex items-center gap-x-2 rounded-md bg-gradient-to-r from-[#1E3A8A] to-[#0A2540] px-4 py-2 text-sm font-semibold text-white hover:from-[#2563eb] hover:to-[#1E3A8A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E3A8A] transition-all"
+            className={`${components.button.base} ${components.button.gold}`}
           >
             Bet on Agent
           </button>

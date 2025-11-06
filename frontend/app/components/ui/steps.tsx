@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Bot, TrendingUp, Wallet, Trophy } from 'lucide-react';
-
+import {spacing, components, animations, typography, layout} from '../../design-tokens';
 const steps = [
   {
     number: '01',
@@ -36,31 +36,35 @@ const steps = [
 function StepCard({ step, index }: { step: (typeof steps)[0]; index: number }) {
   const Icon = step.icon;
 
-  return (
+  return(
     <motion.div
-      className="overflow-hidden rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors"
-      initial={{ opacity: 0, x: -50 }}
-      whileInView={{ opacity: 1, x: 0 }}
+      className={`${components.card.base} ${components.card.hover} overflow-hidden`}
+      initial={animations.fadeInLeft.initial}
+      whileInView={animations.fadeInLeft.animate}
       viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
+      transition={{ ...animations.fadeInLeft.transition, delay: index * 0.1 }}
       whileHover={{ scale: 1.02, translateY: -5 }}
     >
-      <div className="px-4 py-5 sm:p-6">
+      <div className={spacing.card.default}>
         <div className="flex gap-6 items-start">
-          {/*  number and icon */}
+          {/* Number and icon */}
           <div className="flex-shrink-0">
-            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-[#1E3A8A] to-[#0A2540]">
+            <div className={`${components.iconContainer.base} ${components.iconContainer.sizes.md}`}>
               <Icon className="w-8 h-8 text-white" />
             </div>
-            <div className="text-center mt-2 text-lg font-bold text-gray-400">
+            <div className={`text-center mt-2 ${typography.body.base} font-bold text-gray-400`}>
               {step.number}
             </div>
           </div>
 
-          {/*Info */}
+          {/* Info */}
           <div className="flex-1">
-            <h3 className="text-xl font-bold text-white mb-2">{step.title}</h3>
-            <p className="text-gray-300 leading-relaxed">{step.description}</p>
+            <h3 className={`${typography.h4} text-white ${spacing.subtitleGap}`}>
+              {step.title}
+            </h3>
+            <p className={`${typography.body.base} text-gray-300`}>
+              {step.description}
+            </p>
           </div>
         </div>
       </div>
@@ -70,10 +74,11 @@ function StepCard({ step, index }: { step: (typeof steps)[0]; index: number }) {
 
 export default function Steps() {
   return (
-    <div className="space-y-6">
+    <div className={layout.grid.steps}>
       {steps.map((step, index) => (
         <StepCard key={step.number} step={step} index={index} />
       ))}
     </div>
+  
   );
 }
