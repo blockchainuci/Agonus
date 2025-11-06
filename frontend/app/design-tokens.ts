@@ -24,8 +24,11 @@ export const colors = {
         900: '#111827',
     },
 
-    cardBg: 'rgba(31, 41, 55, 0.5)', // gray-800/50
-    cardBgHover: 'rgba(31, 41, 55, 0.7)', //gray-800/70
+    // glass and more translucency
+    cardBg: 'rgba(31, 41, 55, 0.4)', // gray-800/50
+    cardBgHover: 'rgba(31, 41, 55, 0.6)', //gray-800/70
+    glassBg: 'rgba(255, 255, 255, 0.05)', // Subtle glass effect
+    glassBgStrong: 'rgba(255, 255, 255, 0.1)',
     
 } as const; 
 
@@ -33,51 +36,54 @@ export const colors = {
 export const spacing = {
     // section padding
     section:{
-    x: 'px-6 sm:px-8 lg:px-12',
-    y: 'py-12 sm:py-16 lg:py-20',
-    all: 'p-6 sm:p-8 lg:p-12',
+    x: 'px-8 sm:px-12 lg:px-20',
+    y: 'py-20 sm:py-28 lg:py-44',
+    all: 'p-8 sm:p-32 lg:p-44 xl:py-56',
+    hero: 'py-24 sm:py-32 lg: py-44 xl:py-56'
     },
 
 // card padding
     card: {
-        default: 'p-6',
-        sm: 'p-4',
-        lg: 'p-8',
+        default: 'p-8',
+        sm: 'p-6',
+        lg: 'p-10',
+        xl: 'p-12'
     },
 
     // content spacing
     content: {
-        xs: 'space-y-2',
-        sm: 'space-y-4',
-        md: 'space-y-6',
-        lg: 'space-y-8',
-        xl: 'space-y-12',
+        xs: 'space-y-4',
+        sm: 'space-y-6',
+        md: 'space-y-10',
+        lg: 'space-y-14',
+        xl: 'space-y-20',
     },
 
     // section margins
-    sectionGap: 'mb-12 sm:mb-16 lg:mb-20',
-    titleGap: 'mb-6 sm:mb-8',
-    subtitleGap: 'mb-4',
+    sectionGap: 'mb-20 sm:mb-28 lg:mb-36',
+    titleGap: 'mb-10 sm:mb-12 lg:mb-16',
+    subtitleGap: 'mb-8 sm:mb-10',
+    elementGap: 'mt-12 sm:mt-16 lg:mt-20',
 } as const;
 
 export const typography = {
     //headings
 
-    h1: 'text-4xl sm:text-5xl lg:text-6xl font-bold',
-    h2: 'text-3xl sm:text-4xl lg:text-5xl font-bold',
-    h3: 'text-2xl sm:text-3xl font-bold',
-    h4: 'text-xl sm:text-2xl font-semibold',
+    h1: 'text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight',
+    h2: 'text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight',
+    h3: 'text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight',
+    h4: 'text-2xl sm:text-3xl font-semibold',
 
     //body text
     body: {
-        lg: 'text-lg leading-relaxed',
-        base: 'text-base leading-relaxed',
-        sm: 'text-sm leading-relaxed',
+        lg: 'text-xl sm:text-2xl leading-relaxed',
+        base: 'text-lg sm:text-xl leading-relaxed',
+        sm: 'text-base sm:text-lg leading-relaxed',
     },
 
     // other
-    tagline: 'text-lg sm:text-xl text-gray-300',
-    label: 'text-xs sm:text-sm font-medium uppercase tracking-wide',
+    tagline: 'text-2xl sm:text-3xl lg:text-4xl text-gray-300 leading-relaxed font-light',
+    label: 'text-sm sm:text-base font-medium uppercase tracking-wider',
 } as const;
 
 export const layout = {
@@ -94,8 +100,8 @@ export const layout = {
     //grid layouts
 
     grid: {
-        agents: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6',
-        steps: 'space-y-6'
+        agents: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12',
+        steps: 'space-y-10 lg:space-y-12'
     }, 
 } as const;
 
@@ -103,32 +109,58 @@ export const effects = {
     //shadows
     shadow: {
         sm: 'shadow-sm',
-        base: 'shadow-md',
-        lg: 'shadow-lg',
-        xl: 'shadow-xl',
+        base: 'shadow-[0_2px_8px_rgba(0,0,0,0.08)]',
+        md: 'shadow-[0_4px_12px_rgba(0,0,0,0.12)]',
+        lg: 'shadow-[0_8px_24px_rgba(0,0,0,0.15)]',
+        xl: 'shadow-[0_12px_32px_rgba(0,0,0,0.18)',
+        '2xl': 'shadow-[0_16px_48px_rgba(0,0,0,0.22)]',
+
+        //subtle colored shadows
+        gold: 'shadow-[0_4px_16px_rgba(255,215,0,0.15)]', 
+        goldStrong: 'shadow-[0_8px_24px_rgba(255,215,0,0.25)]',
+        blue: 'shadow-[0_4px_16px_rgba(30,58,138,0.15)]',
     },
 
     // border
     rounded: {
-        sm: 'rounded-md',
-        base: 'rounded-lg',
-        lg: 'rounded-xl',
-        full: 'roudned-full',
+        sm: 'rounded-lg',
+        base: 'rounded-xl',
+        lg: 'rounded-2xl',
+        xl: 'rounded-3xl',
+        full: 'rounded-full',
     },
 
     //transitions
 
     transition: {
-    base: 'transition-all duration-200 ease-in-out',
-    slow: 'transition-all duration-300 ease-in-out',
-    colors: 'transition-colors duration-200',
+    base: 'transition-all duration-300 ease-in-out',
+    slow: 'transition-all duration-500 ease-in-out',
+    colors: 'transition-colors duration-300',
+    shadow: 'transition-shadow duration-300',
     },
 
     //hover effects
     hover: {
         lift: 'hover:-translate-y-1',
+        shadow: 'hover:shadow-xl',
         scale: 'hover:scale-105',
-        brighten: 'hover:brightness-110',
+        brighten: 'hover:brightness-105',
+        opacity: 'hover:opacity-90'
+    },
+
+    //glass effects
+    glass: {
+        light: 'bg-white/5 backdrop-blur-sm',
+        medium: 'bg-white/10 backdrop-blur-md',
+        strong: 'bg-white/15 backdrop-blur-lg',
+    },
+
+    outline: {
+        gold: 'ring-2 ring-[#FFD700] ring-offset-2 ring-offset-[#0A2540]',
+        goldHover: 'hover:ring-[#FFF4CC] hover:ring-offset-4',
+        blue: 'ring-2 ring-[#2563eb] ring-offset-2 ring-offset-[#0A2540]',
+        white: 'ring-1 ring-white/20',
+        whiteStrong: 'ring-2 ring-white/30',
     },
 } as const;
 
@@ -140,38 +172,59 @@ export const gradients = {
     gold: 'bg-gradient-to-r from-[#FFD700] to-[#d4af37]',
     goldHover: 'hover:from-[#d4af37] hover:to-[#b8941f]',
     accent: 'bg-gradient-to-br from-[#1E3A8A] via-[#0A2540] to-[#FFD700]', 
+
+    // subtle background gradeints
+    sectionBg: 'bg-gradient-to-b from-[#0a1929] via-[#0f2744] to-[#0a1929',
+    sectionBgAlt: 'bg-gradient-to-b from-[#0f2744] via-[#0a1929] to-[#0f2744]',
 } as const;
 
 export const components = {
     button: {
-        base: `inline-flex items-center justify-center gap-x-2 rounded-lg px-6 py-3 text-sm font-semibold ${effects.transition.base} focus-visible:outline-2 focus-visible:outline-offset-2`,
-        primary: `${gradients.primary} ${gradients.primaryHover} text-white focus-visible:outline-[#1E3A8A]`,
-        secondary: `${gradients.secondary} ${gradients.secondaryHover} text-white focus-visible:outline-[#0A2540]`,
-        gold: `${gradients.gold} ${gradients.goldHover} text-[#0A2540] focus-visible:outline-[#FFD700]`,
+        base: `inline-flex items-center justify-center gap-x-3 rounded-2xl px-12 py-6 text-xl font-semibold ${effects.transition.base} focus-visible:outline-2 focus-visible:outline-none`,
+       
+        // blue outline
+        primary: `${gradients.primary} ${effects.outline.blue} ${effects.shadow.blue}`,
+        
+        // gold outline and shine
+        gold: `${gradients.gold} text-[#0A2540] ${effects.outline.gold} ${effects.shadow.goldStrong} 
+               relative overflow-hidden
+               before:absolute before:inset-0 before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent 
+               before:translate-x-[-200%] hover:before:translate-x-[200%] before:transition-transform before:duration-700`,
+
+        ghost: 'bg-transparent text-white ${effects.outline.white} hover:bg-white/5',
     },
 
     card: {
-        base: `${effects.rounded.lg} bg-gray-800/50 border border-white/10 ${effects.shadow.base} ${effects.transition.colors}`,
-        hover: 'hover:bg-gray-800/70 hover:border-white/20',
-        interactive: `${effects.hover.lift} ${effects.shadow.lg}`,
+        base: `${effects.rounded.xl} ${effects.glass.light}border-white/10 ${effects.shadow.md} ${effects.transition.base}`,
+        hover: 'hover:${effects.glass.medium} hover:border-white/20 ${effects.hover.shadow',
+        interactive: `${effects.hover.lift}`,
+
+        strong: `${effects.rounded.xl} ${effects.glass.strong} border-2 border-white/20 ${effects.shadow.lg}`,
     },
 
     iconContainer: {
-        base: `flex items-center justify-center ${effects.rounded.full} ${gradients.primary}`,
+        base: `flex items-center justify-center ${effects.rounded.full} ${gradients.primary} ${effects.shadow.base}`,
         sizes: {
-        sm: 'w-12 h-12',
-        md: 'w-16 h-16',
-        lg: 'w-20 h-20',
+        sm: 'w-14 h-14',
+        md: 'w-20 h-20',
+        lg: 'w-24 h-24',
+        xl: 'w-28 h-28'
         },
     },
 } as const;
 
 
 export const animations = {
+    fadeIn:{
+        initial: {opacity: 0},
+        animate: {opacity: 1},
+        transition: {duration: 0.6, ease: [0.4, 0, 0.2,1]},
+    },
+
     fadeInUp: {
         initial: {opacity: 0, y:20},
         animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.5 },
+        transition: { duration: 0.5, ease: [0.4, 0, 0.2,1] },
     },
 
     fadeInLeft: {
@@ -181,9 +234,9 @@ export const animations = {
     },
   
     scaleIn: {
-        initial: { opacity: 0, scale: 0.9 },
+        initial: { opacity: 0, scale: 0.95 },
         animate: { opacity: 1, scale: 1 },
-        transition: { duration: 0.4 },
+        transition: { duration: 0.5, ease:[0.4, 0, 0.2, 1] },
     },
     
     hoverLift: {
@@ -192,8 +245,8 @@ export const animations = {
     },
     
     hoverScale: {
-        whileHover: { scale: 1.05 },
-        transition: { duration: 0.2 },
+        whileHover: { y: -4},
+        transition: { duration: 0.2, ease: 'easeOut' },
     }, 
 } as const;
 

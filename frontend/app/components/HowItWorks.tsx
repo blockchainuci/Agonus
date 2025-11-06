@@ -1,16 +1,16 @@
 'use client';
 
 import Steps from './ui/steps';
-
+import {spacing, typography, layout} from '../design-tokens';
 export default function HowItWorks() {
   return (
-    <main>
-      <section className="p-8 text-left max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-[#FFFFFF] mb-12">
+     <section className={`${spacing.section.all} ${spacing.sectionGap}`}>
+      <div className={`${layout.container.lg} mx-auto`}>
+        <h2 className={`${typography.h2} text-white ${spacing.titleGap}`}>
           How it Works
-        </h1>
+        </h2>
         <Steps />
-      </section>
-    </main>
+      </div>
+    </section>
   );
 }
