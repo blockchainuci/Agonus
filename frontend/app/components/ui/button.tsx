@@ -9,14 +9,14 @@ export default function ButtonStyle() {
       <div className="flex flex-wrap gap-4 justify-center">
       <motion.button
         type="button"
-        className={`${components.button.base} ${components.button.primary}`}
+        className={`${components.button.base} ${components.button.primary} text-white`}
         whileHover={animations.hoverScale.whileHover}
         whileTap={{ scale: 0.95 }}
         initial={animations.fadeInUp.initial}
         animate={animations.fadeInUp.animate}
         transition={{...animations.fadeInUp.transition, delay: 0.4}}
       >
-        <Play className="w-6 h-6" />
+        <Play className="w-6 h-6 " />
         Watch Tournament
       </motion.button>
       <motion.button
