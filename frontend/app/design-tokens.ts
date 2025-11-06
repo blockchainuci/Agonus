@@ -34,36 +34,34 @@ export const colors = {
 
 //section padding
 export const spacing = {
-    // section padding
+
+    
     section:{
-    x: 'px-8 sm:px-12 lg:px-20',
-    y: 'py-20 sm:py-28 lg:py-44',
-    all: 'p-8 sm:p-32 lg:p-44 xl:py-56',
-    hero: 'py-24 sm:py-32 lg: py-44 xl:py-56'
+    x: 'px-8 sm:px-12 lg:px-16 xl:px-20',
+    y: 'py-16 sm:py-20 lg:py-24 xl:py-28',  
+    all: 'p-8 sm:p-12 lg:p-16',
+    hero: 'py-20 sm:py-24 lg:py-32 xl:py-36',  
     },
 
-// card padding
     card: {
-        default: 'p-8',
-        sm: 'p-6',
-        lg: 'p-10',
-        xl: 'p-12'
+        default: 'p-6',
+        sm: 'p-4',
+        lg: 'p-8',
+        xl: 'p-10',
     },
 
-    // content spacing
     content: {
-        xs: 'space-y-4',
-        sm: 'space-y-6',
-        md: 'space-y-10',
-        lg: 'space-y-14',
-        xl: 'space-y-20',
+        xs: 'space-y-3',
+        sm: 'space-y-5',
+        md: 'space-y-8',
+        lg: 'space-y-12',
+        xl: 'space-y-16',
     },
 
-    // section margins
-    sectionGap: 'mb-20 sm:mb-28 lg:mb-36',
-    titleGap: 'mb-10 sm:mb-12 lg:mb-16',
-    subtitleGap: 'mb-8 sm:mb-10',
-    elementGap: 'mt-12 sm:mt-16 lg:mt-20',
+    sectionGap: 'mb-16 sm:mb-20 lg:mb-24', 
+    titleGap: 'mb-8 sm:mb-10 lg:mb-12',
+    subtitleGap: 'mb-6 sm:mb-8',
+    elementGap: 'mt-12 sm:mt-14 lg:mt-16',
 } as const;
 
 export const typography = {
