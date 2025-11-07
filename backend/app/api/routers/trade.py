@@ -5,6 +5,7 @@ router = APIRouter()
 
 @router.get("/")
 def list_trades_for_tournament(tournament_id: int = None, store: TestDataStore = Depends(get_store)):
+    # this assumes that tournament_id field is associated with this trade
     if tournament_id is None:
         # return all trades if no tournament id provided
         return list(store.trades.values())
@@ -12,10 +13,12 @@ def list_trades_for_tournament(tournament_id: int = None, store: TestDataStore =
     
 @router.get("/agent/{agent_id}")
 def list_trades_by_agent(agent_id: int, store: TestDataStore = Depends(get_store)):
+    # this assumes agent_id field is associated with this trade
     return [t for t in store.trades.values() if t.get("agent_id") == agent_id]
     
 @router.post("/")
 def create_trade(trade_data: dict, store: TestDataStore = Depends(get_store)):
+    #trade needs to be created with an agent_id field and a tournament_id field
     trade_id = store.next_id("trades")
     trade = {"id": trade_id, **trade_data}
     store.trades[trade_id] = trade
