@@ -1,6 +1,8 @@
 from fastapi import Request
-class TestDataStore:
+class MockDataStore:
     def __init__(self) -> None:
+        '''Initializes the tournaments, agents, bets, and trades dicts as well as the counts for each'''
+        
         # stores a dict for each type, each dict acting as a table for mock data (dict of dicts)
         self.tournaments = {}
         self.agents = {}
@@ -21,10 +23,10 @@ class TestDataStore:
         '''Resets this "data store"'''
         self.__init__()
 
-def get_store(request: Request) -> "TestDataStore":
+def get_store(request: Request) -> MockDataStore:
     '''Returns the store for the request, if none then creates a new, empty store'''
     if not hasattr(request.app.state, "store"):
-        request.app.state.store = TestDataStore()
+        request.app.state.store = MockDataStore()
     return request.app.state.store
 
 

@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api.routers import tournament, agent, trade, bet
+from backend.app.api.routers import tournament, agent, trade, bet
 
 app = FastAPI(title="Agonus API")
 
