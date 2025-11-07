@@ -1,21 +1,36 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from deps import TestDataStore, get_store
 
-router = APIRouter(prefix = "/tournaments", tags=["tournaments"])
+#prefix and tags in main already so use 
+router = APIRouter()
+#router = APIRouter(prefix = "/tournaments", tags=["tournaments"])
 
 
 @router.get("/")
-def list_tournaments():
+def list_tournaments(store: TestDataStore = Depends(get_store)) -> list:
+    return list(store.tournaments.values())
 
 @router.get("/{id}")
-def get_tournament(id):
+def get_tournament(tournament_id: int, store: TestDataStore = Depends(get_store)) -> "Tournament":
+    if tournament_id not in store.tournaments:
+        raise HTTPException(404, "Tournament Not Found")
+    return store.tournaments[tournament_id]
     
-
 @router.post("/")
-def create_tournament():
+def create_tournament(tournament_data: dict, store: TestDataStore = Depends(get_store)) -> None:
+    tournament_id = store.next_id("tournaments")
+    store.tournaments[tournament_id] = {"id": tournament_id, **tournament_data}
+    
     
 @router.put("/{id}")
-def update_tournament(status, prizepool, etc):
+def update_tournament(tournament_id: int, tournament_data: dict, store: TestDataStore = Depends(get_store)) -> None:
+    if tournament_id not in store.tournaments:
+        raise HTTPException(404, "Tournament Not Found")
+    store.tournaments[tournament_id].update(**tournament_data)
+    
 
 @router.delete("/{id}")
-def delete_tournament(id):
-    
+def delete_tournament(tournament_id: int, store: TestDataStore = Depends(get_store)) -> None:
+    if tournament_id not in store.tournaments:
+        raise HTTPException(404, "Tournament Not Found")
+    del store.tournaments[tournament_id]    
