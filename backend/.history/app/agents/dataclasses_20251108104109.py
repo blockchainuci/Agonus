@@ -168,7 +168,7 @@ class TweetPost:
         if self.metrics is None:
             self.metrics = {"likes": 0, "retweets": 0, "replies": 0}
 
-    def to_dict(self):
+    def to_dict(self) -> Dict:
         """
         Convert the TweetPost object into a serializable dictionary.
 

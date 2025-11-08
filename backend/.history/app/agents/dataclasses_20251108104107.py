@@ -150,7 +150,7 @@ class TweetPost:
         media_url (Optional[str]): Optional image/video/media URL attached to the tweet.
         reply_to_id (Optional[str]): Tweet ID being replied to (for threads).
         metrics (Dict[str, int]): Engagement stats like {"likes": 0, "retweets": 0}.
-        personality_signature (Optional[str]): Agent's tone/personality summary (for context or branding).
+        personality_signature (Optional[str]): Agents tone/personality summary (for context or branding).
     """
 
     agent_id: str
@@ -168,7 +168,7 @@ class TweetPost:
         if self.metrics is None:
             self.metrics = {"likes": 0, "retweets": 0, "replies": 0}
 
-    def to_dict(self):
+    def to_dict(self) -> Dict:
         """
         Convert the TweetPost object into a serializable dictionary.
 
