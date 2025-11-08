@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -14,7 +15,7 @@ export default function Navbar() {
     { name: 'Tournaments', href: '/tournaments' },
     { name: 'Agents', href: '/agents' },
     { name: 'How It Works', href: '/how-it-works' },
-  ]; // Updated navigation
+  ];
 
   return (
     <nav className="bg-[#0A2540] text-white shadow-md fixed w-full z-50">
@@ -56,26 +57,46 @@ export default function Navbar() {
       </div>
 
       {/* Mobile Menu */}
-      {isOpen && (
-        <div className="md:hidden bg-[#0A2540] px-6 pb-4 space-y-2">
-          {navLinks.map((link) => (
-            <Link
-              key={link.name}
-              href={link.href}
-              className={`block hover:text-[#2563eb] transition ${
-                pathname === link.href ? 'text-[#2563eb] font-semibold' : ''
-              }`}
-              onClick={() => setIsOpen(false)} // close menu when clicked
-            >
-              {link.name}
-            </Link>
-          ))}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="md:hidden bg-[#0A2540] px-6 pb-4 space-y-2 overflow-hidden"
+          >
+            {navLinks.map((link, index) => (
+              <motion.div
+                key={link.name}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1, duration: 0.2 }}
+              >
+                <Link
+                  href={link.href}
+                  className={`block hover:text-[#2563eb] transition ${
+                    pathname === link.href ? 'text-[#2563eb] font-semibold' : ''
+                  }`}
+                  onClick={() => setIsOpen(false)}
+                >
+                  {link.name}
+                </Link>
+              </motion.div>
+            ))}
 
-          <button className="w-full mt-2 px-4 py-2 rounded-md bg-gradient-to-r from-[#1E3A8A] to-[#0A2540] text-white font-semibold hover:from-[#2563eb] hover:to-[#1E3A8A] transition">
-            Connect Wallet
-          </button>
-        </div>
-      )}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: navLinks.length * 0.1, duration: 0.2 }}
+            >
+              <button className="w-full mt-2 px-4 py-2 rounded-md bg-gradient-to-r from-[#1E3A8A] to-[#0A2540] text-white font-semibold hover:from-[#2563eb] hover:to-[#1E3A8A] transition">
+                Connect Wallet
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }
