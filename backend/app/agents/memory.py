@@ -24,7 +24,7 @@ class AgentMemory:
             Max trades to keep in short-term before pruning
     """
 
-    def __init__(self, agent_id: str, long_term_db: Optional[Any] = None, vector_db: Optional[Any] = None, max_short_term: int = 100):
+    def __init__(self, agent_id: int, long_term_db: Optional[Any] = None, vector_db: Optional[Any] = None, max_short_term: int = 100):
         self.agent_id = agent_id
         self.short_term: List[Trade] = []
         self.long_term_db = long_term_db

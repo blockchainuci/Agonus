@@ -344,7 +344,7 @@ class TweetPostTool:
         The API key we provide when calling the necessary api (specific API TBD).
     
     """
-    def __init__(self, agent_id: str, api_base_url: str = None, api_key: str = None):
+    def __init__(self, agent_id: int, api_base_url: str = None, api_key: str = None):
         self.agent_id = agent_id
         self.api_base_url = api_base_url
         self.api_key = api_key
