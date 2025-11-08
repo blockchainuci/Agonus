@@ -1,30 +1,34 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import {Play, Wallet} from 'lucide-react'
+import {components, animations} from '../../design-tokens';
 
 export default function ButtonStyle() {
   return (
-    <div className="space-x-4">
+      <div className="flex flex-wrap gap-4 justify-center">
       <motion.button
         type="button"
-        className="inline-flex items-center gap-x-1.5 rounded-md bg-gradient-to-r from-[#1E3A8A] to-[#0A2540] px-2.5 py-1.5 text-sm font-semibold text-white hover:from-[#2563eb] hover:to-[#1E3A8A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E3A8A]"
-        whileHover={{ scale: 1.05 }}
+        className={`${components.button.base} ${components.button.primary} text-white`}
+        whileHover={animations.hoverScale.whileHover}
         whileTap={{ scale: 0.95 }}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        initial={animations.fadeInUp.initial}
+        animate={animations.fadeInUp.animate}
+        transition={{...animations.fadeInUp.transition, delay: 0.4}}
       >
+        <Play className="w-6 h-6 " />
         Watch Tournament
       </motion.button>
       <motion.button
         type="button"
-        className="inline-flex items-center gap-x-1.5 rounded-md bg-gradient-to-r from-[#0A2540] to-[#415a77] px-2.5 py-1.5 text-sm font-semibold text-white hover:from-[#1E3A8A] hover:to-[#0A2540] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A2540]"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
+        className={`${components.button.base} ${components.button.gold}`}
+        whileHover={{y: -4}}
+        whileTap={{ scale: 0.98 }}
+        initial={animations.fadeInUp.initial}
+        animate={animations.fadeInUp.animate}
+        transition={{ ...animations.fadeInUp.transition, delay: 0.2 }}
       >
+        <Wallet className="w-6 h-6" />
         Connect Wallet
       </motion.button>
     </div>

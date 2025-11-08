@@ -1,16 +1,21 @@
 'use client';
 
 import Steps from './ui/steps';
-
+import {spacing, typography, layout} from '../design-tokens';
 export default function HowItWorks() {
   return (
-    <main>
-      <section className="p-8 text-left max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-[#FFFFFF] mb-12">
-          How it Works
-        </h1>
+     <section className={`${spacing.section.x} ${spacing.section.y} relative`}>
+      <div className={`${layout.container['2xl']} mx-auto`}>
+        <div className="text-center mb-20"> 
+          <h2 className={`${typography.h2} text-white ${spacing.titleGap}`}>
+            How it Works
+          </h2>
+          <p className={`${typography.body.lg} text-gray-300 max-w-3xl mx-auto`}>
+            Four simple steps to start winning with AI
+          </p>
+        </div>
         <Steps />
-      </section>
-    </main>
+      </div>
+    </section>
   );
 }
