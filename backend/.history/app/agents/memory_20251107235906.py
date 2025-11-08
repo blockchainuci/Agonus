@@ -74,14 +74,7 @@ class AgentMemory:
         """
         pass
 
-    def save_batch_to_long_term(self, trades: List[Trade]):
-        """
-        Save multiple trades to PostgreSQL in one operation.
-        More efficient than saving one by one.
-
-        Args:
-            trades: List of trades to save
-        """
+    def save_batch_to_long_term
 
     def load_long_term_history(self, limit: Optional[int] = None):
         """

@@ -20,16 +20,22 @@ class AgentMemory:
             Handle to the Postgres database client or API wrapper for persistent storage.
         vector_db : Any
             Handle to the vector database client(Chromadb or Pinecone) for semantic recall.
-        max_short_term : int 
-            Max trades to keep in short-term before pruning
     """
 
-    def __init__(self, agent_id: str, long_term_db: Optional[Any] = None, vector_db: Optional[Any] = None, max_short_term: int = 100):
+    def __init__(
+        self,
+        agent_id: str,
+        long_term_db: Optional[Any] = None,
+        vector_db: Optional[Any] = None,
+        max_short_term: int = 100
+    ):
         self.agent_id = agent_id
         self.short_term: List[Trade] = []
         self.long_term_db = long_term_db
         self.vector_db = vector_db
         self.max_short_term = max_short_term
+        self.performance_metrics: Dict[str, float] = {}
+
 
     def add_trade(self, trade: Trade):
         """
@@ -74,15 +80,6 @@ class AgentMemory:
         """
         pass
 
-    def save_batch_to_long_term(self, trades: List[Trade]):
-        """
-        Save multiple trades to PostgreSQL in one operation.
-        More efficient than saving one by one.
-
-        Args:
-            trades: List of trades to save
-        """
-
     def load_long_term_history(self, limit: Optional[int] = None):
         """
         Retrieve historical trades from the long-term database.
@@ -97,39 +94,64 @@ class AgentMemory:
         """
         pass
 
-
-
-    def store_vector_embedding(self, trade: Trade, embedder: Any):
+    def compute_long_term_statistics(self):
         """
-        Create an embedding from a trade and store it in the vector database.
+        Compute performance metrics based on the agent's long-term history.
 
-        Args:
-            trade : Trade
-                Trade to convert into an embedding.
-            embedder : Any
-                Embedding tool with a `.embed_text()` or similar method.
+        Returns:
+            Dict[str, float]
+                Dictionary containing metrics such as win_rate, avg_profit, ROI, etc.
         """
         pass
 
-    def query_vector_memory(self, query: str, embedder: Any, top_k: int = 5):
+
+    def store_vector_embedding(self, trade: Trade, embedder: Any) -> None:
+        """
+        Create an embedding from a trade summary and store it in the vector database.
+
+        Parameters
+        ----------
+        trade : Trade
+            Trade to convert into an embedding.
+        embedder : Any
+            Embedding tool with a `.embed_text()` or similar method.
+        """
+        pass
+
+    def query_vector_memory(self, query: str, embedder: Any, top_k: int = 5) -> List[Dict[str, Any]]:
         """
         Perform a similarity search over vector memory for semantically related trades.
 
-        Args:
-            query : str
-                Natural language query describing the current market or trade context.
-            embedder : Any
-                Embedding model or service used to vectorize the query.
-            top_k : int, default=5
-                Number of closest results to return.
+        Parameters
+        ----------
+        query : str
+            Natural language query describing the current market or trade context.
+        embedder : Any
+            Embedding model or service used to vectorize the query.
+        top_k : int, default=5
+            Number of closest results to return.
 
-        Returns:
-            List[Dict[str, Any]]
-                Ranked list of matching trades and similarity scores.
+        Returns
+        -------
+        List[Dict[str, Any]]
+            Ranked list of matching trades and similarity scores.
         """
         pass
 
+    # ==========================================================
+    # 🧩 UTILITIES
+    # ==========================================================
 
+    def summarize_memory(self) -> Dict[str, Any]:
+        """
+        Summarize the agent's memory state for debugging or monitoring.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Overview of the number of trades and high-level metrics.
+        """
+        pass
 
     
 

@@ -20,16 +20,18 @@ class AgentMemory:
             Handle to the Postgres database client or API wrapper for persistent storage.
         vector_db : Any
             Handle to the vector database client(Chromadb or Pinecone) for semantic recall.
-        max_short_term : int 
-            Max trades to keep in short-term before pruning
     """
 
-    def __init__(self, agent_id: str, long_term_db: Optional[Any] = None, vector_db: Optional[Any] = None, max_short_term: int = 100):
+    def __init__(self, agent_id: str, long_term_db: Optional[Any] = None, vector_db: Optional[Any] = None,
+        max_short_term: int = 100
+    ):
         self.agent_id = agent_id
         self.short_term: List[Trade] = []
         self.long_term_db = long_term_db
         self.vector_db = vector_db
         self.max_short_term = max_short_term
+        self.performance_metrics: Dict[str, float] = {}
+
 
     def add_trade(self, trade: Trade):
         """
@@ -73,15 +75,6 @@ class AgentMemory:
                 Trade object to be saved persistently.
         """
         pass
-
-    def save_batch_to_long_term(self, trades: List[Trade]):
-        """
-        Save multiple trades to PostgreSQL in one operation.
-        More efficient than saving one by one.
-
-        Args:
-            trades: List of trades to save
-        """
 
     def load_long_term_history(self, limit: Optional[int] = None):
         """
