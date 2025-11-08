@@ -1,8 +1,8 @@
 import requests #needed for future API call implementation
-import copy #neede
+import copy #needed for making portfolio copies
 from datetime import datetime
-from typing import Dict, List
-from dataclasses import Trade, MarketData, Portfolio
+from typing import Dict, List, Optional
+from dataclasses import Trade, MarketData, Portfolio, TweetPost
 
 
 class MarketDataTool:
@@ -323,5 +323,67 @@ class PortfolioTool:
         Returns
         -------
         None
+        """
+        pass
+    
+class TweetPostTool:
+    """
+    A utility class that publishes AI agent tweets to Twitter/X in real time.
+
+    This tool always connects directly to the Twitter/X API using an authenticated
+    API key. It constructs structured TweetPost objects for recordkeeping
+    and posts them to the live Twitter feed.
+
+    Attributes
+    ----------
+    agent_id : str
+        Unique identifier of the agent posting tweets.
+    api_base_url : str
+        Base URL for Twitter/X API endpoints (default: 'https://api.twitter.com/2').
+    api_key : str
+        The API key we provide when calling the necessary api (specific API TBD).
+    
+    """
+    def __init__(self, agent_id: str, api_base_url: str = None, api_key: str = None):
+        self.agent_id = agent_id
+        self.api_base_url = api_base_url
+        self.api_key = api_key
+
+    def post_tweet(
+        self,
+        content: str,
+        trade_id: Optional[int] = None,
+        trade_summary: Optional[str] = None,
+        media_url: Optional[str] = None,
+        reply_to_id: Optional[str] = None,
+        personality_signature: Optional[str] = None
+    ) -> TweetPost:
+        """
+        Create and publish a tweet via the Twitter/X API.
+
+        Parameters
+        ----------
+        content : str
+            Text content of the tweet (≤ 280 characters recommended).
+        trade_id : Optional[int], default=None
+            Associated trade ID if tweet refers to a trade.
+        trade_summary : Optional[str], default=None
+            Short explanation of the trade action.
+        media_url : Optional[str], default=None
+            URL of media (image/video) to attach to the tweet.
+        reply_to_id : Optional[str], default=None
+            ID of the tweet being replied to (for threads).
+        personality_signature : Optional[str], default=None
+            Tone or tagline of the agent’s personality.
+
+        Returns
+        -------
+        TweetPost
+            A TweetPost object containing full post metadata and content.
+
+        Raises
+        ------
+        requests.HTTPError
+            If the Twitter/X API request fails.
         """
         pass
