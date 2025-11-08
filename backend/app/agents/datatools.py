@@ -1,7 +1,9 @@
 import requests #needed for future API call implementation
+import copy #neede
 from datetime import datetime
 from typing import Dict, List
-from .dataclasses import Trade, MarketData, Portfolio
+from dataclasses import Trade, MarketData, Portfolio
+
 
 class MarketDataTool:
     """
@@ -226,5 +228,100 @@ class TradeTool:
             Return realized_pnl / (buy_price * qty) if (buy_price * qty) > 0
             If not return 0.0.
             Invested ammount = (buy_price * qty).
+        """
+        pass
+
+class PortfolioTool:
+    """
+    A utility class that manages an agent's portfolio — cash, holdings, profit/loss,
+    and performance metrics — based on executed trades.
+
+    This tool handles all financial updates after trades and provides
+    methods to calculate portfolio statistics such as total value, ROI, and win rate.
+
+    Attributes
+    ----------
+    portfolio : Portfolio
+        The Portfolio dataclass instance representing the agent's current holdings.
+    """
+
+    def __init__(self, portfolio: Portfolio):
+        self.portfolio = portfolio
+
+    def update_after_trade(self, trade: Trade) -> None:
+        """
+        Update portfolio holdings, cash, and performance metrics after an executed trade.
+
+        Parameters
+        ----------
+        trade : Trade
+            The Trade object containing details of the executed trade.
+
+        Returns
+        -------
+        None
+        """
+        pass
+
+    def recalculate_holdings_value(self, market_prices: Dict[str, float]) -> None:
+        """
+        Recalculate the total USD value of all current holdings using live market prices.
+        Utilizes _recalculate_portfolio_metrics() helper method.
+
+        Parameters
+        ----------
+        market_prices : Dict[str, float]
+            Mapping of token symbol → current price (e.g., {"ETH": 2300.5, "BTC": 40500.0}).
+
+        Returns
+        -------
+        None
+        """
+        pass
+
+    def get_portfolio_snapshot(self) -> Portfolio:
+        """
+        Return a deep copy of the internal Portfolio object representing the agent's
+        most recent financial state.
+
+        Notes
+        -----
+        - For security/caller access reasons, this performs a full deep copy of the Portfolio
+        object. Although the cost is minimal for small portfolio objects, it could get more 
+        expensive for larger ones. Think about whether we should or shouldn't deepcopy
+        the portfolio in the future.
+        - If we need a lightweight, serializable form (e.g., for saving or sending
+        to an API), use `self.portfolio.to_dict()` instead. This means this method would
+        be changed to returning a dictionary rather than a Portfolio object.
+
+        Returns
+        -------
+        Portfolio
+            A deep-copied Portfolio dataclass instance containing the agent’s
+            current holdings, cash balance, and performance metrics.
+        Dict
+
+        """
+        pass
+    
+    def get_total_value(self) -> float:
+        """
+        Return the current total portfolio value (cash + holdings).
+
+        Returns
+        -------
+        float
+            The total USD value of the portfolio.
+        """
+        pass
+
+    # Helper Methods
+    def _recalculate_portfolio_metrics(self):
+        """
+        Internal helper to update key performance metrics (total value, ROI, win rate, etc.).
+
+        Returns
+        -------
+        None
         """
         pass
