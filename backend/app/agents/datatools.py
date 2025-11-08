@@ -21,9 +21,9 @@ class MarketDataTool:
         Maps human-readable token symbols (e.g., "ETH") to API identifiers (e.g., "ethereum").
     """
 
-    def __init__(self, api_base: str, api_key: str):
-        self.api_base_url = None
-        self.api_key = None
+    def __init__(self, api_base: str = None, api_key: str = None):
+        self.api_base_url = api_base
+        self.api_key = api_key
         self.supported_tokens = {
             "ETH": "ethereum",
             "SOL": "solana",
