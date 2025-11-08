@@ -5,7 +5,7 @@ from app.agents.memory import AgentMemory
 from app.agents.datatools import MarketDataTool, TradeTool, PortfolioTool, TweetPostTool
 
 
-class BaseAgent:
+class BaseAgent(ABC):
     '''
     The BaseAgent class is the base interface every agent uses to get set up.
 
@@ -24,7 +24,7 @@ class BaseAgent:
     behavior by overriding these methods or by delegating to injected tools.
     '''
 
-    def __init__(self, agent_id: int, personality: str, risk_score: float, memory: AgentMemory, market_tool: MarketDataTool, portfolio_tool: PortfolioTool, trade_tool: TradeTool, tweet_tool: TweetPostTool) -> None:
+    def __init__(self, agent_id: int, personality: str, risk_score: float) -> None:
         """
         Initialize a BaseAgent with identity, behavior knobs, and short-term memory.
 
@@ -48,13 +48,35 @@ class BaseAgent:
         self.risk_score = risk_score
         self.short_term_memory = None    # change to a function call later
 
-        self.memory = memory
-        self.market_tool = market_tool
-        self.portfolio_tool = portfolio_tool
-        self.trade_tool = trade_tool
-        self.tweet_tool = tweet_tool
+        self.agent_memory = None
+        self.market_tool = None
+        self.portfolio_tool = None
+        self.trade_tool = None
+        self.tweet_tool = None
+        
+
+    def instantiate_tweet_tool(self, api_base_url: str, api_key: str):
+        '''This method instantiates the self.tweet_tool.'''
+        pass
+
+    def instantiate_agent_memory(self, long_term_db, vector_db, max_short_term):
+        '''Create the agent memory.'''
+        pass
+
+    def instantiate_market_tool(self, api_base, api_key):
+        '''Create MarketDataTool.'''
+        pass
+
+    def instantiate_trade_tool(self, agent_id, portfolio_tool, market_tool):
+        '''Create and link TradeTool to Portfolio and Market.'''
+        pass
+
+    def instantiate_portfolio_tool(self, portfolio):
+        '''Create the portfolio for the agent.'''
+        pass
 
 
+    @abstractmethod
     def get_market_data(self) -> Dict[str, MarketData]:
         """
         Fetch the latest market snapshot the agent needs for decision-making.
@@ -67,6 +89,7 @@ class BaseAgent:
         """
         return self.market_tool.get_market_snapshot()
 
+    @abstractmethod
     def get_market_analysis(self) -> Dict[str, Any]:
         """
         Produce a coarse market regime analysis from the current market data.
@@ -79,6 +102,7 @@ class BaseAgent:
         """
         pass
 
+    @abstractmethod
     def get_portfolio_status(self) -> Dict[str, Any]:
         """
         Retrieve the agent's current portfolio snapshot.
@@ -91,6 +115,7 @@ class BaseAgent:
         """
         return self.portfolio_tool.get_portfolio_snapshot()
 
+    @abstractmethod
     def get_tournament_info(self) -> Dict[str, Any]:
         """
         Retrieve tournament context relevant to the agent's strategy.
@@ -102,6 +127,7 @@ class BaseAgent:
         """
         pass
 
+    @abstractmethod
     def get_short_term_memory(self, n: int) -> List[Trade]:
         """
         Return recent trades/actions from short-term memory.
@@ -113,6 +139,7 @@ class BaseAgent:
         """
         return self.memory.get_short_term_memory(n)
 
+    @abstractmethod
     def get_long_term_memory(self, limit: int) -> List[Trade]:
         """
         Query historical trades from long-term storage across tournaments.
@@ -124,18 +151,21 @@ class BaseAgent:
         """
         return self.memory.load_long_term_history(limit)
 
+    @abstractmethod
     def update_memory(self) -> None:
         """
         Update all memory layers after an event (e.g., a new trade).
         """
         pass
 
+    @abstractmethod
     def reset_tournament_memory(self) -> None:
         """
         Clear short-term memory at the start or end of a tournament.
         """
         self.memory.reset_short_term_memory()
 
+    @abstractmethod
     def find_similar_market_context(self, description: str) -> List[Dict[str, Any]]:
         """
         Retrieve semantically similar past situations using vector memory.
@@ -152,6 +182,7 @@ class BaseAgent:
         """
         pass
 
+    @abstractmethod
     def create_vector_embedding(self, description: str) -> List[float]:
         """
         Convert a natural-language description into an embedding vector.
@@ -168,6 +199,7 @@ class BaseAgent:
         """
         pass
 
+    @abstractmethod
     def query_vector_db(self) -> List[Dict[str, Any]]:
         """
         Run a similarity search against the configured vector database.
@@ -179,6 +211,7 @@ class BaseAgent:
         """
         pass
 
+    @abstractmethod
     def calculate_position_size(self) -> float:
         """
         Compute how much of an asset to buy/sell given price, confidence, and equity.
@@ -190,6 +223,7 @@ class BaseAgent:
         """
         pass
 
+    @abstractmethod
     def validate_trade(self) -> Tuple[bool, str]:
         """
         Validate a proposed trade immediately before execution.
@@ -201,6 +235,7 @@ class BaseAgent:
         """
         pass
 
+    @abstractmethod
     def execute_trade(self) -> Trade:
         """
         Execute a trade via the configured execution layer (sim/broker).
@@ -212,6 +247,7 @@ class BaseAgent:
         """
         pass
 
+    @abstractmethod
     def get_personality_response(self) -> str:
         """
         Generate a natural-language explanation of the agent's action,
@@ -224,6 +260,7 @@ class BaseAgent:
         """
         pass
 
+    @abstractmethod
     def make_decision(self) -> Dict[str, Any]:
         """
         Produce a decision (e.g., proposed trades) from the current context.
@@ -235,6 +272,7 @@ class BaseAgent:
         """
         pass
 
+    @abstractmethod
     def evaluate_performance(self) -> Dict[str, Any]:
         """
         Compute performance metrics for the current tournament or timeframe.
