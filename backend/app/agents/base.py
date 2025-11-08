@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Literal, Tuple
 from app.agents.dataclasses import Trade, MarketData, Portfolio, TweetPost
+from app.agents.memory import AgentMemory
+from app.agents.datatools import MarketDataTool, TradeTool, PortfolioTool, TweetPostTool
 
 
 class BaseAgent:
@@ -22,7 +24,7 @@ class BaseAgent:
     behavior by overriding these methods or by delegating to injected tools.
     '''
 
-    def __init__(self, agent_id: int, personality: str, risk_score: float, short_term_memory: List[Trade]) -> None:
+    def __init__(self, agent_id: int, personality: str, risk_score: float, memory: AgentMemory, market_tool: MarketDataTool, portfolio_tool: PortfolioTool, trade_tool: TradeTool, tweet_tool: TweetPostTool) -> None:
         """
         Initialize a BaseAgent with identity, behavior knobs, and short-term memory.
 
@@ -46,6 +48,12 @@ class BaseAgent:
         self.risk_score = risk_score
         self.short_term_memory = None    # change to a function call later
 
+        self.memory = memory
+        self.market_tool = market_tool
+        self.portfolio_tool = portfolio_tool
+        self.trade_tool = trade_tool
+        self.tweet_tool = tweet_tool
+
 
     def get_market_data(self) -> Dict[str, MarketData]:
         """
@@ -57,7 +65,7 @@ class BaseAgent:
             A mapping of symbol -> MarketData or a provider-specific structure
             containing prices, volumes, indicators, and timestamps.
         """
-        pass
+        return self.market_tool.get_market_snapshot()
 
     def get_market_analysis(self) -> Dict[str, Any]:
         """
@@ -81,7 +89,7 @@ class BaseAgent:
             Portfolio object or a dict containing cash, holdings value, total value,
             realized/unrealized PnL, and any other relevant metrics.
         """
-        pass
+        return self.portfolio_tool.get_portfolio_snapshot()
 
     def get_tournament_info(self) -> Dict[str, Any]:
         """
@@ -94,7 +102,7 @@ class BaseAgent:
         """
         pass
 
-    def get_short_term_memory(self) -> List[Trade]:
+    def get_short_term_memory(self, n: int) -> List[Trade]:
         """
         Return recent trades/actions from short-term memory.
 
@@ -103,9 +111,9 @@ class BaseAgent:
         List[Trade]
             The list of recent Trade objects for the current tournament.
         """
-        pass
+        return self.memory.get_short_term_memory(n)
 
-    def get_long_term_memory(self) -> List[Trade]:
+    def get_long_term_memory(self, limit: int) -> List[Trade]:
         """
         Query historical trades from long-term storage across tournaments.
 
@@ -114,7 +122,7 @@ class BaseAgent:
         List[Trade]
             A list of Trade objects retrieved from the persistent store.
         """
-        pass
+        return self.memory.load_long_term_history(limit)
 
     def update_memory(self) -> None:
         """
@@ -126,7 +134,7 @@ class BaseAgent:
         """
         Clear short-term memory at the start or end of a tournament.
         """
-        pass
+        self.memory.reset_short_term_memory()
 
     def find_similar_market_context(self, description: str) -> List[Dict[str, Any]]:
         """
