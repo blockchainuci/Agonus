@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from backend.app.api.deps import MockDataStore, get_store
 
 router = APIRouter()
