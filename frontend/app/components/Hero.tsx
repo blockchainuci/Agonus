@@ -1,11 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import dynamic from 'next/dynamic';
-
-const ParabolicReveal = dynamic(() => import('./ui/ParabolicReveal'), {
-  ssr: false,
-});
+import ParabolicReveal from './ui/ParabolicReveal'; // <-- import your curve
 
 // purpose: main message area after intro fades. Intro to platform
 
