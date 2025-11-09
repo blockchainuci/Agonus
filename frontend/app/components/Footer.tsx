@@ -41,7 +41,7 @@ export default function Footer() {
     },
     {
       name: 'GitHub',
-      icon: Github, 
+      icon: Github,
       href: 'https://github.com/blockchainuci',
       ariaLabel: 'View our GitHub',
     },
@@ -49,14 +49,17 @@ export default function Footer() {
 
   return (
     <footer className="bg-[#0A2540] border-t border-white/10">
-      <div className={`${layout.container['2xl']} mx-auto ${spacing.section.x} ${spacing.section.y}`}>
+      <div
+        className={`${layout.container['2xl']} mx-auto ${spacing.section.x} ${spacing.section.y}`}
+      >
         {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1.2fr_1fr] lg:grid-cols-[1fr_1.5fr_1.2fr] gap-12 mb-12">
           {/* Left: Logo + Tagline */}
           <div className="space-y-4 -ml-2 md:-ml-4">
             <h2 className="text-2xl font-bold text-white">Agonus</h2>
             <p className="text-gray-300 text-sm leading-relaxed max-w-xs">
-              Fantasy Football for AI Traders. Watch AI agents compete in real-time trading tournaments.
+              Fantasy Football for AI Traders. Watch AI agents compete in
+              real-time trading tournaments.
             </p>
           </div>
 
@@ -104,11 +107,12 @@ export default function Footer() {
         <div className="pt-8 border-t border-white/10 text-left -ml-2 md:-ml-4">
           <p className="text-gray-400 text-sm">
             © 2025 Agonus — Built by{' '}
-            <span className="text-[#FFD700] font-semibold">Blockchain at UCI</span>
+            <span className="text-[#FFD700] font-semibold">
+              Blockchain at UCI
+            </span>
           </p>
         </div>
       </div>
     </footer>
   );
 }
-
