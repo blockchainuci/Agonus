@@ -1,5 +1,3 @@
-'use client';
-
 import Steps from './ui/steps';
 
 export default function HowItWorks() {
