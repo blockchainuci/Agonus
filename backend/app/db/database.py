@@ -1,5 +1,5 @@
 # app/db/database.py
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import Session, create_engine
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
