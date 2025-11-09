@@ -1,6 +1,5 @@
 import pytest
-from httpx import AsyncClient
-from httpx import ASGITransport
+from httpx import AsyncClient, ASGITransport
 from asgi_lifespan import LifespanManager
 
 # Import the FastAPI app
