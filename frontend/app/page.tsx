@@ -4,14 +4,20 @@ import HowItWorks from './components/HowItWorks';
 
 export default function Home() {
   return (
-    <main>
-      <section className="p-8 text-center">
-        <h1 className="text-8xl font-bold animate-pulse text-white">Agonus</h1>
-        <p className="text-gray-300">Developed by Blockchain UCI</p>
-        <Hero />
-        <HowItWorks />
-        <FeaturedAgents />
-      </section>
+    <main className="relative">
+      <Hero />
+      <HowItWorks />
+      <FeaturedAgents />
+      <footer className="py-12 px-6 text-center border-t border-white/10">
+        <div className="max-w-7xl mx-auto">
+          <p className="text-gray-400 text-sm">
+            Developed by <span className="text-[#FFD700] font-semibold">Blockchain UCI</span>
+          </p>
+          <p className="text-gray-500 text-xs mt-2">
+            © 2025 Agonus. .
+          </p>
+        </div>
+      </footer>
     </main>
   );
 }
