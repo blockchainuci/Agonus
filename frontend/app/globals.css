@@ -24,3 +24,229 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* --- Intro overlay keyframes --- */
+@keyframes introOut {
+  50% {
+    background-color: transparent;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* optional: shared color vars if you like */
+:root {
+  --hero-navy: #0A2540;
+  --hero-navy-2: #1E3A8A;
+  --gold: #FFD700;
+}
+
+/* === AGONUS 3D grid effect === */
+.cell {
+  width: 200%;
+  height: 200%;
+  /* Keep cells behind the text layers */
+  z-index: 1;
+}
+
+/* Default center position */
+.content {
+  --posX: 200;
+  --posY: 50;
+  position: relative;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2;
+}
+
+/* === AGONUS 3D cubes (improved spacing and alignment) === */
+.ready {
+  display: grid;
+  grid-gap: 30px;
+  justify-content: center;
+  align-content: center;    /* Centers vertically */
+  justify-items: center;    /* Centers horizontally inside grid */
+  place-items: center;      /* Shortcut to center both ways */
+  animation-delay: 625ms;
+  width: max-content;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+}
+
+
+.letter {
+  display: grid;
+  grid-gap: 6px;
+  justify-content: center;
+}
+
+/* === Letter Layouts (fixed proportions for AGONUS) === */
+/* === AGONUS letter layouts (5x4 uniform grid) === */
+
+/* A */
+.A {
+  grid-template-areas:
+    ". a1 a2 ."
+    "a3 . . a4"
+    "a5 a6 a7 a8"
+    "a9 . . a10"
+    "a11 . . a12";
+}
+
+/* G */
+.G {
+  grid-template-areas:
+    ". a1 a2 a3"
+    "a4 . . ."
+    "a5 . a6 a7"
+    "a8 . . a9"
+    ". a10 a11 .";
+}
+
+/* O */
+.O {
+  grid-template-areas:
+    ". a1 a2 ."
+    "a3 . . a4"
+    "a5 . . a6"
+    "a7 . . a8"
+    ". a9 a10 .";
+}
+
+/* N */
+.N {
+  grid-template-areas:
+    "a1 . . a2"
+    "a3 a4 . a5"
+    "a6 . a7 a8"
+    "a9 . . a10"
+    "a11 . . a12";
+}
+
+/* U */
+.U {
+  grid-template-areas:
+    "a1 . . a2"
+    "a3 . . a4"
+    "a5 . . a6"
+    "a7 . . a8"
+    ". a9 a10 .";
+}
+
+/* S */
+.S {
+  grid-template-areas:
+    ". a1 a2 a3"
+    "a4 . . ."
+    ". a5 a6 ."
+    ". . . a7"
+    "a8 a9 a10 .";
+}
+
+
+/* === Cube style === */
+.block {
+  --ratio: calc(var(--index) / 60);
+  --delay: calc((var(--ratio) * 625ms) + 625ms);
+  transform-style: preserve-3d;
+  transform: rotate(calc(var(--angle) * 1deg))
+    translate3d(calc(var(--sign) * 200vw), 0, 0)
+    rotate3d(1, 0, 0, -90deg)
+    rotate3d(0, 1, 0, 90deg);
+  animation: block-intro 6s ease-in-out reverse both;
+  animation-delay: var(--delay);
+  animation-iteration-count: 1; /* <-- new line */
+  animation-fill-mode: forwards; /* <-- stays in final state */
+  position: relative;
+  height: 28px;
+  width: 28px;
+}
+
+
+.face {
+  position: absolute;
+  background-color: #00d2ff99;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #FFD700;
+  backface-visibility: visible;
+}
+
+.face-2 {
+  transform: rotateX(-90deg);
+  transform-origin: bottom center;
+  overflow: hidden;
+}
+.face-2::before {
+  content: '';
+  position: absolute;
+  background-color: #1E3A8A;
+  inset: 0;
+  animation: shimmer 6s linear infinite;
+  animation-delay: var(--delay);
+}
+.face-3 {
+  transform: rotateY(90deg);
+  transform-origin: right center;
+}
+
+/* === Animations === */
+@keyframes block-intro {
+  40% {
+    transform: rotate(0deg) translate3d(0, 0, 0)
+      rotate3d(1, 0, 0, -90deg) rotate3d(0, 1, 0, 90deg);
+  }
+  70% {
+    transform: rotate(0deg) translate3d(0, 0, 0)
+      rotate3d(1, 0, 0, -90deg) rotate3d(0, 1, 0, 90deg);
+  }
+  80% {
+    transform: rotate(0deg) translate3d(0, 0, 0)
+      rotate3d(1, 0, 0, 0deg) rotate3d(0, 1, 0, 0deg);
+  }
+  100% {
+    transform: rotate(0deg) translate3d(200vw, 0, 0)
+      rotate3d(1, 0, 0, 0deg) rotate3d(0, 1, 0, 0deg);
+  }
+}
+
+
+@keyframes shimmer {
+  from,
+  25% {
+    transform: scale(2, 1) rotate(-45deg) translate(-100%);
+  }
+  35%,
+  to {
+    transform: scale(2, 1) rotate(-45deg) translate(0%);
+  }
+}
+/* === Floating Crypto Icon Background === */
+.crypto-icon {
+  position: absolute;
+  opacity: 0.8;
+  animation: floatUp 6s linear infinite;
+  transform-origin: center;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.icon-float {
+  font-size: 3rem;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.3));
+}
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-110vh) rotate(360deg);
+    opacity: 0;
+  }
+}
