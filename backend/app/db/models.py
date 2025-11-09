@@ -9,93 +9,118 @@
 # from sqlalchemy.orm import relationship
 
 ##LEAVING SQLACLHEMY STUFF IN CASE WE HAVE TO TRANSITION BACK FOR EFFECTIVE ASYNC SUPPORT
+from __future__ import annotations
 from datetime import datetime
-import enum
-from sqlalchemy.types import Enum
 from uuid import UUID
 from decimal import Decimal
+from typing import List, Optional, Any
+import enum
 
-from sqlmodel import Column, Field, SQLModel, JSON, Enum as SQLEnum, Relationship
+from sqlmodel import SQLModel, Field, Column, JSON, Enum as SQLEnum, Relationship
+from pydantic import ConfigDict
 
+
+#ENUMS
 class StatusEnum(enum.Enum):
     upcoming = "upcoming"
     live = "live"
     completed = "completed"
 
+
 class ActionEnum(enum.Enum):
-    buy = 'buy'
-    sell = 'sell'
-    hold = 'hold'
+    buy = "buy"
+    sell = "sell"
+    hold = "hold"
 
+
+#MODELS
 class Tournament(SQLModel, table=True):
-    __tablename__ = 'tournament'
+    __tablename__ = "tournament"
 
-    id: UUID | None = Field(default=None, primary_key = True)
+    id: Optional[UUID] = Field(default=None, primary_key=True)
     name: str
     status: StatusEnum = Field(sa_column=Column(SQLEnum(StatusEnum)))
     start_date: datetime
     end_date: datetime
     prize_pool: Decimal
-    created_at: datetime
-    winner_agent_id: UUID = Field(foreign_key='agent.id')
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    winner_agent_id: Optional[UUID] = Field(default=None, foreign_key="agent.id")
 
-    trades: list["Trade"] = Relationship(back_populates="tournament")
-    bets: list["Bet"] = Relationship(back_populates="tournament")
+    trades: List[Trade] = Relationship(back_populates="tournament")
+    bets: List[Bet] = Relationship(back_populates="tournament")
+
+    # ✅ Allow arbitrary SQLAlchemy types
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
 
 class Agent(SQLModel, table=True):
-    __tablename__ = 'agent'
+    __tablename__ = "agent"
 
-    id: UUID | None = Field(default=None, primary_key=True)
+    id: Optional[UUID] = Field(default=None, primary_key=True)
     name: str
     personality: str
     strategy_type: str
-    avatar_url: str = Field(nullable=True)
-    stats: JSON
-    memory: JSON
-    created_at: datetime
+    avatar_url: Optional[str] = None
+    stats: Optional[Any] = Field(default=None, sa_column=Column(JSON))
+    memory: Optional[Any] = Field(default=None, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    trades: list["Trade"] = Relationship(back_populates='agent')
-    bets: list["Bet"] = Relationship(back_populates="agent")
+    trades: List[Trade] = Relationship(back_populates="agent")
+    bets: List[Bet] = Relationship(back_populates="agent")
 
-class AgentState(SQLModel, table =True):
-    __tablename__ = 'agent_state'
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    agent_id: UUID = Field(foreign_key='agent.id', primary_key=True)
-    tournament_id: UUID = Field(foreign_key = 'tournament.id', primary_key=True)
-    portfolio: JSON
+
+class AgentState(SQLModel, table=True):
+    __tablename__ = "agent_state"
+
+    agent_id: UUID = Field(foreign_key="agent.id", primary_key=True)
+    tournament_id: UUID = Field(foreign_key="tournament.id", primary_key=True)
+    portfolio: Any = Field(sa_column=Column(JSON))
     portfolio_value_usd: Decimal
     rank: int
     trades_count: int
     last_decision: str
     updated_at: datetime
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
 class Trade(SQLModel, table=True):
-    id: UUID | None = Field(default=None, primary_key=True)
-    agent_id: UUID = Field(foreign_key='agent.id')
-    tournament_id: UUID = Field(foreign_key='tournament.id')
+    __tablename__ = "trade"
+
+    id: Optional[UUID] = Field(default=None, primary_key=True)
+    agent_id: UUID = Field(foreign_key="agent.id")
+    tournament_id: UUID = Field(foreign_key="tournament.id")
     action: ActionEnum = Field(sa_column=Column(SQLEnum(ActionEnum)))
     asset: str
     amount: Decimal
     price: Decimal
-    timestamp: datetime
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-    tournament: Tournament | None = Relationship(back_populates="trades")
-    agent: Agent | None = Relationship(back_populates="trades")
+    tournament: Optional[Tournament] = Relationship(back_populates="trades")
+    agent: Optional[Agent] = Relationship(back_populates="trades")
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class Bet(SQLModel, table=True):
+    __tablename__ = "bet"
+
     id: UUID = Field(primary_key=True)
     user_address: str
-    agent_id: UUID = Field(foreign_key='agent.id')
-    tournament_id: UUID = Field(foreign_key='tournament.id')
+    agent_id: UUID = Field(foreign_key="agent.id")
+    tournament_id: UUID = Field(foreign_key="tournament.id")
     amount: Decimal
     odds: Decimal
-    placed_at: datetime
+    placed_at: datetime = Field(default_factory=datetime.utcnow())
     settled: bool
-    payout: Decimal =  Field(nullable = True)
+    payout: Optional[Decimal] = None
 
-    tournament: Tournament | None = Relationship(back_populates="bets")
-    agent: Agent | None = Relationship(back_populates="bets")
+    tournament: Optional[Tournament] = Relationship(back_populates="bets")
+    agent: Optional[Agent] = Relationship(back_populates="bets")
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 # class Tournament(Base):
 #     __tablename__ = "tournament"
