@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Literal, Tuple
-from app.agents.dataclasses import Trade, MarketData, Portfolio, TweetPost
-from app.agents.memory import AgentMemory
-from app.agents.datatools import MarketDataTool, TradeTool, PortfolioTool, TweetPostTool
+from typing import Any, Dict, List, Tuple
+from app.agents.dataclasses import Trade, MarketData
 
 
 class BaseAgent(ABC):

@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Any
 from app.agents.dataclasses import Trade
 
 

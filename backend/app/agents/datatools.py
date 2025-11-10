@@ -1,6 +1,5 @@
-import requests #needed for future API call implementation
-import copy #needed for making portfolio copies
-from datetime import datetime
+#import requests
+#import copy 
 from typing import Dict, List, Optional
 from dataclasses import Trade, MarketData, Portfolio, TweetPost
 

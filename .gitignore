@@ -41,3 +41,5 @@ contracts/node_modules/
 *.key
 wallets/
 secrets/
+
+**/.history/
