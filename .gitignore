@@ -41,3 +41,6 @@ contracts/node_modules/
 *.key
 wallets/
 secrets/
+
+#Table Deployment
+backend/app/db/deploy_tables.py
