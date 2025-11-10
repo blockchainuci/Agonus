@@ -42,5 +42,6 @@ contracts/node_modules/
 wallets/
 secrets/
 
+**/.history/
 #Table Deployment
 backend/app/db/deploy_tables.py
