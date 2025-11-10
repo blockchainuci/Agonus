@@ -7,8 +7,6 @@ import {
   components,
   animations,
   typography,
-  layout,
-  effects,
 } from '../../design-tokens';
 
 const steps = [

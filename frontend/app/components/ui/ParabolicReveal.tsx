@@ -4,22 +4,15 @@ import React, {
   useRef,
   useMemo,
   useCallback,
-  useEffect,
 } from 'react';
 
 export default function ParabolicReveal() {
   const [progress, setProgress] = useState(0.4);
-  const [mounted, setMounted] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const width = 600;
   const height = 300;
   const axisY = height / 2;
-
-  // Only render after client mount to avoid hydration issues
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Curve formula
   const curveFunc = useCallback(
@@ -82,18 +75,6 @@ export default function ParabolicReveal() {
   const xTicks = 10;
   const yTicks = 4;
   const tickLength = 6;
-
-  // Show skeleton while mounting
-  if (!mounted) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div
-          className="rounded-xl shadow-lg bg-gray-900/40 backdrop-blur-md animate-pulse"
-          style={{ width, height }}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="flex items-center justify-center py-16">

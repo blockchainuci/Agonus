@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { X, Github } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { spacing, typography, layout } from '../design-tokens';
+import { spacing, layout } from '../design-tokens';
 
 // Simple Discord icon component
 const DiscordIcon = ({ size = 20 }: { size?: number }) => (
