@@ -1,10 +1,5 @@
 'use client';
-import React, {
-  useState,
-  useRef,
-  useMemo,
-  useCallback,
-} from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 
 export default function ParabolicReveal() {
   const [progress, setProgress] = useState(0.4);

@@ -1,24 +1,55 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Navbar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const navLinks = [
-    { name: 'Home', href: '/' },
-    { name: 'Tournaments', href: '/tournaments' },
-    { name: 'Agents', href: '/agents' },
-    { name: 'How It Works', href: '/how-it-works' },
+    { name: 'Home', href: '#home' },
+    { name: 'Tournaments', href: '#tournaments' },
+    { name: 'Agents', href: '#agents' },
+    { name: 'How It Works', href: '#how-it-works' },
   ];
 
+  const handleScroll = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    href: string
+  ) => {
+    e.preventDefault();
+    setIsOpen(false);
+
+    const targetId = href.replace('#', '');
+    const element = document.getElementById(targetId);
+
+    if (element) {
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }
+  };
+
   return (
-    <nav className="bg-[#0A2540] text-white shadow-md fixed w-full z-50">
+    <nav
+      className={`text-white shadow-md fixed w-full z-50 transition-all duration-300 ${
+        scrolled ? 'bg-[#0A2540]/95 backdrop-blur-md' : 'bg-[#0A2540]'
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         {/* Left side: Logo + Links */}
         <div className="flex items-center space-x-8">
@@ -28,15 +59,16 @@ export default function Navbar() {
           {/* Desktop Links */}
           <div className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => (
-              <Link
+              <a
                 key={link.name}
                 href={link.href}
-                className={`hover:text-[#2563eb] transition ${
+                onClick={(e) => handleScroll(e, link.href)}
+                className={`hover:text-[#2563eb] transition cursor-pointer ${
                   pathname === link.href ? 'text-[#2563eb] font-semibold' : ''
                 }`}
               >
                 {link.name}
-              </Link>
+              </a>
             ))}
           </div>
         </div>
@@ -73,15 +105,15 @@ export default function Navbar() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1, duration: 0.2 }}
               >
-                <Link
+                <a
                   href={link.href}
-                  className={`block hover:text-[#2563eb] transition ${
+                  onClick={(e) => handleScroll(e, link.href)}
+                  className={`block hover:text-[#2563eb] transition cursor-pointer ${
                     pathname === link.href ? 'text-[#2563eb] font-semibold' : ''
                   }`}
-                  onClick={() => setIsOpen(false)}
                 >
                   {link.name}
-                </Link>
+                </a>
               </motion.div>
             ))}
 
