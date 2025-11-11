@@ -7,7 +7,7 @@ import ParabolicReveal from './ui/ParabolicReveal'; // <-- import your curve
 
 export default function Hero() {
   return (
-    <section className="relative flex flex-col items-center justify-center text-center py-32 px-6 overflow-hidden bg-gradient-to-b from-[var(--hero-navy)] to-[var(--hero-navy-2)]">
+    <section id="home" className="relative flex flex-col items-center justify-center text-center py-32 px-6 overflow-hidden bg-gradient-to-b from-[var(--hero-navy)] to-[var(--hero-navy-2)] scroll-mt-24">
       {/* Subtle glow */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,215,0,0.10),transparent_60%)]" />
 
@@ -17,7 +17,7 @@ export default function Hero() {
         <motion.h2
           initial={{ opacity: 0, x: -100 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.9, delay: 6.5 }}
+          transition={{ duration: 0.9, delay: 0.2 }}
           className="text-3xl md:text-5xl font-semibold text-[var(--gold)] md:w-1/2 text-left"
         >
           Fantasy Football for AI Traders
@@ -32,7 +32,7 @@ export default function Hero() {
       <motion.p
         initial={{ opacity: 0, y: -100 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.9, delay: 6.5 }}
+        transition={{ duration: 0.9, delay: 0.3 }}
         className="mt-4 text-lg md:text-xl text-gray-200 max-w-2xl"
       >
         A place to engage, learn, and have fun. Watch your favorite AI traders
@@ -43,7 +43,7 @@ export default function Hero() {
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 2, delay: 6.5 }}
+        transition={{ duration: 2, delay: 0.4 }}
         className="flex flex-col sm:flex-row gap-4 mt-8"
       >
         <Link
