@@ -1,26 +1,324 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --color-navy: #0a2540;
+  --color-gold: #ffd700;
+  --color-royal-blue: #1e3a8a;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --radius: 0.625rem;
+
+  --background: linear-gradient(145deg, #0a1929 0%, #1a2942 50%, #2d3e5c 100%);
+  --foreground: #516aaf;
+  --min-height: 100vh;
+  --background-attachment: fixed; 
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.129 0.042 264.695);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.129 0.042 264.695);
+  --primary: oklch(0.208 0.042 265.755);
+  --primary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.554 0.046 257.417);
+  --accent: oklch(0.968 0.007 247.896);
+  --accent-foreground: oklch(0.208 0.042 265.755);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.929 0.013 255.508);
+  --input: oklch(0.929 0.013 255.508);
+  --ring: oklch(0.704 0.04 256.788);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.984 0.003 247.858);
+  --sidebar-foreground: oklch(0.129 0.042 264.695);
+  --sidebar-primary: oklch(0.208 0.042 265.755);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.968 0.007 247.896);
+  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
+  --sidebar-border: oklch(0.929 0.013 255.508);
+  --sidebar-ring: oklch(0.704 0.04 256.788);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+
+body {
+  font-family: var(--font-sans), Arial, serif, Helvetica, sans-serif;
+  background: var(--background);
+  min-height: var(--min-height);
+  background-attachment: var(--background-attachment); 
+  position: relative; 
+  overflow-x: hidden;
+
+  ::-webkit-scrollbar{
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track{
+    background: #0a1929;
+  }
+  ::-webkit-scrollbar-thumb{
+    background: linear-gradient(to bottom, #1E3A8A, #FFD700);
+    border-radius: 5px;
+    border: 2px solid #0a1929;
+  }
+
+  ::-webkit-scrollbar-thumb-hover{
+    background: linear-gradient(to bottom, #2563eb, #FFF4CC);
+  }
+
+  ::selection{
+    background-color: rgba(255, 215, 0, 0.25);
+    color: white;
+  }
+
+  ::-moz-selection{
+    background-color: rgba(255, 215, 0, 0.25);
+    color: white;
+  }
+
+  @supports(backdrop-filter: blur(10px)){
+    .backdrop-blur-sm{
+      backdrop-filter: blur(4px);
+    }
+    .backdrop-blur-md {
+      backdrop-filter: blur(12px);
+  }
+    .backdrop-blur-lg {
+      backdrop-filter: blur(16px);
+   } 
+  }
+
+}
+
+/* --- Intro overlay keyframes --- */
+@keyframes introOut {
+  50% {
+    background-color: transparent;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* optional: shared color vars if you like */
+:root {
+  --hero-navy: #0A2540;
+  --hero-navy-2: #1E3A8A;
+  --gold: #FFD700;
+}
+
+/* === AGONUS 3D grid effect === */
+.cell {
+  width: 200%;
+  height: 200%;
+  /* Keep cells behind the text layers */
+  z-index: 1;
+}
+
+/* Default center position */
+.content {
+  --posX: 200;
+  --posY: 50;
+  position: relative;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2;
+}
+
+/* === AGONUS 3D cubes (improved spacing and alignment) === */
+.ready {
+  display: grid;
+  grid-gap: 30px;
+  justify-content: center;
+  align-content: center;    /* Centers vertically */
+  justify-items: center;    /* Centers horizontally inside grid */
+  place-items: center;      /* Shortcut to center both ways */
+  animation-delay: 625ms;
+  width: max-content;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+}
+
+
+.letter {
+  display: grid;
+  grid-gap: 6px;
+  justify-content: center;
+}
+
+/* === Letter Layouts (fixed proportions for AGONUS) === */
+/* === AGONUS letter layouts (5x4 uniform grid) === */
+
+/* A */
+.A {
+  grid-template-areas:
+    ". a1 a2 ."
+    "a3 . . a4"
+    "a5 a6 a7 a8"
+    "a9 . . a10"
+    "a11 . . a12";
+}
+
+/* G */
+.G {
+  grid-template-areas:
+    ". a1 a2 a3"
+    "a4 . . ."
+    "a5 . a6 a7"
+    "a8 . . a9"
+    ". a10 a11 .";
+}
+
+/* O */
+.O {
+  grid-template-areas:
+    ". a1 a2 ."
+    "a3 . . a4"
+    "a5 . . a6"
+    "a7 . . a8"
+    ". a9 a10 .";
+}
+
+/* N */
+.N {
+  grid-template-areas:
+    "a1 . . a2"
+    "a3 a4 . a5"
+    "a6 . a7 a8"
+    "a9 . . a10"
+    "a11 . . a12";
+}
+
+/* U */
+.U {
+  grid-template-areas:
+    "a1 . . a2"
+    "a3 . . a4"
+    "a5 . . a6"
+    "a7 . . a8"
+    ". a9 a10 .";
+}
+
+/* S */
+.S {
+  grid-template-areas:
+    ". a1 a2 a3"
+    "a4 . . ."
+    ". a5 a6 ."
+    ". . . a7"
+    "a8 a9 a10 .";
+}
+
+
+/* === Cube style === */
+.block {
+  --ratio: calc(var(--index) / 60);
+  --delay: calc((var(--ratio) * 625ms) + 625ms);
+  transform-style: preserve-3d;
+  transform: rotate(calc(var(--angle) * 1deg))
+    translate3d(calc(var(--sign) * 200vw), 0, 0)
+    rotate3d(1, 0, 0, -90deg)
+    rotate3d(0, 1, 0, 90deg);
+  animation: block-intro 6s ease-in-out reverse both;
+  animation-delay: var(--delay);
+  animation-iteration-count: 1; /* <-- new line */
+  animation-fill-mode: forwards; /* <-- stays in final state */
+  position: relative;
+  height: 28px;
+  width: 28px;
+}
+
+
+.face {
+  position: absolute;
+  background-color: #00d2ff99;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #FFD700;
+  backface-visibility: visible;
+}
+
+.face-2 {
+  transform: rotateX(-90deg);
+  transform-origin: bottom center;
+  overflow: hidden;
+}
+.face-2::before {
+  content: '';
+  position: absolute;
+  background-color: #1E3A8A;
+  inset: 0;
+  animation: shimmer 6s linear infinite;
+  animation-delay: var(--delay);
+}
+.face-3 {
+  transform: rotateY(90deg);
+  transform-origin: right center;
+}
+
+/* === Animations === */
+@keyframes block-intro {
+  40% {
+    transform: rotate(0deg) translate3d(0, 0, 0)
+      rotate3d(1, 0, 0, -90deg) rotate3d(0, 1, 0, 90deg);
+  }
+  70% {
+    transform: rotate(0deg) translate3d(0, 0, 0)
+      rotate3d(1, 0, 0, -90deg) rotate3d(0, 1, 0, 90deg);
+  }
+  80% {
+    transform: rotate(0deg) translate3d(0, 0, 0)
+      rotate3d(1, 0, 0, 0deg) rotate3d(0, 1, 0, 0deg);
+  }
+  100% {
+    transform: rotate(0deg) translate3d(200vw, 0, 0)
+      rotate3d(1, 0, 0, 0deg) rotate3d(0, 1, 0, 0deg);
+  }
+}
+
+
+@keyframes shimmer {
+  from,
+  25% {
+    transform: scale(2, 1) rotate(-45deg) translate(-100%);
+  }
+  35%,
+  to {
+    transform: scale(2, 1) rotate(-45deg) translate(0%);
+  }
+}
+/* === Floating Crypto Icon Background === */
+.crypto-icon {
+  position: absolute;
+  opacity: 0.8;
+  animation: floatUp 6s linear infinite;
+  transform-origin: center;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.icon-float {
+  font-size: 3rem;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.3));
+}
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-110vh) rotate(360deg);
+    opacity: 0;
+  }
 }
