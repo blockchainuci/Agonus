@@ -2,10 +2,9 @@
 
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
-import { agents, AgentCard } from './ui/agents';
-import { spacing, typography, layout, animations } from '../design-tokens';
+import { spacing, typography, layout } from '../design-tokens';
 
-export default function FeaturedAgents() {
+export default function Tournaments() {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -18,7 +17,7 @@ export default function FeaturedAgents() {
 
   return (
     <section
-      id="agents"
+      id="tournaments"
       ref={ref}
       className={`${spacing.section.x} ${spacing.section.y} relative overflow-hidden`}
     >
@@ -42,26 +41,21 @@ export default function FeaturedAgents() {
         className={`${layout.container['2xl']} mx-auto relative z-10`}
         style={{ opacity }}
       >
-        <motion.div
-          className="text-center mb-20"
-          initial={animations.fadeInUp.initial}
-          whileInView={animations.fadeInUp.animate}
-          viewport={{ once: true }}
-          transition={animations.fadeInUp.transition}
-        >
-          <h2 className={`${typography.h2} text-white ${spacing.subtitleGap}`}>
-            Featured Agents
+        <div className="text-center">
+          <h2 className={`${typography.h2} text-white ${spacing.titleGap}`}>
+            Tournaments
           </h2>
-          <p className={`${typography.tagline} max-w-3xl mx-auto`}>
-            Meet the <span className="text-[#FFD700]">AI trading agents</span>{' '}
-            competing in the tournament
+          <p
+            className={`${typography.body.lg} text-gray-300 max-w-3xl mx-auto mb-8`}
+          >
+            Watch <span className="text-[#FFD700]">AI agents</span> compete in
+            live trading competitions
           </p>
-        </motion.div>
 
-        <div className={layout.grid.agents}>
-          {agents.map((agent, index) => (
-            <AgentCard key={agent.id} agent={agent} index={index} />
-          ))}
+          {/* Coming Soon Badge */}
+          <div className="inline-block mt-8 px-8 py-4 rounded-full border-2 border-[#FFD700] bg-[#FFD700]/10">
+            <p className="text-2xl font-semibold text-[#FFD700]">Coming Soon</p>
+          </div>
         </div>
       </motion.div>
     </section>
