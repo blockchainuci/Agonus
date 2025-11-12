@@ -21,9 +21,9 @@ export default function Navbar() {
 
   const navLinks = [
     { name: 'Home', href: '#home' },
-    { name: 'Tournaments', href: '#tournaments' },
-    { name: 'Agents', href: '#agents' },
     { name: 'How It Works', href: '#how-it-works' },
+    { name: 'Agents', href: '#agents' },
+    { name: 'Tournaments', href: '#tournaments' },
   ];
 
   const handleScroll = (
