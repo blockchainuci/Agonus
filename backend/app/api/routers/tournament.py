@@ -60,7 +60,7 @@ def update_tournament(tournament_id: UUID, new_tournament: Tournament, session: 
 def delete_tournament(tournament_id: UUID, session: Session = Depends(get_session)) -> dict:
     '''DELETE route for deleting a tournament of tournament_id'''
     tournament = session.get(Tournament, tournament_id)
-    if not tournament_id:
+    if not tournament:
         raise HTTPException(404, "Tournament Not Found")
     
     session.delete(tournament)

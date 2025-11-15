@@ -1,7 +1,8 @@
 from fastapi import Depends, HTTPException, Header
 from jose import JWTError, jwt
+import os
 
-SECRET_KEY = "your-secret-key"  # Load from .env
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
 ALGORITHM = "HS256"
 
 def get_current_user(authorization: str = Header(...)) -> dict:
