@@ -1,40 +1,62 @@
 from fastapi import APIRouter, Depends, HTTPException
-from backend.app.api.deps import MockDataStore, get_store
+from sqlmodel import Session, select
+from uuid import UUID
+from backend.app.db.database import get_session
+from backend.app.models import Agent
+#from backend.app.mock_store import MockDataStore, get_store
 
 router = APIRouter()
 
 
 @router.get("/")
-def list_agents(store: MockDataStore = Depends(get_store)) -> list[dict]:
+def list_agents(session: Session = Depends(get_session)) -> list[Agent]:
     '''GET route for list of agents'''
-    return list(store.agents.values())
+    statement = select(Agent)
+    return session.exec(statement).all()
 
 @router.get("/{agent_id}")
-def get_agent(agent_id: int, store: MockDataStore = Depends(get_store)) -> dict:
+def get_agent(agent_id: UUID, session: Session = Depends(get_session)) -> Agent:
     '''GET route for agent of agent_id'''
-    if agent_id not in store.agents:
+    agent = session.get(Agent, agent_id)
+    if not agent:
         raise HTTPException(404, "Agent Not Found")
-    return store.agents[agent_id]
+    return agent
 
 @router.post("/")
-def create_agent(agent_data: dict, store: MockDataStore = Depends(get_store)) -> dict:
+def create_agent(agent: Agent, session: Session = Depends(get_session)) -> Agent:
     '''POST route for creating an agent'''
-    agent_id = store.next_id("agents")
-    store.agents[agent_id] = {"id": agent_id, **agent_data}
-    return store.agents[agent_id]
+    session.add(agent)
+    session.commit()
+    session.refresh(agent)
+    return agent
 
 @router.put("/{agent_id}")
-def update_agent(agent_id: int, agent_data: dict, store: MockDataStore = Depends(get_store)) -> dict:
+def update_agent(agent_id: UUID, new_agent: Agent, session: Session = Depends(get_session)) -> Agent:
     '''PUT route for updating an agent of agent_id'''
-    if agent_id not in store.agents:
+    db_agent = session.get(Agent, agent_id)
+    if not db_agent:
         raise HTTPException(404, "Agent Not Found")
-    store.agents[agent_id].update(**agent_data)
-    return store.agents[agent_id]
+
+    update_data = new_agent.model_dump(exclude_unset=True)
+    update_data.pop("id", None)
+    
+    for key, value in update_data.items():
+        setattr(db_agent, key, value)
+    
+    session.add(db_agent)
+    session.commit()
+    session.refresh(db_agent)
+    
+    return db_agent
 
 @router.delete("/{agent_id}")
-def delete_agent(agent_id: int, store: MockDataStore = Depends(get_store)) -> dict:
+def delete_agent(agent_id: UUID, session: Session = Depends(get_session)) -> dict:
     '''DELETE route for deleting an agent of agent_id'''
-    if agent_id not in store.agents:
+    agent = session.get(Agent, agent_id)
+    if not agent:
         raise HTTPException(404, "Agent Not Found")
-    del store.agents[agent_id]   
+    
+    session.delete(agent)
+    session.commit()
+    
     return {"message": f"Agent {agent_id} deleted"}

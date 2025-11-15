@@ -1,7 +1,7 @@
 # tests/test_tournaments.py
 import pytest
 from backend.app.api.main import app
-from backend.app.api.deps import MockDataStore, get_store
+from backend.app.mock_store import MockDataStore, get_store
 
 @pytest.fixture
 def store():

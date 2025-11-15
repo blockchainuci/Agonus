@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from backend.app.api.deps import MockDataStore, get_store
+from backend.app.mock_store import MockDataStore, get_store
 
 #prefix and tags in main already so use 
 router = APIRouter()
