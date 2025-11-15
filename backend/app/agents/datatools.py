@@ -510,7 +510,7 @@ class TweetPostTool:
         API Base url for the POST Twitter API.
     upload_url : str
         API URL for Media UPLOAD Twitter API.
-    post_headers : str
+    post_headers : Dict[str, str]
         Headers for POST Twitter API call.
     """
     def __init__(self, agent_id: int, api_bearer: str = None):
@@ -574,21 +574,55 @@ class TweetPostTool:
         if not content:
             raise ValueError("Tweet content cannot be empty.")
         
+        #building Twitter POST API endpoint
+        url = f"{self.post_api_base}/tweets"
+
+        #building the payload
+        payload = {"text": content}
+
+        #if trade summary was provided, add it to the tweet content
+        if trade_summary:
+            payload["text"] += f"\n\nSummary: {trade_summary}"
+
+        #add personality signature to tweet content
+        if personality_signature:
+            payload["text"] += f"\n\n— {personality_signature}"
+        
+        #if media url was provided, upload media and obtain media id string
+        if media_url:
+            try:
+                media_id = self._upload_media(media_url)
+                payload["media"] = {"media_ids": [media_id]}
+            except Exception as e:
+                raise requests.HTTPError(f"Media upload failed: {str(e)}")
+
+        if reply_to_id:
+            payload["reply"] = {"in_reply_to_tweet_id": reply_to_id}
+        
         try:
-            url = f"{self.api_base}/tweets"
+            response = requests.post(url, json = payload, headers = self.post_headers)
 
-            payload = {
-                "text": content
-            }
-
-            if trade_summary:
-                payload["text"] += f"\n\nSummary: {trade_summary}"
+            #expect 201 status code for successfull creation of tweet
+            if response.status_code != 201:
+                raise requests.HTTPError(
+                    f"Error occured when attempting to connect with Twitter API: {response.status_code} {response.text}"
+                )
             
-            if media_url:
-                payload["media"] = {"media_ids": media_url}
+            #access data field safely, if data field does not exist data defaults to an empty dictionary
+            data = response.json().get("data", {})
 
-            if reply_to_id:
-                payload["reply"] = {"in_reply_to_tweet_id": reply_to_id}
+            # Construct TweetPost object
+            return TweetPost(
+                agent_id = self.agent_id,
+                content = payload["text"],
+                timestamp = datetime.now(timezone.utc),
+                twitter_id = data.get("id"),
+                trade_id = trade_id,
+                trade_summary = trade_summary,
+                media_url = media_url,
+                reply_to_id = reply_to_id,
+                personality_signature = personality_signature
+            )
 
         except requests.RequestException as e:
             raise requests.HTTPError(f"Failed to connect to the Twitter API due to {str(e)}")
@@ -638,7 +672,7 @@ class TweetPostTool:
             response = requests.post(
                 self.upload_url,
                 # different headers for Media UPLOAD Twitter API vs. POST Twitter API
-                headers = {"Authorization": f"Bearer {self.api_bearer}"}
+                headers = {"Authorization": f"Bearer {self.api_bearer}"},
                 files = {"media": ("file", file_bytes, mime_type)}
             )
 
@@ -660,18 +694,22 @@ class TweetPostTool:
     
     def _init_chunked_upload(self, file_bytes: bytes, mime_type: str) -> str:
         """Performs INIT step of Chunked upload."""
-        params = {
-            "command": "INIT",
-            "media_type": mime_type,
-            "total_bytes": len(file_bytes),
-            "media_category": "tweet_video"
-        }
-
         try:
+            # ensure mime_type is a video type
+            if not mime_type.startswith("video/"):
+                raise requests.HTTPError("Chunked upload only supported for video types.")
+            
+            params = {
+                "command": "INIT",
+                "media_type": mime_type,
+                "total_bytes": len(file_bytes),
+                "media_category": "tweet_video"
+            }
+
             response = requests.post(
                 self.upload_url,
-                headers={"Authorization": f"Bearer {self.api_bearer}"},
-                data=params
+                headers = {"Authorization": f"Bearer {self.api_bearer}"},
+                data = params
             )
 
             if response.status_code != 200:
@@ -702,7 +740,8 @@ class TweetPostTool:
                 response = requests.post(
                     self.upload_url,
                     headers = {"Authorization": f"Bearer {self.api_bearer}"},
-                    data=params
+                    data = params,
+                    files = {"media": ("chunk", chunk, "application/octet-stream")}
                 )
 
                 #append success is 204 (no content) or 202 (accepted)
