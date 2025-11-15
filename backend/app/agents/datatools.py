@@ -517,6 +517,8 @@ class TweetPostTool:
         self.api_base = "https://api.twitter.com/2"
         self.api_bearer = api_bearer
 
+        self.upload_url = "https://upload.twitter.com/1.1/media/upload.json"
+
         self.headers = {
             "Authorization": f"Bearer {self.api_bearer}",
             "Content-Type": "application/json",
@@ -601,7 +603,7 @@ class TweetPostTool:
                 raise requests.HTTPError(f"Failed to download media from provided URL: {media_url}")
             
             files = {"media": file_response.content}
-            upload_url = "https://upload.twitter.com/1.1/media/upload.json"
+            
 
         except:
             pass
@@ -609,12 +611,9 @@ class TweetPostTool:
     def _simple_upload(self, file_bytes: bytes, mime_type: str) -> str:
         """ Helper function for simple upload of images, gifs, and small videos.
             Returns media_id string."""
-        
-        upload_url = "https://upload.twitter.com/1.1/media/upload.json"
-
         try:
             response = requests.post(
-                upload_url,
+                self.upload_url,
                 # different headers for Media UPLOAD Twitter API vs. POST Twitter API
                 headers = {"Authorization": f"Bearer {self.api_bearer}"}
                 files = {"media": ("file", file_bytes, mime_type)}
@@ -628,9 +627,93 @@ class TweetPostTool:
         except requests.RequestException as e:
             raise requests.HTTPError(f"Simple upload failed due to: {str(e)}")
     
+    def _chunked_upload(self, file_bytes: bytes, mime_type: str) -> str:
+        """ Helper function for chunked upload of large videos (file sizes > 5 MB).
+            Returns media_id string."""
+        media_id = self._init_chunked_upload(file_bytes, mime_type)
+        self._append_chunked_upload(file_bytes, media_id)
+        self._finalize_chunked_upload(media_id)
+        return media_id
     
+    def _init_chunked_upload(self, file_bytes: bytes, mime_type: str) -> str:
+        """Performs INIT step of Chunked upload."""
+        params = {
+            "command": "INIT",
+            "media_type": mime_type,
+            "total_bytes": len(file_bytes),
+            "media_category": "tweet_video"
+        }
+
+        try:
+            response = requests.post(
+                self.upload_url,
+                headers={"Authorization": f"Bearer {self.api_bearer}"},
+                data=params
+            )
+
+            if response.status_code != 200:
+                raise requests.HTTPError(f"INIT failed: {response.status_code} {response.text}")
+            
+            media_id = response.json().get("media_id_string")
+            if not media_id:
+                raise requests.HTTPError("INIT response missing media id string.")
+            
+            return media_id
+        
+        except requests.RequestException as e:
+            raise requests.HTTPError(f"INIT request failed: {str(e)}")
     
-    
+    def _append_chunked_upload(self, file_bytes: bytes, media_id: str) -> None:
+        """Performs append step of Chunked upload."""
+        segment_index = 0
+
+        for i in range(0, len(file_bytes), UPLOAD_CHUNK_SIZE):
+            chunk = file_bytes[i : i + UPLOAD_CHUNK_SIZE]
+            params = {
+                "command": "APPEND",
+                "media_id": media_id,
+                "segment_index": segment_index
+            }
+
+            try:
+                response = requests.post(
+                    self.upload_url,
+                    headers = {"Authorization": f"Bearer {self.api_bearer}"},
+                    data=params
+                )
+
+                #append success is 204 (no content) or 202 (accepted)
+                if response.status_code not in (204, 202):
+                    raise requests.HTTPError(
+                        f"APPEND failed at segment {segment_index}: "
+                        f"{response.status_code} {response.text}"
+                    )
+                
+            except requests.RequestException as e:
+                raise requests.HTTPError(f"APPEND request failed: {str(e)}")
+            
+            segment_index += 1
+
+    def _finalize_chunked_upload(self, media_id: str) -> None:
+        """Performs Finalize step of Chunked upload."""
+        params = {
+            "command": "FINALIZE",
+            "media_id": media_id
+        }
+
+        try:
+            response = requests.post(
+                self.upload_url,
+                headers = {"Authorization": f"Bearer {self.api_bearer}"},
+                data=params
+            )
+
+            #200 is OK, 201 is Created, 202 is Accepted
+            if response.status_code not in (200, 201, 202):
+                raise requests.HTTPError(f"FINALIZE failed: {response.status_code} {response.text}")
+            
+        except requests.RequestException as e:
+            raise requests.HTTPError(f"FINALIZE request failed: {str(e)}")
 
 if __name__ == '__main__':
     test = MarketDataTool()
