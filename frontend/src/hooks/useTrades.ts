@@ -35,7 +35,7 @@ export function useAgentTrades(agentId: ID) {
 export function useCreateTrade() {
   const queryClient = useQueryClient()
   
-  return useMutation<Trade, ApiError, ID>({
+  return useMutation<Trade, ApiError, CreateTradeData>({
     mutationFn: async (tradeData) => {
       const res = await fetch(`${API_URL}/trades`, {
         method: 'POST',
