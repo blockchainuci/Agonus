@@ -59,6 +59,7 @@ class Trade:
     """
 
     trade_id: int
+    token: str
     agent_id: str
     action: str
     qty: float
@@ -85,7 +86,7 @@ class Trade:
         """
         return asdict(self)
 
-
+ot
     
 @dataclass
 class Portfolio:
