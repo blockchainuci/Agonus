@@ -1,4 +1,5 @@
 import requests
+import mimetypes
 import math
 from datetime import datetime, timezone, timedelta
 #import copy 
@@ -9,6 +10,9 @@ from dataclasses import Trade, MarketData, Portfolio, TweetPost
 from data_classes import Trade, MarketData, Portfolio, TweetPost
 load_dotenv()
 COINGECKO_KEY = os.getenv("COINGECKO_API_KEY")
+TWITTER_BEARER = os.getenv("TWITTER_BEARER_TOKEN")
+
+UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024 # 5 MB, suggested chunk size for chunk upload and max size for simple upload
 
 class MarketDataTool:
     """
@@ -500,16 +504,24 @@ class TweetPostTool:
     ----------
     agent_id : str
         Unique identifier of the agent posting tweets.
-    api_base_url : str
-        Base URL for Twitter/X API endpoints (default: 'https://api.twitter.com/2').
-    api_key : str
-        The API key we provide when calling the necessary api (specific API TBD).
+    api_bearer : str
+        The bearer token we provide for authentication when calling the Twitter API.
     
     """
-    def __init__(self, agent_id: int, api_base_url: str = None, api_key: str = None):
+    def __init__(self, agent_id: int, api_bearer: str = None):
         self.agent_id = agent_id
-        self.api_base_url = api_base_url
-        self.api_key = api_key
+
+        if TWITTER_BEARER:
+            api_bearer = TWITTER_BEARER
+        
+        self.api_base = "https://api.twitter.com/2"
+        self.api_bearer = api_bearer
+
+        self.headers = {
+            "Authorization": f"Bearer {self.api_bearer}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
 
     def post_tweet(
         self,
@@ -548,7 +560,77 @@ class TweetPostTool:
         requests.HTTPError
             If the Twitter/X API request fails.
         """
-        pass
+
+        if not self.api_bearer:
+            raise requests.HTTPError("Twitter bearer token is missing, unable to authenticate the API request.")
+
+        if not content:
+            raise ValueError("Tweet content cannot be empty.")
+        
+        try:
+            url = f"{self.api_base}/tweets"
+
+            payload = {
+                "text": content
+            }
+
+            if trade_summary:
+                payload["text"] += f"\n\nSummary: {trade_summary}"
+            
+            if media_url:
+                payload["media"] = {"media_ids": media_url}
+
+            if reply_to_id:
+                payload["reply"] = {"in_reply_to_tweet_id": reply_to_id}
+
+        except requests.RequestException as e:
+            raise requests.HTTPError(f"Failed to connect to the Twitter API due to {str(e)}")
+        
+    def _upload_media(self, media_url: str) -> str:
+        """ Helper function that downloads media file from provided media url,
+            uploads that media file to Twitter via Twitter media upload endpoint,
+            extracts media_id from Twitter's response and returns that media_id
+            to be specified in tweet payload. 
+            Assumes post tweet already validated bearer token authentication.
+            Raises HTTPError if unable to connect to Twitter media upload endpoint."""
+        
+        try:
+            #downloads media from the url
+            file_response = requests.get(media_url)
+            if file_response.status_code != 200:
+                raise requests.HTTPError(f"Failed to download media from provided URL: {media_url}")
+            
+            files = {"media": file_response.content}
+            upload_url = "https://upload.twitter.com/1.1/media/upload.json"
+
+        except:
+            pass
+    
+    def _simple_upload(self, file_bytes: bytes, mime_type: str) -> str:
+        """ Helper function for simple upload of images, gifs, and small videos.
+            Returns media_id string."""
+        
+        upload_url = "https://upload.twitter.com/1.1/media/upload.json"
+
+        try:
+            response = requests.post(
+                upload_url,
+                # different headers for Media UPLOAD Twitter API vs. POST Twitter API
+                headers = {"Authorization": f"Bearer {self.api_bearer}"}
+                files = {"media": ("file", file_bytes, mime_type)}
+            )
+
+            if response.status_code != 200:
+                raise requests.HTTPError(f"Simple upload failed due to: {response.text}")
+
+            return response.json().get("media_id_string")
+        
+        except requests.RequestException as e:
+            raise requests.HTTPError(f"Simple upload failed due to: {str(e)}")
+    
+    
+    
+    
 
 if __name__ == '__main__':
     test = MarketDataTool()
