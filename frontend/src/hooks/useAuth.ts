@@ -3,7 +3,7 @@
 import { useMutation } from '@tanstack/react-query'
 
 //define API base URL (ensure hook works both locally and in production)
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000'
+import { API_URL } from './api';
 
 export function useWalletSignIn() {
   return useMutation({
