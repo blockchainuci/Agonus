@@ -1,31 +1,35 @@
 from fastapi import APIRouter, Depends
-from backend.app.mock_store import MockDataStore, get_store
+from sqlmodel import Session, select
+from uuid import UUID
+
+from backend.app.db.database import get_session
+from backend.app.db.models import Trade
+
+#from backend.app.mock_store import MockDataStore, get_store
 
 router = APIRouter()
 
 @router.get("/")
-def list_trades_for_tournament(tournament_id: int = None, store: MockDataStore = Depends(get_store)):
+def list_trades_for_tournament(tournament_id: UUID | None = None, session: Session = Depends(get_session)) -> list[Trade]:
     '''GET route for listing all trades for a specific tournament_id'''
-
-    # this assumes that tournament_id field is associated with this trade
-    if tournament_id is None:
-        # return all trades if no tournament id provided
-        return list(store.trades.values())
-    return [t for t in store.trades.values() if t.get("tournament_id") == tournament_id]
+    statement = select(Trade)
+    if tournament_id is not None:
+        statement = statement.where(Trade.tournament_id == tournament_id)
+    return session.exec(statement).all()
     
 @router.get("/agent/{agent_id}")
-def list_trades_by_agent(agent_id: int, store: MockDataStore = Depends(get_store)):
+def list_trades_by_agent(agent_id: UUID, session: Session = Depends(get_session)) -> list[Trade]:
     '''GET route for listing all trades for a specific agent_id'''
-    
     # this assumes agent_id field is associated with this trade
-    return [t for t in store.trades.values() if t.get("agent_id") == agent_id]
+    statement = select(Trade).where(Trade.agent_id == agent_id)
+    return session.exec(statement).all()
+    
+
     
 @router.post("/")
-def create_trade(trade_data: dict, store: MockDataStore = Depends(get_store)):
+def create_trade(trade: Trade, session: Session = Depends(get_session)) -> Trade:
     '''POST route for creating a new trade'''
-    
-    #trade needs to be created with an agent_id field and a tournament_id field
-    trade_id = store.next_id("trades")
-    trade = {"id": trade_id, **trade_data}
-    store.trades[trade_id] = trade
+    session.add(trade)
+    session.commit()
+    session.refresh(trade)
     return trade

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from uuid import UUID
 from backend.app.db.database import get_session
-from backend.app.models import Agent
+from backend.app.db.models import Agent
 #from backend.app.mock_store import MockDataStore, get_store
 
 router = APIRouter()
@@ -37,6 +37,7 @@ def update_agent(agent_id: UUID, new_agent: Agent, session: Session = Depends(ge
     if not db_agent:
         raise HTTPException(404, "Agent Not Found")
 
+    #might be .dict() instead of model dump depending on version
     update_data = new_agent.model_dump(exclude_unset=True)
     update_data.pop("id", None)
     
