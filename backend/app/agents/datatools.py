@@ -506,7 +506,12 @@ class TweetPostTool:
         Unique identifier of the agent posting tweets.
     api_bearer : str
         The bearer token we provide for authentication when calling the Twitter API.
-    
+    post_api_base : str
+        API Base url for the POST Twitter API.
+    upload_url : str
+        API URL for Media UPLOAD Twitter API.
+    post_headers : str
+        Headers for POST Twitter API call.
     """
     def __init__(self, agent_id: int, api_bearer: str = None):
         self.agent_id = agent_id
@@ -514,12 +519,12 @@ class TweetPostTool:
         if TWITTER_BEARER:
             api_bearer = TWITTER_BEARER
         
-        self.api_base = "https://api.twitter.com/2"
+        self.post_api_base = "https://api.twitter.com/2"
         self.api_bearer = api_bearer
 
         self.upload_url = "https://upload.twitter.com/1.1/media/upload.json"
 
-        self.headers = {
+        self.post_headers = {
             "Authorization": f"Bearer {self.api_bearer}",
             "Content-Type": "application/json",
             "Accept": "application/json"
@@ -596,17 +601,35 @@ class TweetPostTool:
             Assumes post tweet already validated bearer token authentication.
             Raises HTTPError if unable to connect to Twitter media upload endpoint."""
         
+        #downloads media from the url
         try:
-            #downloads media from the url
+            
             file_response = requests.get(media_url)
             if file_response.status_code != 200:
                 raise requests.HTTPError(f"Failed to download media from provided URL: {media_url}")
             
-            files = {"media": file_response.content}
-            
+        except requests.RequestException as e:
+            raise requests.HTTPError(f"Error occured while trying to download media due to: {str(e)}")
+        
+        file_bytes = file_response.content
+        file_size = len(file_bytes)
 
-        except:
-            pass
+        #Utilize mimetypes module to guess mime type of the media from the provided media url
+        #Mime type required by Twitter UPLOAD API
+
+        #guess_type returns a tuple where the second value is the encoding, which is not needed for Twitter UPLOAD API
+        mime_type, _ = mimetypes.guess_type(media_url)
+        
+        if not mime_type:
+            # if python's mimtypes module wasn't able to guess the mime type of the media because it was unusual,
+            # assign it to the universal mime type for raw binary data, treat it as arbitrary bytes
+            mime_type = "application/octet-stream"
+
+        #decide whether to use simple or chunked upload method
+        if file_size <= UPLOAD_CHUNK_SIZE:
+            return self._simple_upload(file_bytes, mime_type)
+        else:
+            return self._chunked_upload(file_bytes, mime_type)
     
     def _simple_upload(self, file_bytes: bytes, mime_type: str) -> str:
         """ Helper function for simple upload of images, gifs, and small videos.
