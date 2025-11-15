@@ -14,7 +14,7 @@ const baseConnectors = [
 ];
 
 // Add WalletConnect if project ID is properly configured
-const connectors = walletConnectProjectId && walletConnectProjectId !== 'YOUR_PROJECT_ID'
+const connectors = walletConnectProjectId && walletConnectProjectId !== 'a7265c85f8d632dd4a9c0c035ec56da6'
   ? [
       ...baseConnectors,
       walletConnect({
