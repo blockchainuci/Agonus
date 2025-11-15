@@ -4,6 +4,8 @@ from uuid import UUID
 from backend.app.db.database import get_session
 from backend.app.db.models import Bet
 #from backend.app.mock_store import MockDataStore, get_store
+from backend.app.api.deps import get_current_user
+
 
 router = APIRouter()
 
@@ -20,6 +22,15 @@ def get_bet(bet_id: UUID, session: Session = Depends(get_session)) -> Bet:
     if not bet:
         raise HTTPException(404, "Bet Not Found")
     return bet
+
+@router.get("/my-bets")
+def get_user_bets(
+    session: Session = Depends(get_session),
+    user: dict = Depends(get_current_user)
+) -> list[Bet]:
+    statement = select(Bet).where(Bet.user_address == user["address"])
+    return session.exec(statement).all()
+
 
 @router.post("/")
 def create_bet(bet: Bet, session: Session = Depends(get_session)) -> Bet:
@@ -60,3 +71,5 @@ def delete_bet(bet_id: UUID, session: Session = Depends(get_session)) -> dict:
     session.commit()
     
     return {"message": f"Bet {bet_id} deleted"}
+
+

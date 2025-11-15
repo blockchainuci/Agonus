@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 from uuid import UUID
 from backend.app.db.database import get_session
 from backend.app.db.models import Tournament
+from backend.app.api.deps import require_admin
 #from backend.app.mock_store import MockDataStore, get_store
 
 #prefix and tags in main already so use 
@@ -25,8 +26,11 @@ def get_tournament(tournament_id: UUID, session: Session = Depends(get_session))
     return tournament
     
 @router.post("/")
-def create_tournament(tournament: Tournament, session: Session = Depends(get_sessiob)) -> Tournament:
-    '''POST route for creating a tournament'''
+def create_tournament(
+    tournament: Tournament,
+    session: Session = Depends(get_session),
+    admin: dict = Depends(require_admin)
+) -> Tournament:
     session.add(tournament)
     session.commit()
     session.refresh(tournament)
