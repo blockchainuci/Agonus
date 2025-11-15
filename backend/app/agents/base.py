@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple
-from app.agents.dataclasses import Trade, MarketData
+from backend.app.agents.data_classes import Trade, MarketData
 
 
 class BaseAgent(ABC):
