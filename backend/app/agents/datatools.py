@@ -1,6 +1,7 @@
 import requests
 import mimetypes
 import math
+import time
 from datetime import datetime, timezone, timedelta
 #import copy 
 from dotenv import load_dotenv
@@ -770,12 +771,78 @@ class TweetPostTool:
                 data=params
             )
 
-            #200 is OK, 201 is Created, 202 is Accepted
+            #200 is OK, 201 is Created, 202 is processing started
             if response.status_code not in (200, 201, 202):
                 raise requests.HTTPError(f"FINALIZE failed: {response.status_code} {response.text}")
             
+            #if the response contains processing info, use it
+            processing_info = response.json().get("processing_info")
+
+            #no processing means the upload done
+            if not processing_info:
+                return
+            
+            state = processing_info.get("state")
+
+            #if processing is already done
+            if state == "succeeded":
+                return
+            elif state == "failed":
+                raise requests.HTTPError("Video processing failed after FINALIZE.")
+
+            #otherwise: state is "pending" or "in_progress"
+            check_after = processing_info.get("check_after_secs", 1)
+
+            #poll STATUS until video is ready or failed
+            self._poll_status(media_id, check_after)
+
         except requests.RequestException as e:
             raise requests.HTTPError(f"FINALIZE request failed: {str(e)}")
+        
+    def _poll_status(self, media_id: str, initial_delay: int = 1) -> None:
+        """ Polls Twitter STATUS endpoint until video processing completes.
+            Used to keep checking Twitter until a response of "succeeded", "failed", 
+            or timeout is provided. Required because can't attach video to tweet
+            before Twitter finishes processing it."""
+        
+        delay = initial_delay
+        max_attempts = 20  #arbitrary number of attempts I chose, can change later.
+
+        for i in range(max_attempts):
+            time.sleep(delay)
+
+            params = {
+                "command": "STATUS",
+                "media_id": media_id
+            }
+
+            try:
+                response = requests.post(
+                    self.upload_url,
+                    headers = {"Authorization": f"Bearer {self.api_bearer}"},
+                    data = params
+                )
+
+                if response.status_code != 200:
+                    raise requests.HTTPError(
+                        f"STATUS failed: {response.status_code} {response.text}"
+                    )
+                
+                processing_info = response.json().get("processing_info", {})
+                state = processing_info.get("state")
+
+                if state == "succeeded":
+                    return
+                elif state == "failed":
+                    raise requests.HTTPError("Video processing failed during STATUS polling.")
+
+                # If still processing, wait again
+                delay = processing_info.get("check_after_secs", delay)
+
+            except requests.RequestException as e:
+                raise requests.HTTPError(f"STATUS request failed: {str(e)}")
+        
+        raise requests.HTTPError("Video processing timed out during STATUS polling.")
 
 if __name__ == '__main__':
     test = MarketDataTool()
