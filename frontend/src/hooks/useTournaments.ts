@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { API_URL, getAuthHeaders } from './api'
-import { Tournament } from '../types'
+import { Tournament, ID, CreateTournamentData, UpdateTournamentData, ApiError } from '../types'
 
 // public GET 
 export function useTournaments() {
@@ -15,7 +15,7 @@ export function useTournaments() {
 }
 
 // other public GET 
-export function useTournament(tournamentId: string) {
+export function useTournament(tournamentId: ID) {
   return useQuery<Tournament>({
     queryKey: ['tournaments', tournamentId],
     queryFn: async () => {
@@ -31,7 +31,7 @@ export function useTournament(tournamentId: string) {
 export function useCreateTournament() {
   const queryClient = useQueryClient()
   
-  return useMutation<Tournament, Error, Partial<Tournament>>({
+  return useMutation<Tournament, ApiError, CreateTournamentData>({
     mutationFn: async (tournamentData) => {
       const res = await fetch(`${API_URL}/tournaments`, {
         method: 'POST',
@@ -54,7 +54,7 @@ export function useCreateTournament() {
 export function useUpdateTournament() {
   const queryClient = useQueryClient()
   
-  return useMutation<Tournament, Error, { tournamentId: string, data: Partial<Tournament> }>({
+  return useMutation<Tournament, ApiError, { tournamentId: ID, data: UpdateTournamentData}>({
     mutationFn: async ({ tournamentId, data }) => {
       const res = await fetch(`${API_URL}/tournaments/${tournamentId}`, {
         method: 'PUT',
@@ -77,7 +77,7 @@ export function useUpdateTournament() {
 export function useDeleteTournament() {
   const queryClient = useQueryClient()
   
-  return useMutation<void, Error, string>({
+  return useMutation<void, ApiError, ID>({
     mutationFn: async (tournamentId) => {
       const res = await fetch(`${API_URL}/tournaments/${tournamentId}`, {
         method: 'DELETE',

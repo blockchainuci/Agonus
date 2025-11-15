@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { API_URL, getAuthHeaders } from './api'
-import { Trade } from '../types'
+import { Trade , ID, CreateTradeData, ApiError} from '../types'
 
 // Public GET - can optionally filter by tournament - no auth
-export function useTrades(tournamentId?: string) {
+export function useTrades(tournamentId?: ID) {
   return useQuery<Trade[]>({
     queryKey: ['trades', tournamentId],
     queryFn: async () => {
@@ -18,7 +18,7 @@ export function useTrades(tournamentId?: string) {
 }
 
 //  Public GET - get trades for specific agent - no auth
-export function useAgentTrades(agentId: string) {
+export function useAgentTrades(agentId: ID) {
   return useQuery<Trade[]>({
     queryKey: ['trades', 'agent', agentId],
     queryFn: async () => {
@@ -35,7 +35,7 @@ export function useAgentTrades(agentId: string) {
 export function useCreateTrade() {
   const queryClient = useQueryClient()
   
-  return useMutation<Trade, Error, Partial<Trade>>({
+  return useMutation<Trade, ApiError, ID>({
     mutationFn: async (tradeData) => {
       const res = await fetch(`${API_URL}/trades`, {
         method: 'POST',

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { API_URL, getAuthHeaders } from './api'
-import { Bet } from '../types'
+import { Bet, ID, CreateBetData, UpdateBetData, UserBetsSummary, ApiError} from '../types'
 
 // public GET - get all bets - no auth
 export function useBets() {
@@ -14,22 +14,9 @@ export function useBets() {
   })
 }
 
-//  protected GET - get current user's bets - needs auth
-export function useUserBets() {
-  return useQuery<Bet[]>({
-    queryKey: ['my-bets'],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}/bets/my-bets`, {
-        headers: getAuthHeaders()
-      })
-      if (!res.ok) throw new Error('Failed to fetch user bets')
-      return res.json()
-    }
-  })
-}
 
 // public GET - get single bet - no auth
-export function useBet(betId: string) {
+export function useBet(betId: ID) {
   return useQuery<Bet>({
     queryKey: ['bets', betId],
     queryFn: async () => {
@@ -45,7 +32,7 @@ export function useBet(betId: string) {
 export function useCreateBet() {
   const queryClient = useQueryClient()
   
-  return useMutation<Bet, Error, Partial<Bet>>({
+  return useMutation<Bet, ApiError, CreateBetData>({
     mutationFn: async (betData) => {
       const res = await fetch(`${API_URL}/bets`, {
         method: 'POST',
@@ -60,7 +47,6 @@ export function useCreateBet() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bets'] })
-      queryClient.invalidateQueries({ queryKey: ['my-bets'] })
     }
   })
 }
@@ -69,7 +55,7 @@ export function useCreateBet() {
 export function useUpdateBet() {
   const queryClient = useQueryClient()
   
-  return useMutation<Bet, Error, { betId: string, data: Partial<Bet> }>({
+  return useMutation<Bet, Error, { betId: ID, data: UpdateBetData }>({
     mutationFn: async ({ betId, data }) => {
       const res = await fetch(`${API_URL}/bets/${betId}`, {
         method: 'PUT',
@@ -84,7 +70,6 @@ export function useUpdateBet() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bets'] })
-      queryClient.invalidateQueries({ queryKey: ['my-bets'] })
     }
   })
 }
@@ -93,7 +78,7 @@ export function useUpdateBet() {
 export function useDeleteBet() {
   const queryClient = useQueryClient()
   
-  return useMutation<void, Error, string>({
+  return useMutation<void, ApiError, ID>({
     mutationFn: async (betId) => {
       const res = await fetch(`${API_URL}/bets/${betId}`, {
         method: 'DELETE',
@@ -103,7 +88,6 @@ export function useDeleteBet() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bets'] })
-      queryClient.invalidateQueries({ queryKey: ['my-bets'] })
     }
   })
 }

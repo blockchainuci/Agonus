@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { API_URL, getAuthHeaders } from './api'
-import { Agent } from '../types'
+import { Agent, ID, CreateAgentData, UpdateAgentData, ApiError } from '../types'
 
 // Public GET - no auth
 export function useAgents() {
