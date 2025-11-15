@@ -30,18 +30,6 @@ export function useAgentTrades(agentId: string) {
   })
 }
 
-// Public GET - get single trade - no auth
-export function useTrade(tradeId: string) {
-  return useQuery<Trade>({
-    queryKey: ['trades', tradeId],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}/trades/${tradeId}`)
-      if (!res.ok) throw new Error('Trade not found')
-      return res.json()
-    },
-    enabled: !!tradeId
-  })
-}
 
 //  POST - needs auth
 export function useCreateTrade() {
@@ -59,47 +47,6 @@ export function useCreateTrade() {
       })
       if (!res.ok) throw new Error('Failed to create trade')
       return res.json()
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trades'] })
-    }
-  })
-}
-
-// PUT - needs auth
-export function useUpdateTrade() {
-  const queryClient = useQueryClient()
-  
-  return useMutation<Trade, Error, { tradeId: string, data: Partial<Trade> }>({
-    mutationFn: async ({ tradeId, data }) => {
-      const res = await fetch(`${API_URL}/trades/${tradeId}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...getAuthHeaders()
-        },
-        body: JSON.stringify(data)
-      })
-      if (!res.ok) throw new Error('Failed to update trade')
-      return res.json()
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trades'] })
-    }
-  })
-}
-
-// DELETE - needs auth
-export function useDeleteTrade() {
-  const queryClient = useQueryClient()
-  
-  return useMutation<void, Error, string>({
-    mutationFn: async (tradeId) => {
-      const res = await fetch(`${API_URL}/trades/${tradeId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      })
-      if (!res.ok) throw new Error('Failed to delete trade')
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trades'] })
