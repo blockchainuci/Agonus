@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ConnectWallet } from '@/src/components/ConnectWallet';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -75,9 +76,7 @@ export default function Navbar() {
 
         {/* Right side: Connect Wallet Button (Desktop) */}
         <div className="hidden md:block">
-          <button className="px-4 py-2 rounded-md bg-gradient-to-r from-[#1E3A8A] to-[#0A2540] text-white font-semibold hover:from-[#2563eb] hover:to-[#1E3A8A] transition">
-            Connect Wallet
-          </button>
+          <ConnectWallet />
         </div>
 
         {/* Mobile Hamburger */}

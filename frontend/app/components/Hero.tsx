@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
 import ParabolicReveal from './ui/ParabolicReveal';
+import { ConnectWallet } from '@/src/components/ConnectWallet';
 
 export default function Hero() {
   const ref = useRef(null);
@@ -75,9 +76,7 @@ export default function Hero() {
             Watch Tournament
           </Link>
 
-          <button className="rounded-full border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-[var(--hero-navy)] px-8 py-3 shadow-[0_0_10px_rgba(255,215,0,0.3)] transition-all">
-            Connect Wallet
-          </button>
+          <ConnectWallet variant="hero" />
         </motion.div>
       </motion.div>
     </section>
