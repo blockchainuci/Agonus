@@ -4,6 +4,7 @@ import { useConnect } from 'wagmi';
 import { useState, useEffect, useRef } from 'react';
 import { Wallet } from 'lucide-react';
 
+//conenct wallet is different for the hero vs the navabar
 interface WalletOptionsProps {
   variant?: 'default' | 'hero';
   className?: string;
@@ -13,9 +14,6 @@ export function WalletOptionsMenu({ variant = 'default', className = '' }: Walle
   const { connectors, connect, isPending } = useConnect();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  // All connectors are specific wallets, no filtering needed
-  const uniqueConnectors = connectors;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -55,7 +53,7 @@ export function WalletOptionsMenu({ variant = 'default', className = '' }: Walle
             <div className="px-3 py-2 text-xs text-gray-400 border-b border-white/10 mb-1">
               Choose a wallet
             </div>
-            {uniqueConnectors.map((connector) => (
+            {connectors.map((connector) => (
               <button
                 key={connector.uid}
                 onClick={() => {
