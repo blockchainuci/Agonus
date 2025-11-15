@@ -86,7 +86,7 @@ class Trade:
         """
         return asdict(self)
 
-ot
+
     
 @dataclass
 class Portfolio:
@@ -106,7 +106,7 @@ class Portfolio:
         num_winning_trades (int): Number of profitable trades.
         num_losing_trades (int): Number of losing trades.
         win_rate (float): Ratio of winning to total trades.
-        roi (float): Overall return on investment (%).
+        roi (float): Overall return on investment.
     """
     agent_id: str
     cash: float
