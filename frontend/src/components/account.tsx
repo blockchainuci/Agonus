@@ -52,7 +52,9 @@ export function Account({ variant = 'default', className = '' }: AccountProps) {
       </button>
 
       {showMenu && (
-        <div className="absolute right-0 mt-2 w-48 bg-[#0A2540] border border-white/10 rounded-md shadow-lg z-50">
+        <div className={`absolute right-0 w-48 bg-[#0A2540] border border-white/10 rounded-md shadow-lg z-50 ${
+          variant === 'hero' ? 'bottom-full mb-2' : 'top-full mt-2'
+        }`}>
           <div className="p-2">
             <div className="px-3 py-2 text-sm text-gray-300 border-b border-white/10">
               {address.slice(0, 10)}...{address.slice(-8)}

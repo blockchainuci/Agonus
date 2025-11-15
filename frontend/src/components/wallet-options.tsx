@@ -48,7 +48,9 @@ export function WalletOptionsMenu({ variant = 'default', className = '' }: Walle
       </button>
 
       {showMenu && (
-        <div className="absolute right-0 mt-2 w-56 bg-[#0A2540] border border-white/10 rounded-md shadow-lg z-50">
+        <div className={`absolute right-0 w-56 bg-[#0A2540] border border-white/10 rounded-md shadow-lg z-50 ${
+          variant === 'hero' ? 'bottom-full mb-2' : 'top-full mt-2'
+        }`}>
           <div className="p-2">
             <div className="px-3 py-2 text-xs text-gray-400 border-b border-white/10 mb-1">
               Choose a wallet
