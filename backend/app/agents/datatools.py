@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 import os
 from typing import Dict, List, Optional
+from dataclasses import Trade, MarketData, Portfolio, TweetPost
 from data_classes import Trade, MarketData, Portfolio, TweetPost
 load_dotenv()
 COINGECKO_KEY = os.getenv("COINGECKO_API_KEY")
