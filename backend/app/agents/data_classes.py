@@ -54,6 +54,7 @@ class Trade:
         confidence (float): Confidence level of the agent's decision (0.0 - 1.0).
         summary (str): Short textual explanation of why the trade was made.
         timestamp (datetime): UTC time when the trade occurred.
+        tx_hash (Optional[str]): Blockchain transaction hash for this trade.
         realized_pnl (Optional[float]): Realized profit or loss from the trade.
         roi (Optional[float]): Return on investment for this trade.
     """
@@ -67,8 +68,9 @@ class Trade:
     confidence: float
     summary: str
     timestamp: datetime
-    realized_pnl: None
-    roi: None
+    tx_hash: Optional[str] = None
+    realized_pnl: Optional[float] = None
+    roi: Optional[float] = None
 
     def value(self):
         """

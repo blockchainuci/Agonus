@@ -7,8 +7,8 @@ import copy
 from dotenv import load_dotenv
 import os
 from typing import Dict, List, Optional
-from dataclasses import Trade, MarketData, Portfolio, TweetPost
-from data_classes import Trade, MarketData, Portfolio, TweetPost
+from .data_classes import Trade, MarketData, Portfolio, TweetPost
+from .onchain import uniswap_client
 load_dotenv()
 COINGECKO_KEY = os.getenv("COINGECKO_API_KEY")
 TWITTER_BEARER = os.getenv("TWITTER_BEARER_TOKEN")
@@ -314,28 +314,25 @@ class TradeTool:
     ----------
     agent_id : str
         Unique identifier of the agent using this trade tool.
-    portfolio_tool : PortfolioTool
-        A reference to the PortfolioTool instance to update agent holdings.
-    market_tool : MarketDataTool
-        A reference to the MarketDataTool instance for live prices.
     """
-    def __init__(self, agent_id: str, portfolio_tool = None, market_tool = None):
+    def __init__(self, agent_id: str):
         self.agent_id = agent_id
     
     def execute_trade(self, action: str, token: str, qty: float, price: float, confidence: float, summary: str) -> Trade:
         """
-        Execute a simulated buy or sell trade and return a Trade object.
+        Execute a real on-chain trade using Uniswap V3 and return a Trade object.
 
         Parameters
         ----------
         action : str
             The trade direction, either "BUY" or "SELL".
         token : str
-            The token symbol (e.g., "ETH", "SOL", "BTC").
+            The token symbol (e.g., "WETH", "cbBTC").
         qty : float
-            The quantity of the token to trade.
+            For BUY: Amount of USDC to spend
+            For SELL: Amount of token to sell
         price : float
-            The price of the trade, (passed in from Agent's MarketDataTool)
+            Reference price from MarketDataTool (for comparison, actual price comes from Uniswap)
         confidence : float
             Confidence score (0.0 to 1.0) in this decision.
         summary : str
@@ -350,53 +347,159 @@ class TradeTool:
         ------
         ValueError
             If invalid action or token is provided.
+        Exception
+            If the swap fails on-chain.
         """
-        pass
+        # Validate action
+        action = action.upper()
+        if action not in ["BUY", "SELL"]:
+            raise ValueError(f"Invalid action: {action}. Must be 'BUY' or 'SELL'")
 
-    def calculate_realized_pnl(self, buy_price: float, sell_price: float, qty: float) -> float:
+        # Validate token - must exactly match TOKEN_ADDRESSES keys
+        token = token.upper()
+        if token not in uniswap_client.TOKEN_ADDRESSES:
+            supported = list(uniswap_client.TOKEN_ADDRESSES.keys())
+            raise ValueError(f"Invalid token: '{token}'. Must be one of {supported}")
+
+        # Generate unique trade ID (timestamp in milliseconds)
+        trade_id = int(time.time() * 1000)
+        timestamp = datetime.now(timezone.utc)
+
+        try:
+            if action == "BUY":
+                # BUY: Spend USDC to buy token
+                swap_result = uniswap_client.buy_token_with_usdc(
+                    agent_id=self.agent_id,
+                    token_symbol=token,
+                    usdc_amount=qty
+                )
+
+                # Extract actual execution data from swap
+                actual_qty = swap_result['amount_out']
+                actual_price = swap_result['effective_price']
+
+            else:  # SELL
+                # SELL: Sell token to receive USDC
+                swap_result = uniswap_client.sell_token_for_usdc(
+                    agent_id=self.agent_id,
+                    token_symbol=token,
+                    token_amount=qty
+                )
+
+                # Extract actual execution data from swap
+                actual_qty = qty
+                actual_price = swap_result['effective_price']
+
+            # Create Trade object with actual execution data
+            trade = Trade(
+                trade_id=trade_id,
+                token=token,
+                agent_id=self.agent_id,
+                action=action,
+                qty=actual_qty,
+                price=actual_price,
+                confidence=confidence,
+                summary=summary,
+                timestamp=timestamp,
+                tx_hash=swap_result['tx_hash'],
+                realized_pnl=None,
+                roi=None
+            )
+
+            return trade
+
+        except Exception as e:
+            error_msg = f"Trade execution failed for {self.agent_id}: {str(e)}"
+            raise Exception(error_msg) from e
+        
+
+
+    def _get_avg_buy_price(self, token: str, trade_history: List[Trade]) -> float:
         """
-        Calculate realized profit or loss for a completed trade.
+        Internal helper to calculate weighted average buy price from trade history.
 
         Parameters
         ----------
-        buy_price : float
-            The price at which the asset was purchased.
-        sell_price : float
-            The price at which the asset was sold.
-        qty : float
-            Quantity of the asset traded.
+        token : str
+            The token symbol to find buy trades for.
+        trade_history : List[Trade]
+            List of all trades from agent's memory.
+
+        Returns
+        -------
+        float
+            Weighted average buy price, or 0.0 if no buy trades found.
+        """
+        buy_trades = [
+            t for t in trade_history
+            if t.token == token and t.action == "BUY"
+        ]
+
+        if not buy_trades:
+            return 0.0
+
+        total_qty = sum(t.qty for t in buy_trades)
+        total_cost = sum(t.qty * t.price for t in buy_trades)
+
+        if total_qty == 0:
+            return 0.0
+
+        return total_cost / total_qty
+
+    def calculate_realized_pnl(self, sell_trade: Trade, trade_history: List[Trade]) -> float:
+        """
+        Calculate realized profit or loss for a SELL trade.
+
+        Parameters
+        ----------
+        sell_trade : Trade
+            The SELL trade to calculate PnL for.
+        trade_history : List[Trade]
+            List of all trades from agent's memory.
 
         Returns
         -------
         float
             Realized profit or loss (positive = profit, negative = loss).
-            Realized PnL formula: PnL = (sell_price - buy_price) * qty
-            Return the value calculated by that formula.
+            Returns 0.0 if no matching BUY trades found.
         """
-        pass
+        avg_buy_price = self._get_avg_buy_price(sell_trade.token, trade_history)
 
-    def calculate_roi(self, realized_pnl: float, buy_price: float, qty: float) -> float:
+        if avg_buy_price == 0:
+            return 0.0
+
+        return (sell_trade.price - avg_buy_price) * sell_trade.qty
+
+    def calculate_roi(self, sell_trade: Trade, trade_history: List[Trade]) -> float:
         """
-        Calculate the return on investment (ROI) for a trade.
+        Calculate the return on investment (ROI) for a SELL trade.
 
         Parameters
         ----------
-        realized_pnl : float
-            Profit or loss from the trade.
-        buy_price : float
-            The price at which the asset was bought.
-        qty : float
-            Quantity traded.
+        sell_trade : Trade
+            The SELL trade to calculate ROI for.
+        trade_history : List[Trade]
+            List of all trades from agent's memory.
 
         Returns
         -------
         float
             ROI as a decimal (e.g., 0.05 = 5% gain, -0.02 = 2% loss).
-            Return realized_pnl / (buy_price * qty) if (buy_price * qty) > 0
-            If not return 0.0.
-            Invested ammount = (buy_price * qty).
+            Returns 0.0 if no matching BUY trades found.
         """
-        pass
+        avg_buy_price = self._get_avg_buy_price(sell_trade.token, trade_history)
+
+        if avg_buy_price == 0:
+            return 0.0
+
+        invested_amount = avg_buy_price * sell_trade.qty
+
+        if invested_amount == 0:
+            return 0.0
+
+        pnl = (sell_trade.price - avg_buy_price) * sell_trade.qty
+
+        return pnl / invested_amount
 
 class PortfolioTool:
     """
