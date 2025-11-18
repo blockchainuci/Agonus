@@ -1,69 +1,92 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from uuid import UUID
-from backend.app.db.database import get_session
+
+from backend.app.db.database import get_db
 from backend.app.db.models import Tournament
+from backend.app.schemas.tournament import (
+    TournamentCreate,
+    TournamentUpdate,
+    TournamentResponse,
+)
 from backend.app.api.deps import require_admin
-#from backend.app.mock_store import MockDataStore, get_store
 
-#prefix and tags in main already so use 
 router = APIRouter()
-#router = APIRouter(prefix = "/tournaments", tags=["tournaments"])
 
 
-@router.get("/")
-def list_tournaments(session: Session = Depends(get_session)) -> list[Tournament]:
-    '''GET route for list of tournaments'''
+@router.get("/", response_model=list[TournamentResponse])
+async def list_tournaments(session: AsyncSession = Depends(get_db)):
+    """GET route for list of tournaments"""
     statement = select(Tournament)
-    return session.exec(statement).all()
+    result = await session.execute(statement)
+    tournaments = result.scalars().all()
+    return tournaments
 
-@router.get("/{tournament_id}")
-def get_tournament(tournament_id: UUID, session: Session = Depends(get_session)) -> Tournament:
-    '''GET route for tournament of tournament_id'''
-    tournament = session.get(Tournament, tournament_id)
+
+@router.get("/{tournament_id}", response_model=TournamentResponse)
+async def get_tournament(tournament_id: UUID, session: AsyncSession = Depends(get_db)):
+    """GET route for tournament by tournament_id"""
+    tournament = await session.get(Tournament, tournament_id)
     if not tournament:
-        raise HTTPException(404, "Tournament Not Found")
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
     return tournament
-    
-@router.post("/")
-def create_tournament(
-    tournament: Tournament,
-    session: Session = Depends(get_session),
-    admin: dict = Depends(require_admin)
-) -> Tournament:
-    session.add(tournament)
-    session.commit()
-    session.refresh(tournament)
-    return tournament
-    
-@router.put("/{tournament_id}")
-def update_tournament(tournament_id: UUID, new_tournament: Tournament, session: Session = Depends(get_session)) -> Tournament:
-    '''PUT route for updating a tournament of tournament_id'''
-    db_tournament = session.get(Tournament, tournament_id)
-    if not db_tournament:
-        raise HTTPException(404, "Tournament Not Found")
 
-    #might be .dict() instead of model dump depending on version
-    update_data = new_tournament.model_dump(exclude_unset=True)
-    update_data.pop("id", None)
-    
+
+@router.post("/", response_model=TournamentResponse, status_code=201)
+async def create_tournament(
+    tournament_data: TournamentCreate,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """POST route to create a new tournament"""
+    # Create tournament from schema
+    tournament = Tournament(**tournament_data.model_dump())
+
+    session.add(tournament)
+    await session.commit()
+    await session.refresh(tournament)
+    return tournament
+
+
+@router.put("/{tournament_id}", response_model=TournamentResponse)
+async def update_tournament(
+    tournament_id: UUID,
+    tournament_data: TournamentUpdate,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """PUT route for updating a tournament"""
+    db_tournament = await session.get(Tournament, tournament_id)
+    if not db_tournament:
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
+
+    # Update only provided fields
+    update_data = tournament_data.model_dump(exclude_unset=True)
+
     for key, value in update_data.items():
         setattr(db_tournament, key, value)
-    
+
     session.add(db_tournament)
-    session.commit()
-    session.refresh(db_tournament)
-    
+    await session.commit()
+    await session.refresh(db_tournament)
+
     return db_tournament
 
+
 @router.delete("/{tournament_id}")
-def delete_tournament(tournament_id: UUID, session: Session = Depends(get_session)) -> dict:
-    '''DELETE route for deleting a tournament of tournament_id'''
-    tournament = session.get(Tournament, tournament_id)
+async def delete_tournament(
+    tournament_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """DELETE route for deleting a tournament"""
+    tournament = await session.get(Tournament, tournament_id)
     if not tournament:
-        raise HTTPException(404, "Tournament Not Found")
-    
-    session.delete(tournament)
-    session.commit()
-    
-    return {"message": f"Tournament {tournament_id} deleted"}
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
+
+    await session.delete(tournament)
+    await session.commit()
+
+    return {"message": f"Tournament {tournament_id} deleted successfully"}
+

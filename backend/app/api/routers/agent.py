@@ -1,63 +1,145 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from uuid import UUID
-from backend.app.db.database import get_session
+
+from backend.app.db.database import get_db
 from backend.app.db.models import Agent
-#from backend.app.mock_store import MockDataStore, get_store
+from backend.app.schemas.agent import AgentCreate, AgentUpdate, AgentResponse
+from backend.app.api.deps import require_admin
 
 router = APIRouter()
 
 
-@router.get("/")
-def list_agents(session: Session = Depends(get_session)) -> list[Agent]:
-    '''GET route for list of agents'''
+@router.get("/", response_model=list[AgentResponse])
+async def list_agents(session: AsyncSession = Depends(get_db)):
+    """GET route for list of all agents"""
     statement = select(Agent)
-    return session.exec(statement).all()
+    result = await session.execute(statement)
+    agents = result.scalars().all()
+    return agents
 
-@router.get("/{agent_id}")
-def get_agent(agent_id: UUID, session: Session = Depends(get_session)) -> Agent:
-    '''GET route for agent of agent_id'''
-    agent = session.get(Agent, agent_id)
+
+@router.get("/{agent_id}", response_model=AgentResponse)
+async def get_agent(agent_id: UUID, session: AsyncSession = Depends(get_db)):
+    """GET route for agent by agent_id"""
+    agent = await session.get(Agent, agent_id)
     if not agent:
-        raise HTTPException(404, "Agent Not Found")
+        raise HTTPException(status_code=404, detail="Agent Not Found")
     return agent
 
-@router.post("/")
-def create_agent(agent: Agent, session: Session = Depends(get_session)) -> Agent:
-    '''POST route for creating an agent'''
+
+@router.get("/{agent_id}/stats", response_model=dict)
+async def get_agent_stats(agent_id: UUID, session: AsyncSession = Depends(get_db)):
+    """GET route for agent statistics across all tournaments"""
+    agent = await session.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent Not Found")
+
+    # Return the stats JSON field
+    return agent.stats
+
+
+@router.post("/", response_model=AgentResponse, status_code=201)
+async def create_agent(
+    agent_data: AgentCreate,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """POST route for creating a new agent (admin only)"""
+    # Create Agent model from schema
+    agent = Agent(**agent_data.model_dump())
+
     session.add(agent)
-    session.commit()
-    session.refresh(agent)
+    await session.commit()
+    await session.refresh(agent)
     return agent
 
-@router.put("/{agent_id}")
-def update_agent(agent_id: UUID, new_agent: Agent, session: Session = Depends(get_session)) -> Agent:
-    '''PUT route for updating an agent of agent_id'''
-    db_agent = session.get(Agent, agent_id)
-    if not db_agent:
-        raise HTTPException(404, "Agent Not Found")
 
-    #might be .dict() instead of model dump depending on version
-    update_data = new_agent.model_dump(exclude_unset=True)
-    update_data.pop("id", None)
-    
+@router.put("/{agent_id}", response_model=AgentResponse)
+async def update_agent(
+    agent_id: UUID,
+    agent_data: AgentUpdate,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """PUT route for updating an agent (admin only)"""
+    db_agent = await session.get(Agent, agent_id)
+    if not db_agent:
+        raise HTTPException(status_code=404, detail="Agent Not Found")
+
+    # Update only provided fields
+    update_data = agent_data.model_dump(exclude_unset=True)
+
     for key, value in update_data.items():
         setattr(db_agent, key, value)
-    
+
     session.add(db_agent)
-    session.commit()
-    session.refresh(db_agent)
-    
+    await session.commit()
+    await session.refresh(db_agent)
+
     return db_agent
 
-@router.delete("/{agent_id}")
-def delete_agent(agent_id: UUID, session: Session = Depends(get_session)) -> dict:
-    '''DELETE route for deleting an agent of agent_id'''
-    agent = session.get(Agent, agent_id)
+
+@router.patch("/{agent_id}/stats", response_model=AgentResponse)
+async def update_agent_stats(
+    agent_id: UUID,
+    stats: dict,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """PATCH route for updating agent stats (admin/system only)"""
+    agent = await session.get(Agent, agent_id)
     if not agent:
-        raise HTTPException(404, "Agent Not Found")
-    
-    session.delete(agent)
-    session.commit()
-    
-    return {"message": f"Agent {agent_id} deleted"}
+        raise HTTPException(status_code=404, detail="Agent Not Found")
+
+    # Merge new stats with existing stats
+    agent.stats = {**agent.stats, **stats}
+
+    session.add(agent)
+    await session.commit()
+    await session.refresh(agent)
+
+    return agent
+
+
+@router.patch("/{agent_id}/memory", response_model=AgentResponse)
+async def update_agent_memory(
+    agent_id: UUID,
+    memory: dict,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """PATCH route for updating agent memory (admin/system only)"""
+    agent = await session.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent Not Found")
+
+    # Merge new memory with existing memory
+    agent.memory = {**agent.memory, **memory}
+
+    session.add(agent)
+    await session.commit()
+    await session.refresh(agent)
+
+    return agent
+
+
+@router.delete("/{agent_id}")
+async def delete_agent(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """DELETE route for deleting an agent (admin only - use with caution)"""
+    agent = await session.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent Not Found")
+
+    # Note: This will fail if agent has related trades/bets due to foreign keys
+    # Consider soft delete instead (add 'active' boolean field)
+    await session.delete(agent)
+    await session.commit()
+
+    return {"message": f"Agent {agent_id} deleted successfully"}
+
