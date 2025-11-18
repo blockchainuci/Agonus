@@ -6,6 +6,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 //define API base URL (ensure hook works both locally and in production)
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000'
 
+type TradePayload = Record<string, unknown>
+
 export function useTrades(tournamentId?: string) {
   return useQuery({
     queryKey: ['trades', tournamentId],
@@ -40,7 +42,7 @@ export function useCreateTrade() {
   
   return useMutation({
     //function that changes data on server
-    mutationFn: async (tradeData: any) => {
+    mutationFn: async (tradeData: TradePayload) => {
       const res = await fetch(`${API_URL}/trades`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

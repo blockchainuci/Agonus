@@ -49,14 +49,14 @@ export default function CenteredAgentCarousel({
   // -------------------------
 
   const animate = useCallback(
-    (now: number) => {
+    function animateFrame(now: number) {
       const elapsed = now - startRef.current;
       const pct = Math.min(elapsed / autoRotateMs, 1);
 
       setProgress(pct * 100);
 
       if (pct < 1) {
-        frameRef.current = requestAnimationFrame(animate);
+        frameRef.current = requestAnimationFrame(animateFrame);
       } else {
         goNext();
       }
@@ -80,7 +80,10 @@ export default function CenteredAgentCarousel({
   // Swipe Gesture Navigation
   // -------------------------
 
-  const onSwipeEnd = (_: any, info: PanInfo) => {
+  const onSwipeEnd = (
+    _: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo
+  ) => {
     if (info.offset.x > 80 || info.velocity.x > 300) {
       goPrev();
     } else if (info.offset.x < -80 || info.velocity.x < -300) {

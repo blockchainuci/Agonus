@@ -4,6 +4,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 //define API base URL (ensure hook works both locally and in production)
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000'
 
+type TournamentPayload = Record<string, unknown>
+
+interface UpdateTournamentInput {
+  tournamentId: string
+  data: Partial<TournamentPayload>
+}
+
 // src/hooks/useTournaments.ts
 
 //GET all tournaments
@@ -40,7 +47,7 @@ export function useCreateTournament() {
   
   return useMutation({
     //function that changes data on server
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: TournamentPayload) => {
       const token = localStorage.getItem('token')
       const res = await fetch(`${API_URL}/tournaments`, {
         method: 'POST',
@@ -68,7 +75,7 @@ export function useUpdateTournament() {
 
   //function changes data on server
   return useMutation({
-    mutationFn: async ({ tournamentId, data }: { tournamentId: string, data: any }) => {
+    mutationFn: async ({ tournamentId, data }: UpdateTournamentInput) => {
       const res = await fetch(`${API_URL}/tournaments/${tournamentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

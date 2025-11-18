@@ -6,6 +6,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 //define API base URL (ensure hook works both locally and in production)
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000'
 
+type BetPayload = Record<string, unknown>
+
+interface UpdateBetInput {
+  betId: string
+  data: Partial<BetPayload>
+}
+
 //GET all bets
 export function useBets() {
   return useQuery({
@@ -40,7 +47,7 @@ export function useCreateBet() {
   
   return useMutation({
     //function that changes data on server
-    mutationFn: async (betData: any) => {
+    mutationFn: async (betData: BetPayload) => {
       const token = localStorage.getItem('token')
       const res = await fetch(`${API_URL}/bets`, {
         method: 'POST',
@@ -69,7 +76,7 @@ export function useUpdateBet() {
     
     //function changes data on server
     return useMutation({
-      mutationFn: async ({ betId, data }: { betId: string, data: any }) => {
+      mutationFn: async ({ betId, data }: UpdateBetInput) => {
         const res = await fetch(`${API_URL}/bets/${betId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },

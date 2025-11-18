@@ -6,6 +6,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 //define API base URL (ensure hook works both locally and in production)
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000'
 
+type AgentPayload = Record<string, unknown>
+
+interface UpdateAgentInput {
+  agentId: string
+  data: Partial<AgentPayload>
+}
+
 
 export function useAgents() {
     //for GET requests
@@ -43,7 +50,7 @@ export function useCreateAgent() {
 
   return useMutation({
     //function that changes data on server
-    mutationFn: async (agentData: any) => {
+    mutationFn: async (agentData: AgentPayload) => {
       const res = await fetch(`${API_URL}/agents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,7 +73,7 @@ export function useUpdateAgent() {
   
   //function changes data on server
   return useMutation({
-    mutationFn: async ({ agentId, data }: { agentId: string, data: any }) => {
+    mutationFn: async ({ agentId, data }: UpdateAgentInput) => {
       const res = await fetch(`${API_URL}/agents/${agentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
