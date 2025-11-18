@@ -47,8 +47,16 @@ async def create_agent(
     admin: dict = Depends(require_admin),
 ):
     """POST route for creating a new agent (admin only)"""
-    # Create Agent model from schema
-    agent = Agent(**agent_data.model_dump())
+    # Create Agent model from schema, excluding None values to use model defaults
+    agent_dict = agent_data.model_dump(exclude_none=True)
+
+    # Ensure stats and memory have default values if not provided
+    if 'stats' not in agent_dict:
+        agent_dict['stats'] = {}
+    if 'memory' not in agent_dict:
+        agent_dict['memory'] = {}
+
+    agent = Agent(**agent_dict)
 
     session.add(agent)
     await session.commit()

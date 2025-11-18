@@ -1,91 +1,253 @@
 import pytest
-from backend.app.api.main import app
-from backend.app.mock_store import MockDataStore, get_store
+from datetime import datetime, timezone, timedelta
+from decimal import Decimal
+from uuid import uuid4
+from backend.app.db.models import Bet, Agent, Tournament
 
-@pytest.fixture
-def store():
-    '''Create the mock store for the bets tests'''
-    s = MockDataStore()
-    app.dependency_overrides[get_store] = lambda: s
-    yield s
-    app.dependency_overrides.clear()
-    s.reset()
-
-def seed_bet(store: MockDataStore, **overrides) -> int:
-    '''Seed the store with bet mock data'''
-    bet_id = store.next_id("bets")
-    store.bets[bet_id] = {
-        "id": bet_id,
-        "tournament_id": 1,
-        "agent_id": 1,
-        "bet_amount": 100.0,
-        "bet_type": "win",
-        "bet_option": "AlphaBot",
-        "status": "active",
-        "placed_at": "2025-11-01T12:00:00Z",
-        **overrides,
-    }
-    return bet_id
 
 @pytest.mark.anyio
-async def test_list_bets_empty(client, store):
+async def test_list_bets_empty(client):
     '''Test for listing empty bets list'''
     r = await client.get("/bets/")
     assert r.status_code == 200
     assert r.json() == []
 
+
 @pytest.mark.anyio
-async def test_list_bets_with_data(client, store):
+async def test_list_bets_with_data(client, test_db):
     '''Test for listing bets'''
-    seed_bet(store, bet_option="AlphaBot")
-    seed_bet(store, bet_option="BetaBot")
+    now = datetime.now(timezone.utc)
+
+    # Create agents and tournament
+    agent1 = Agent(name="AlphaBot", personality="Aggressive", strategy_type="momentum")
+    agent2 = Agent(name="BetaBot", personality="Conservative", strategy_type="value")
+    tournament = Tournament(
+        name="Test Tournament",
+        status="live",
+        start_date=now,
+        end_date=now + timedelta(days=7),
+        prize_pool=Decimal("10000"),
+    )
+
+    test_db.add_all([agent1, agent2, tournament])
+    await test_db.commit()
+    await test_db.refresh(agent1)
+    await test_db.refresh(agent2)
+    await test_db.refresh(tournament)
+
+    # Create bets
+    bet1 = Bet(
+        user_address="0x" + "1" * 40,
+        agent_id=agent1.id,
+        tournament_id=tournament.id,
+        amount=Decimal("100.0"),
+        odds=Decimal("2.5"),
+    )
+    bet2 = Bet(
+        user_address="0x" + "2" * 40,
+        agent_id=agent2.id,
+        tournament_id=tournament.id,
+        amount=Decimal("200.0"),
+        odds=Decimal("1.8"),
+    )
+
+    test_db.add_all([bet1, bet2])
+    await test_db.commit()
+
     r = await client.get("/bets/")
     assert r.status_code == 200, r.text
     data = r.json()
     assert isinstance(data, list)
     assert len(data) == 2
-    options = {b["bet_option"] for b in data}
-    assert {"AlphaBot", "BetaBot"} <= options
+
 
 @pytest.mark.anyio
-async def test_get_bet(client, store):
+async def test_get_bet(client, test_db):
     '''Test for getting bet based on the bet_id'''
-    bet_id = seed_bet(store, bet_option="GammaBot")
-    r = await client.get(f"/bets/{bet_id}")
+    now = datetime.now(timezone.utc)
+
+    agent = Agent(name="GammaBot", personality="Balanced", strategy_type="hybrid")
+    tournament = Tournament(
+        name="Test Tournament",
+        status="live",
+        start_date=now,
+        end_date=now + timedelta(days=7),
+        prize_pool=Decimal("10000"),
+    )
+
+    test_db.add_all([agent, tournament])
+    await test_db.commit()
+    await test_db.refresh(agent)
+    await test_db.refresh(tournament)
+
+    bet = Bet(
+        user_address="0x" + "3" * 40,
+        agent_id=agent.id,
+        tournament_id=tournament.id,
+        amount=Decimal("150.0"),
+        odds=Decimal("3.0"),
+    )
+
+    test_db.add(bet)
+    await test_db.commit()
+    await test_db.refresh(bet)
+
+    r = await client.get(f"/bets/{bet.id}")
     assert r.status_code == 200
-    assert r.json()["bet_option"] == "GammaBot"
+    assert r.json()["amount"] == "150.00"
+
 
 @pytest.mark.anyio
-async def test_create_bet(client, store):
+async def test_get_bet_not_found(client):
+    '''Test for getting non-existent bet'''
+    fake_id = uuid4()
+    r = await client.get(f"/bets/{fake_id}")
+    assert r.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_create_bet(client, test_db, mock_admin):
     '''Test for creating a bet'''
+    now = datetime.now(timezone.utc)
+
+    agent = Agent(name="DeltaBot", personality="Smart", strategy_type="ml")
+    tournament = Tournament(
+        name="Test Tournament",
+        status="live",
+        start_date=now,
+        end_date=now + timedelta(days=7),
+        prize_pool=Decimal("10000"),
+    )
+
+    test_db.add_all([agent, tournament])
+    await test_db.commit()
+    await test_db.refresh(agent)
+    await test_db.refresh(tournament)
+
     body = {
-        "tournament_id": 1,
-        "agent_id": 2,
-        "bet_amount": 250.0,
-        "bet_type": "win",
-        "bet_option": "DeltaBot",
-        "status": "pending",
-        "placed_at": "2025-11-03T15:30:00Z",
+        "user_address": mock_admin["address"],  # This will be overridden by auth
+        "agent_id": str(agent.id),
+        "tournament_id": str(tournament.id),
+        "amount": 250.0,
+        "odds": 2.0,
     }
     r = await client.post("/bets/", json=body)
-    assert r.status_code in (200, 201), r.text
+    assert r.status_code == 201, r.text
     created = r.json()
-    assert created["bet_option"] == "DeltaBot"
+    assert created["amount"] == "250.00"
+    assert "id" in created
+
 
 @pytest.mark.anyio
-async def test_update_bet(client, store):
+async def test_update_bet(client, test_db):
     '''Test for updating a bet based on bet_id'''
-    bet_id = seed_bet(store, status="active")
-    r = await client.put(f"/bets/{bet_id}", json={"status": "settled"})
-    assert r.status_code in (200, 202), r.text
-    assert r.json()["status"] == "settled"
+    now = datetime.now(timezone.utc)
+
+    agent = Agent(name="UpdateBot", personality="Test", strategy_type="test")
+    tournament = Tournament(
+        name="Test Tournament",
+        status="live",
+        start_date=now,
+        end_date=now + timedelta(days=7),
+        prize_pool=Decimal("10000"),
+    )
+
+    test_db.add_all([agent, tournament])
+    await test_db.commit()
+    await test_db.refresh(agent)
+    await test_db.refresh(tournament)
+
+    bet = Bet(
+        user_address="0x" + "4" * 40,
+        agent_id=agent.id,
+        tournament_id=tournament.id,
+        amount=Decimal("100.0"),
+        odds=Decimal("2.0"),
+        settled=False,
+    )
+
+    test_db.add(bet)
+    await test_db.commit()
+    await test_db.refresh(bet)
+
+    r = await client.put(f"/bets/{bet.id}", json={"settled": True, "payout": 200.0})
+    assert r.status_code == 200, r.text
+    assert r.json()["settled"] is True
+    assert r.json()["payout"] == "200.00"
+
 
 @pytest.mark.anyio
-async def test_delete_bet(client, store):
+async def test_settle_bet(client, test_db):
+    '''Test for settling a bet'''
+    now = datetime.now(timezone.utc)
+
+    agent = Agent(name="SettleBot", personality="Test", strategy_type="test")
+    tournament = Tournament(
+        name="Test Tournament",
+        status="live",
+        start_date=now,
+        end_date=now + timedelta(days=7),
+        prize_pool=Decimal("10000"),
+    )
+
+    test_db.add_all([agent, tournament])
+    await test_db.commit()
+    await test_db.refresh(agent)
+    await test_db.refresh(tournament)
+
+    bet = Bet(
+        user_address="0x" + "5" * 40,
+        agent_id=agent.id,
+        tournament_id=tournament.id,
+        amount=Decimal("100.0"),
+        odds=Decimal("2.5"),
+        settled=False,
+    )
+
+    test_db.add(bet)
+    await test_db.commit()
+    await test_db.refresh(bet)
+
+    r = await client.patch(f"/bets/{bet.id}/settle?payout=250.0")
+    assert r.status_code == 200, r.text
+    assert r.json()["settled"] is True
+    assert r.json()["payout"] == "250.00"
+
+
+@pytest.mark.anyio
+async def test_delete_bet(client, test_db):
     '''Test for deleting a bet based on bet_id'''
-    bet_id = seed_bet(store, bet_option="ZetaBot")
-    r = await client.delete(f"/bets/{bet_id}")
-    assert r.status_code in (200, 204), r.text
-    # verify it's gone
-    r2 = await client.get(f"/bets/{bet_id}")
+    now = datetime.now(timezone.utc)
+
+    agent = Agent(name="DeleteBot", personality="Test", strategy_type="test")
+    tournament = Tournament(
+        name="Test Tournament",
+        status="live",
+        start_date=now,
+        end_date=now + timedelta(days=7),
+        prize_pool=Decimal("10000"),
+    )
+
+    test_db.add_all([agent, tournament])
+    await test_db.commit()
+    await test_db.refresh(agent)
+    await test_db.refresh(tournament)
+
+    bet = Bet(
+        user_address="0x" + "6" * 40,
+        agent_id=agent.id,
+        tournament_id=tournament.id,
+        amount=Decimal("50.0"),
+        odds=Decimal("1.5"),
+    )
+
+    test_db.add(bet)
+    await test_db.commit()
+    await test_db.refresh(bet)
+
+    r = await client.delete(f"/bets/{bet.id}")
+    assert r.status_code == 200, r.text
+
+    # Verify it's gone
+    r2 = await client.get(f"/bets/{bet.id}")
     assert r2.status_code == 404
