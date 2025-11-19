@@ -54,11 +54,13 @@ class Trade:
         confidence (float): Confidence level of the agent's decision (0.0 - 1.0).
         summary (str): Short textual explanation of why the trade was made.
         timestamp (datetime): UTC time when the trade occurred.
+        tx_hash (Optional[str]): Blockchain transaction hash for this trade.
         realized_pnl (Optional[float]): Realized profit or loss from the trade.
         roi (Optional[float]): Return on investment for this trade.
     """
 
     trade_id: int
+    token: str
     agent_id: str
     action: str
     qty: float
@@ -66,8 +68,9 @@ class Trade:
     confidence: float
     summary: str
     timestamp: datetime
-    realized_pnl: None
-    roi: None
+    tx_hash: Optional[str] = None
+    realized_pnl: Optional[float] = None
+    roi: Optional[float] = None
 
     def value(self):
         """
@@ -105,7 +108,7 @@ class Portfolio:
         num_winning_trades (int): Number of profitable trades.
         num_losing_trades (int): Number of losing trades.
         win_rate (float): Ratio of winning to total trades.
-        roi (float): Overall return on investment (%).
+        roi (float): Overall return on investment.
     """
     agent_id: str
     cash: float
