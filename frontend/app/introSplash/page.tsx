@@ -12,7 +12,10 @@ export default function IntroPage() {
   const finish = useCallback((delay = 600) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
-    try { document.cookie = 'intro_seen=1; path=/; max-age=31536000'; } catch {}
+    try {
+      document.cookie =
+        "intro_seen=1; path=/; max-age=31536000; samesite=lax";
+    } catch {}
     setFadeOut(true);
     setTimeout(() => router.push("/"), delay);
   }, [router]);

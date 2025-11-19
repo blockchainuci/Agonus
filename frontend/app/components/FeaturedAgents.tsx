@@ -2,17 +2,21 @@
 
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
-import { agents, AgentCard } from './ui/agents';
+import { agents } from './ui/agents';
 import { spacing, typography, layout, animations } from '../design-tokens';
+
+// ⭐ Correct component import
+import CenteredAgentCarousel from './CenteredAgentCarousel';
 
 export default function FeaturedAgents() {
   const ref = useRef(null);
+
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start end', 'end start'],
   });
 
-  // Parallax transforms
+  // Parallax background motion
   const y = useTransform(scrollYProgress, [0, 1], [100, -100]);
   const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
 
@@ -22,7 +26,7 @@ export default function FeaturedAgents() {
       ref={ref}
       className={`${spacing.section.x} ${spacing.section.y} relative overflow-hidden`}
     >
-      {/* Background pattern that moves with parallax */}
+      {/* Background pattern parallax */}
       <motion.div
         className="absolute inset-0 opacity-5 pointer-events-none"
         style={{ y }}
@@ -30,8 +34,7 @@ export default function FeaturedAgents() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage:
-              'radial-gradient(circle, white 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
             backgroundSize: '50px 50px',
           }}
         />
@@ -42,6 +45,7 @@ export default function FeaturedAgents() {
         className={`${layout.container['2xl']} mx-auto relative z-10`}
         style={{ opacity }}
       >
+        {/* Heading */}
         <motion.div
           className="text-center mb-20"
           initial={animations.fadeInUp.initial}
@@ -58,11 +62,8 @@ export default function FeaturedAgents() {
           </p>
         </motion.div>
 
-        <div className={layout.grid.agents}>
-          {agents.map((agent, index) => (
-            <AgentCard key={agent.id} agent={agent} index={index} />
-          ))}
-        </div>
+        {/* ⭐ NEW Centered carousel */}
+        <CenteredAgentCarousel items={agents} />
       </motion.div>
     </section>
   );
