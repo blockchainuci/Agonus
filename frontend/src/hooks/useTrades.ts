@@ -1,13 +1,10 @@
-// src/hooks/useTrades.ts
-
-//import necessary functions from react-query
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { API_URL, getAuthHeaders } from './api'
+import { Trade , ID, CreateTradeData, ApiError} from '../types'
 
-//define API base URL (ensure hook works both locally and in production)
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000'
-
-export function useTrades(tournamentId?: string) {
-  return useQuery({
+// Public GET - can optionally filter by tournament - no auth
+export function useTrades(tournamentId?: ID) {
+  return useQuery<Trade[]>({
     queryKey: ['trades', tournamentId],
     queryFn: async () => {
       const url = tournamentId 
@@ -20,8 +17,9 @@ export function useTrades(tournamentId?: string) {
   })
 }
 
-export function useAgentTrades(agentId: string) {
-  return useQuery({
+//  Public GET - get trades for specific agent - no auth
+export function useAgentTrades(agentId: ID) {
+  return useQuery<Trade[]>({
     queryKey: ['trades', 'agent', agentId],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/trades/agent/${agentId}`)
@@ -33,23 +31,23 @@ export function useAgentTrades(agentId: string) {
 }
 
 
-//POST request to create a new trade
+//  POST - needs auth
 export function useCreateTrade() {
-  //react query auto re-fetches data after mutation  
   const queryClient = useQueryClient()
   
-  return useMutation({
-    //function that changes data on server
-    mutationFn: async (tradeData: any) => {
+  return useMutation<Trade, ApiError, CreateTradeData>({
+    mutationFn: async (tradeData) => {
       const res = await fetch(`${API_URL}/trades`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
         body: JSON.stringify(tradeData)
       })
       if (!res.ok) throw new Error('Failed to create trade')
       return res.json()
     },
-    //runs after successful mutation to refresh trades data
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trades'] })
     }
