@@ -155,11 +155,25 @@ class TestExecuteTradeValidation:
             trade_tool.execute_trade("BUY", "INVALID", 1.0, 0.0, 0.8, "Test")
 
     def test_case_insensitive_action(self, trade_tool):
-        # This will fail at Uniswap level due to no funds, but validates action parsing
-        with pytest.raises(Exception):
+        # Lowercase action should be accepted and converted to uppercase
+        # Should NOT raise ValueError for invalid action
+        try:
             trade_tool.execute_trade("buy", "WETH", 1.0, 0.0, 0.8, "Test")
+        except ValueError as e:
+            if "Invalid action" in str(e):
+                pytest.fail("Should accept lowercase action")
+        except Exception:
+            # Other exceptions (like swap failures) are acceptable
+            pass
 
     def test_case_insensitive_token(self, trade_tool):
-        # This will fail at Uniswap level, but validates token parsing
-        with pytest.raises(Exception):
+        # Lowercase token should be accepted and converted to uppercase
+        # Should NOT raise ValueError for invalid token
+        try:
             trade_tool.execute_trade("BUY", "weth", 1.0, 0.0, 0.8, "Test")
+        except ValueError as e:
+            if "Invalid token" in str(e):
+                pytest.fail("Should accept lowercase token")
+        except Exception:
+            # Other exceptions (like swap failures) are acceptable
+            pass

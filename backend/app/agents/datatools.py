@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import os
 from typing import Dict, List, Optional
 from .data_classes import Trade, MarketData, Portfolio, TweetPost
-from .onchain import uniswap_client
+from .onchain.ts_swap_wrapper import execute_ts_swap
 load_dotenv()
 COINGECKO_KEY = os.getenv("COINGECKO_API_KEY")
 TWITTER_BEARER = os.getenv("TWITTER_BEARER_TOKEN")
@@ -355,11 +355,18 @@ class TradeTool:
         if action not in ["BUY", "SELL"]:
             raise ValueError(f"Invalid action: {action}. Must be 'BUY' or 'SELL'")
 
-        # Validate token - must exactly match TOKEN_ADDRESSES keys
+        # Validate token
         token = token.upper()
-        if token not in uniswap_client.TOKEN_ADDRESSES:
-            supported = list(uniswap_client.TOKEN_ADDRESSES.keys())
-            raise ValueError(f"Invalid token: '{token}'. Must be one of {supported}")
+        supported_tokens = ["WETH", "CBBTC"]
+        if token not in supported_tokens:
+            raise ValueError(f"Invalid token: '{token}'. Must be one of {supported_tokens}")
+
+        # Token decimals for conversion
+        token_decimals = {
+            "USDC": 6,
+            "WETH": 18,
+            "CBBTC": 8
+        }
 
         # Generate unique trade ID (timestamp in milliseconds)
         trade_id = int(time.time() * 1000)
@@ -368,27 +375,40 @@ class TradeTool:
         try:
             if action == "BUY":
                 # BUY: Spend USDC to buy token
-                swap_result = uniswap_client.buy_token_with_usdc(
+                swap_result = execute_ts_swap(
                     agent_id=self.agent_id,
-                    token_symbol=token,
-                    usdc_amount=qty
+                    from_token="USDC",
+                    to_token=token,
+                    amount=qty,
+                    slippage=50
                 )
 
-                # Extract actual execution data from swap
-                actual_qty = swap_result['amount_out']
-                actual_price = swap_result['effective_price']
+                # Convert amount_out from wei to human-readable
+                amount_out_wei = int(swap_result['amount_out'])
+                actual_qty = amount_out_wei / (10 ** token_decimals[token])
+
+                # Calculate actual price (USDC per token)
+                actual_price = qty / actual_qty if actual_qty > 0 else 0
 
             else:  # SELL
                 # SELL: Sell token to receive USDC
-                swap_result = uniswap_client.sell_token_for_usdc(
+                swap_result = execute_ts_swap(
                     agent_id=self.agent_id,
-                    token_symbol=token,
-                    token_amount=qty
+                    from_token=token,
+                    to_token="USDC",
+                    amount=qty,
+                    slippage=50
                 )
 
-                # Extract actual execution data from swap
+                # Convert amount_out from wei to human-readable USDC
+                amount_out_wei = int(swap_result['amount_out'])
+                usdc_received = amount_out_wei / (10 ** token_decimals["USDC"])
+
+                # For SELL, qty stays the same (amount of token sold)
                 actual_qty = qty
-                actual_price = swap_result['effective_price']
+
+                # Calculate actual price (USDC per token)
+                actual_price = usdc_received / qty if qty > 0 else 0
 
             # Create Trade object with actual execution data
             trade = Trade(
