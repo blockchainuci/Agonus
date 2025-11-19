@@ -107,6 +107,7 @@ contract AgonusBetting is Ownable, ReentrancyGuard {
         require(!t.isSettled, "Already settled");
         require(t.totalPool > 0, "No bets placed");
         require(winningAgentId > 0 && winningAgentId <= t.agentCount, "Invalid agent ID");
+        require(agentPools[tournamentId][winningAgentId] > 0, "Winning agent has no bets");
         
         t.isSettled = true;
         t.winningAgentId = winningAgentId;

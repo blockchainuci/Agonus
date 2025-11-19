@@ -8,6 +8,15 @@ venv/
 .env
 .env.local
 *.secret
+*.env
+
+# Trading bot (NEVER COMMIT PRIVATE KEYS)
+backend/trading-bot/.env
+backend/trading-bot/node_modules/
+backend/trading-bot/temp_swap.ts
+trading-bot/.env
+trading-bot/node_modules/
+trading-bot/temp_swap.ts
 
 # Build outputs
 .next/

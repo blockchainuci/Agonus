@@ -1,5 +1,5 @@
 from typing import List, Optional, Any
-from app.agents.dataclasses import Trade
+from backend.app.agents.data_classes import Trade
 
 
 class AgentMemory:
