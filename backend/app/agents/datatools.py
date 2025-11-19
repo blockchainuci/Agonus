@@ -9,6 +9,10 @@ from data_classes import Trade, MarketData, Portfolio, TweetPost
 load_dotenv()
 COINGECKO_KEY = os.getenv("COINGECKO_API_KEY")
 
+class MarketDataError(Exception):
+    pass
+
+
 class MarketDataTool:
     """
     A utility class that provides real-time and historical cryptocurrency market data.
@@ -81,7 +85,7 @@ class MarketDataTool:
         url = self.api_base_url + 'simple/price'
         params = {"symbols": token.lower(), "vs_currencies": "usd"}
         if token.upper() not in self.supported_tokens:
-            raise ValueError("Unsupported token provided")
+            raise MarketDataError("Unsupported token provided")
         try:
             response = requests.get(url, headers=self.headers, params=params)
             if response.status_code == 200:
@@ -91,7 +95,7 @@ class MarketDataTool:
                 print(f'Error message: {response.text}')
                 return None
         except requests.RequestException as e:
-            raise(requests.RequestException)
+            raise MarketDataError(f"Request failed: {e}")
 
     
     def get_price_history(self, token: str, hours: int = 24) -> List[Dict[str, float]]:
@@ -124,7 +128,7 @@ class MarketDataTool:
         days_away = math.ceil(hours / 24)
         params = {"vs_currency": "usd", "days": days_away}
         if token.upper() not in self.supported_tokens:
-            raise ValueError("Unsupported token provided")
+            raise MarketDataError("Unsupported token provided")
 
         try:
             response = requests.get(url, headers=self.headers, params=params)
@@ -135,7 +139,7 @@ class MarketDataTool:
                 print(f'Error message: {response.text}')
                 return None
         except requests.RequestException as e:
-            raise(requests.RequestException)
+            raise MarketDataError(f"Request failed: {e}")
 
     ##Note: This slightly lags real-time 24 hour volume due to API
     def get_volume(self, token: str) -> float:
@@ -166,7 +170,7 @@ class MarketDataTool:
         today_str = today.strftime('%d-%m-%Y')
         params = {"date": today_str}
         if token.upper() not in self.supported_tokens:
-            raise ValueError("Unsupported token provided")
+            raise MarketDataError("Unsupported token provided")
         try:
             response = requests.get(url, headers=self.headers, params=params)
             if response.status_code == 200:
@@ -176,7 +180,7 @@ class MarketDataTool:
                 print(f'Error message: {response.text}')
                 return None
         except requests.RequestException as e:
-            raise(requests.RequestException)
+            raise MarketDataError(f"Request failed: {e}")
         
     
     def get_market_sentiment(self) -> str:
@@ -214,7 +218,7 @@ class MarketDataTool:
                 print(f'Error message: {response.text}')
                 return None
         except requests.RequestException as e:
-            raise(requests.RequestException)
+            raise MarketDataError(f"Request failed: {e}")
     
 
     def _get_moving_average(self, token: str, days: int) -> float:
@@ -225,7 +229,7 @@ class MarketDataTool:
         url = self.api_base_url + f'coins/{token_id}/market_chart'
         params = {"vs_currency": "usd", "days": days}
         if token.upper() not in self.supported_tokens:
-            raise ValueError("Unsupported token provided")
+            raise MarketDataError("Unsupported token provided")
         moving_avg = 0
         try:
             response = requests.get(url, headers=self.headers, params=params)
@@ -250,7 +254,7 @@ class MarketDataTool:
                 print(f'Error message: {response.text}')
                 return None
         except requests.RequestException as e:
-            raise(requests.RequestException)
+            raise MarketDataError(f"Request failed: {e}")
         
 
     def get_market_snapshot(self) -> Dict[str, MarketData]:
@@ -292,7 +296,7 @@ class MarketDataTool:
                     print(f'Failing status code: {response.status_code}')
                     print(f'Error message: {response.text}')
             except requests.RequestException as e:
-                raise(requests.RequestException)
+                raise MarketDataError(f"Request failed: {e}")
             ma_50 = self._get_moving_average(token_key, 50)
             ma_200 = self._get_moving_average(token_key, 200)
             current_market_object = MarketData(token_key, price, market_cap, volume_24h, rsi_14, ma_50, ma_200, timestamp)
