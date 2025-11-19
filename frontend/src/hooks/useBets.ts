@@ -1,114 +1,93 @@
-// src/hooks/useBets.ts
-
-//import necessary functions from react-query
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { API_URL, getAuthHeaders } from './api'
+import { Bet, ID, CreateBetData, UpdateBetData, UserBetsSummary, ApiError} from '../types'
 
-//define API base URL (ensure hook works both locally and in production)
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000'
-
-type BetPayload = Record<string, unknown>
-
-interface UpdateBetInput {
-  betId: string
-  data: Partial<BetPayload>
-}
-
-//GET all bets
+// public GET - get all bets - no auth
 export function useBets() {
-  return useQuery({
-    queryKey: ['bets'],//uqiue key for caching
+  return useQuery<Bet[]>({
+    queryKey: ['bets'],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/bets`)
       if (!res.ok) throw new Error('Failed to fetch bets')
-      return res.json()
-    }//async function to fetch bets data
-  })
-}
-
-
-export function useUserBets() {
-  return useQuery({
-    queryKey: ['my-bets'],
-    queryFn: async () => {
-      const token = localStorage.getItem('token')
-      const res = await fetch(`${API_URL}/bets/my-bets`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (!res.ok) throw new Error('Failed to fetch user bets')
       return res.json()
     }
   })
 }
 
-//POST request to create a new bet
+
+// public GET - get single bet - no auth
+export function useBet(betId: ID) {
+  return useQuery<Bet>({
+    queryKey: ['bets', betId],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/bets/${betId}`)
+      if (!res.ok) throw new Error('Bet not found')
+      return res.json()
+    },
+    enabled: !!betId
+  })
+}
+
+// POST - needs auth
 export function useCreateBet() {
-  //react query auto re-fetches data after mutation
   const queryClient = useQueryClient()
   
-  return useMutation({
-    //function that changes data on server
-    mutationFn: async (betData: BetPayload) => {
-      const token = localStorage.getItem('token')
+  return useMutation<Bet, ApiError, CreateBetData>({
+    mutationFn: async (betData) => {
       const res = await fetch(`${API_URL}/bets`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          ...getAuthHeaders()
         },
         body: JSON.stringify(betData)
       })
       if (!res.ok) throw new Error('Failed to create bet')
       return res.json()
-    },//runs after successful mutation to refresh bets data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bets'] })
-      queryClient.invalidateQueries({ queryKey: ['my-bets'] })
     }
   })
 }
 
-// useUpdateBet and useDeleteBet follow same pattern
-
-//PUT request to update a bet
+//  PUT - needs auth
 export function useUpdateBet() {
-    //auto fetch after mutation
-    const queryClient = useQueryClient()
-    
-    //function changes data on server
-    return useMutation({
-      mutationFn: async ({ betId, data }: UpdateBetInput) => {
-        const res = await fetch(`${API_URL}/bets/${betId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-        if (!res.ok) throw new Error('Failed to update bet')
-        return res.json()
-      },//auto runs on success to refresh bets data
-        onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['bets'] })
-        queryClient.invalidateQueries({ queryKey: ['my-bets'] })
-      } 
-    })
+  const queryClient = useQueryClient()
+  
+  return useMutation<Bet, Error, { betId: ID, data: UpdateBetData }>({
+    mutationFn: async ({ betId, data }) => {
+      const res = await fetch(`${API_URL}/bets/${betId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(data)
+      })
+      if (!res.ok) throw new Error('Failed to update bet')
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bets'] })
+    }
+  })
 }
 
-//DELETE request to delete a bet
+//  DELETE - needs auth
 export function useDeleteBet() {
-    //auto fetch after mutation
-    const queryClient = useQueryClient()            
-
-    //function changes data on server
-    return useMutation({
-      mutationFn: async (betId: string) => {
-        const res = await fetch(`${API_URL}/bets/${betId}`, {
-            method: 'DELETE'
-        })
-        if (!res.ok) throw new Error('Failed to delete bet')
-        return res.json()
-      },//auto runs on success to refresh bets data
-        onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['bets'] })           
-        queryClient.invalidateQueries({ queryKey: ['my-bets'] })
-        }
-    })
+  const queryClient = useQueryClient()
+  
+  return useMutation<void, ApiError, ID>({
+    mutationFn: async (betId) => {
+      const res = await fetch(`${API_URL}/bets/${betId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      })
+      if (!res.ok) throw new Error('Failed to delete bet')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bets'] })
+    }
+  })
 }
