@@ -10,7 +10,7 @@ interface Props {
   autoRotateMs?: number;
 }
 
-const DEFAULT_INTERVAL = 6000;
+const DEFAULT_INTERVAL = 8000;
 
 export default function CenteredAgentCarousel({
   items,
@@ -49,14 +49,14 @@ export default function CenteredAgentCarousel({
   // -------------------------
 
   const animate = useCallback(
-    function animateFrame(now: number) {
+    (now: number) => {
       const elapsed = now - startRef.current;
       const pct = Math.min(elapsed / autoRotateMs, 1);
 
       setProgress(pct * 100);
 
       if (pct < 1) {
-        frameRef.current = requestAnimationFrame(animateFrame);
+        frameRef.current = requestAnimationFrame(animate);
       } else {
         goNext();
       }
@@ -80,10 +80,7 @@ export default function CenteredAgentCarousel({
   // Swipe Gesture Navigation
   // -------------------------
 
-  const onSwipeEnd = (
-    _: MouseEvent | TouchEvent | PointerEvent,
-    info: PanInfo
-  ) => {
+  const onSwipeEnd = (_: any, info: PanInfo) => {
     if (info.offset.x > 80 || info.velocity.x > 300) {
       goPrev();
     } else if (info.offset.x < -80 || info.velocity.x < -300) {
@@ -113,6 +110,7 @@ export default function CenteredAgentCarousel({
 
   return (
     <div className="flex flex-col items-center gap-12 w-full px-4 mx-auto">
+      
       {/* -------------------------
            TOP — CENTERED AGENT CARD
          ------------------------- */}
@@ -156,6 +154,7 @@ export default function CenteredAgentCarousel({
            BOTTOM — CONTROLS
          ------------------------- */}
       <div className="w-full max-w-xl flex items-center justify-center gap-6">
+
         {/* Left Arrow */}
         <button
           onClick={goPrev}
@@ -194,6 +193,7 @@ export default function CenteredAgentCarousel({
         >
           <ChevronRight className="w-6 h-6 text-gray-300 hover:text-yellow-400" />
         </button>
+
       </div>
     </div>
   );

@@ -1,24 +1,29 @@
-# app/db/database.py
-from sqlmodel import Session, create_engine
-from pydantic_settings import BaseSettings
+# backend/app/db/database.py
+import os
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from dotenv import load_dotenv
 
-class Settings(BaseSettings):
-    DATABASE_URL: str
-    class Config:
-        env_file = ".env"
+# Load environment variables
+load_dotenv()
 
-settings = Settings()
+# Create async engine
+engine = create_async_engine(os.getenv("DATABASE_URL"), echo=True)
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    echo=True,
-    pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10,
+# Create async session factory
+AsyncSessionLocal = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
 )
 
-def get_session():
-    with Session(engine) as session:
+
+# Dependency for FastAPI
+async def get_db():
+    async with AsyncSessionLocal() as session:
         yield session
 
 
+# Create tables
+async def init_db():
+    from backend.app.db.models import Base
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
