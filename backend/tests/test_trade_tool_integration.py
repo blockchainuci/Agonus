@@ -75,7 +75,7 @@ class TestRealTrades:
         trade = trade_tool.execute_trade(
             action="SELL",
             token="WETH",
-            qty=0.01,
+            qty=0.003,
             price=0.0,
             confidence=0.75,
             summary="Test sell WETH"
@@ -83,7 +83,7 @@ class TestRealTrades:
 
         assert trade.action == "SELL"
         assert trade.token == "WETH"
-        assert trade.qty == 0.01
+        assert trade.qty == 0.003
         assert trade.price > 0
         assert trade.tx_hash is not None
 

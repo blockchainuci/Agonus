@@ -24,7 +24,7 @@ export async function executeSwap(params: SwapParams) {
   const provider = new ethers.JsonRpcProvider(params.rpcUrl)
   const wallet = new ethers.Wallet(params.walletPrivateKey, provider)
 
-  console.log(`\nSwapping ${ethers.formatUnits(params.amountIn, params.tokenInDecimals)} ${params.tokenInSymbol} -> ${params.tokenOutSymbol}`)
+  console.error(`\nSwapping ${ethers.formatUnits(params.amountIn, params.tokenInDecimals)} ${params.tokenInSymbol} -> ${params.tokenOutSymbol}`)
 
   // 1. Get quote
   const quote = await getQuote({
@@ -36,7 +36,7 @@ export async function executeSwap(params: SwapParams) {
   })
 
   const quoteFormatted = ethers.formatUnits(quote, params.tokenOutDecimals)
-  console.log(`Expected output: ${quoteFormatted} ${params.tokenOutSymbol}`)
+  console.error(`Expected output: ${quoteFormatted} ${params.tokenOutSymbol}`)
 
   // 2. Calculate minimum output with slippage
   const slippageFactor = BigInt(10000 - params.slippageTolerance)
@@ -47,16 +47,16 @@ export async function executeSwap(params: SwapParams) {
   const allowance = await tokenInContract.allowance(wallet.address, SWAP_ROUTER_ADDRESS)
 
   if (allowance < params.amountIn) {
-    console.log('Approving token...')
+    console.error('Approving token...')
     const tokenWithSigner = tokenInContract.connect(wallet) as any
     const approveTx = await tokenWithSigner.approve(SWAP_ROUTER_ADDRESS, ethers.MaxUint256)
     await approveTx.wait()
-    console.log('Approval complete')
+    console.error('Approval complete')
 
     // Wait for nonce to sync
     await new Promise(resolve => setTimeout(resolve, 1000))
   } else {
-    console.log('Already approved')
+    console.error('Already approved')
   }
 
   // 4. Execute swap
@@ -72,15 +72,15 @@ export async function executeSwap(params: SwapParams) {
     sqrtPriceLimitX96: 0,
   }
 
-  console.log('Executing swap...')
+  console.error('Executing swap...')
   const tx = await router.exactInputSingle(swapParams)
   const receipt = await tx.wait()
-  console.log(`✅ Swap complete! Block: ${receipt.blockNumber}`)
+  console.error(`✅ Swap complete! Block: ${receipt.blockNumber}`)
 
   // 5. Check balances
   const tokenOutContract = new ethers.Contract(params.tokenOutAddress, ERC20_ABI, provider)
   const balanceOut = await tokenOutContract.balanceOf(wallet.address)
-  console.log(`Final balance: ${ethers.formatUnits(balanceOut, params.tokenOutDecimals)} ${params.tokenOutSymbol}\n`)
+  console.error(`Final balance: ${ethers.formatUnits(balanceOut, params.tokenOutDecimals)} ${params.tokenOutSymbol}\n`)
 
   return {
     txHash: tx.hash,

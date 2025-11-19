@@ -130,8 +130,13 @@ main();
                         'tx_hash': data['txHash'],
                         'amount_out': data['amountOut']
                     }
+                elif data.get('success') == False:
+                    # Handle explicit failure with error message
+                    raise ValueError(f"Swap failed: {data.get('error', 'Unknown error')}")
 
-        raise ValueError("Could not parse swap result")
+        # If we get here, parsing failed - provide helpful error
+        error_details = f"Could not parse swap result.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        raise ValueError(error_details)
 
     finally:
         # Clean up temp file
