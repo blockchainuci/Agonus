@@ -10,7 +10,7 @@ interface Props {
   autoRotateMs?: number;
 }
 
-const DEFAULT_INTERVAL = 6000;
+const DEFAULT_INTERVAL = 8000;
 
 export default function CenteredAgentCarousel({
   items,
