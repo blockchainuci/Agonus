@@ -1,32 +1,30 @@
-from fastapi import Request
-class MockDataStore:
-    def __init__(self) -> None:
-        '''Initializes the tournaments, agents, bets, and trades dicts as well as the counts for each'''
-        
-        # stores a dict for each type, each dict acting as a table for mock data (dict of dicts)
-        self.tournaments = {}
-        self.agents = {}
-        self.bets = {}
-        self.trades = {}
-        # stores the counts of the items in each table
-        self.counts = {"tournaments" : 0,
-                       "agents" : 0,
-                       "bets" : 0,
-                       "trades" : 0}
+from fastapi import Depends, HTTPException, Header
+from jose import JWTError, jwt
+import os
 
-    def next_id(self, table_name: str) -> int:
-        '''Iterates to next id, imiates the DB's feature of automatically id updating'''
-        self.counts[table_name] += 1
-        return self.counts[table_name]
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
+ALGORITHM = "HS256"
+
+def get_current_user(authorization: str = Header(...)) -> dict:
+    """Verify JWT token"""
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Invalid authorization header")
     
-    def reset(self) -> None:
-        '''Resets this "data store"'''
-        self.__init__()
+    token = authorization.split(" ")[1]
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_address: str = payload.get("sub")
+        role: str = payload.get("role")
+        
+        if user_address is None:
+            raise HTTPException(401, "Invalid token")
+            
+        return {"address": user_address, "role": role}
+    except JWTError:
+        raise HTTPException(401, "Invalid token")
 
-def get_store(request: Request) -> MockDataStore:
-    '''Returns the store for the request, if none then creates a new, empty store'''
-    if not hasattr(request.app.state, "store"):
-        request.app.state.store = MockDataStore()
-    return request.app.state.store
-
-
+def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user.get("role") != "admin":
+        raise HTTPException(403, "Admin access required")
+    return user
