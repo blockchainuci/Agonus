@@ -14,7 +14,7 @@ import { CandlestickSeries } from 'lightweight-charts';
 
 export default function CandleChart() {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
-  const [timeframe, setTimeframe] = useState('5m');
+  const [timeframe, setTimeframe] = useState('1h');
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
@@ -57,25 +57,7 @@ export default function CandleChart() {
       });
 
       // Format data for the chart
-      const formattedData = mockOhlcv.map((d: any) => {
-        // Try candlestick format first
-        if (d.ohlc) {
-          return {
-            time: d.time,
-            open: d.ohlc.open,
-            high: d.ohlc.high,
-            low: d.ohlc.low,
-            close: d.ohlc.close,
-          };
-        }
-        // Fallback to simple line format
-        return {
-          time: d.time,
-          value: d.ohlc?.close || d.value || 2440,
-        };
-      });
-
-      candlestickSeries.setData(formattedData);
+      candlestickSeries.setData(mockOhlcv);
       chart.timeScale().fitContent();
 
       // Handle resize
@@ -99,7 +81,7 @@ export default function CandleChart() {
   }, [isFullscreen]);
 
   const timeframes = ['1m', '5m', '15m', '1h', '4h', '1d'];
-  const currentPrice = mockOhlcv?.[mockOhlcv.length - 1]?.ohlc?.close || 2508.50;
+  const currentPrice = mockOhlcv?.[mockOhlcv.length - 1].close;
   const change24h = 5.2;
   const volume24h = 1200000;
 
@@ -166,7 +148,11 @@ export default function CandleChart() {
       </div>
 
       {/* Chart */}
-      <div ref={chartContainerRef} className="relative bg-black/20" />
+      <div 
+        ref={chartContainerRef} 
+        className="relative bg-black/20 w-full h-[400px] overflow-hidden" 
+      />
+      
 
       {/* Footer */}
       <div className="px-6 py-4 border-t border-white/10">

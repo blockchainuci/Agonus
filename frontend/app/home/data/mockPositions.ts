@@ -25,3 +25,4 @@ export const mockPositions = [
       current_value_usd: 500,
     },
   ];
+
