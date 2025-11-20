@@ -13,6 +13,11 @@ TWITTER_BEARER = os.getenv("TWITTER_BEARER_TOKEN")
 UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024
 
 
+class TweetPostError(Exception):
+    """Custom exception for TweetPostTool errors."""
+    pass
+
+
 class TweetPostTool:
     """Publish tweets and upload media via Twitter/X API."""
     def __init__(self, agent_id: int, api_bearer: str = None):
@@ -32,7 +37,7 @@ class TweetPostTool:
                    media_url: Optional[str] = None, reply_to_id: Optional[str] = None,
                    personality_signature: Optional[str] = None) -> TweetPost:
         if not self.api_bearer:
-            raise requests.HTTPError("Twitter bearer token is missing, unable to authenticate the API request.")
+            raise TweetPostError("Twitter bearer token is missing, unable to authenticate the API request.")
         if not content:
             raise ValueError("Tweet content cannot be empty.")
 
@@ -47,14 +52,14 @@ class TweetPostTool:
                 media_id = self._upload_media(media_url)
                 payload["media"] = {"media_ids": [media_id]}
             except Exception as e:
-                raise requests.HTTPError(f"Media upload failed: {str(e)}")
+                raise TweetPostError(f"Media upload failed: {str(e)}")
         if reply_to_id:
             payload["reply"] = {"in_reply_to_tweet_id": reply_to_id}
 
         try:
             response = requests.post(url, json=payload, headers=self.post_headers)
             if response.status_code != 201:
-                raise requests.HTTPError(
+                raise TweetPostError(
                     f"Error occured when attempting to connect with Twitter API: {response.status_code} {response.text}"
                 )
             data = response.json().get("data", {})
@@ -70,15 +75,15 @@ class TweetPostTool:
                 personality_signature=personality_signature,
             )
         except requests.RequestException as e:
-            raise requests.HTTPError(f"Failed to connect to the Twitter API due to {str(e)}")
+            raise TweetPostError(f"Failed to connect to the Twitter API due to {str(e)}")
 
     def _upload_media(self, media_url: str) -> str:
         try:
             file_response = requests.get(media_url)
             if file_response.status_code != 200:
-                raise requests.HTTPError(f"Failed to download media from provided URL: {media_url}")
+                raise TweetPostError(f"Failed to download media from provided URL: {media_url}")
         except requests.RequestException as e:
-            raise requests.HTTPError(f"Error occured while trying to download media due to: {str(e)}")
+            raise TweetPostError(f"Error occured while trying to download media due to: {str(e)}")
 
         file_bytes = file_response.content
         file_size = len(file_bytes)
@@ -99,10 +104,10 @@ class TweetPostTool:
                 files={"media": ("file", file_bytes, mime_type)},
             )
             if response.status_code != 200:
-                raise requests.HTTPError(f"Simple upload failed due to: {response.text}")
+                raise TweetPostError(f"Simple upload failed due to: {response.text}")
             return response.json().get("media_id_string")
         except requests.RequestException as e:
-            raise requests.HTTPError(f"Simple upload failed due to: {str(e)}")
+            raise TweetPostError(f"Simple upload failed due to: {str(e)}")
 
     def _chunked_upload(self, file_bytes: bytes, mime_type: str) -> str:
         media_id = self._init_chunked_upload(file_bytes, mime_type)
@@ -113,7 +118,7 @@ class TweetPostTool:
     def _init_chunked_upload(self, file_bytes: bytes, mime_type: str) -> str:
         try:
             if not mime_type.startswith("video/"):
-                raise requests.HTTPError("Chunked upload only supported for video types.")
+                raise TweetPostError("Chunked upload only supported for video types.")
             params = {
                 "command": "INIT",
                 "media_type": mime_type,
@@ -122,13 +127,13 @@ class TweetPostTool:
             }
             response = requests.post(self.upload_url, headers={"Authorization": f"Bearer {self.api_bearer}"}, data=params)
             if response.status_code != 200:
-                raise requests.HTTPError(f"INIT failed: {response.status_code} {response.text}")
+                raise TweetPostError(f"INIT failed: {response.status_code} {response.text}")
             media_id = response.json().get("media_id_string")
             if not media_id:
-                raise requests.HTTPError("INIT response missing media id string.")
+                raise TweetPostError("INIT response missing media id string.")
             return media_id
         except requests.RequestException as e:
-            raise requests.HTTPError(f"INIT request failed: {str(e)}")
+            raise TweetPostError(f"INIT request failed: {str(e)}")
 
     def _append_chunked_upload(self, file_bytes: bytes, media_id: str) -> None:
         segment_index = 0
@@ -143,11 +148,11 @@ class TweetPostTool:
                     files={"media": ("chunk", chunk, "application/octet-stream")},
                 )
                 if response.status_code not in (204, 202):
-                    raise requests.HTTPError(
+                    raise TweetPostError(
                         f"APPEND failed at segment {segment_index}: {response.status_code} {response.text}"
                     )
             except requests.RequestException as e:
-                raise requests.HTTPError(f"APPEND request failed: {str(e)}")
+                raise TweetPostError(f"APPEND request failed: {str(e)}")
             segment_index += 1
 
     def _finalize_chunked_upload(self, media_id: str) -> None:
@@ -155,7 +160,7 @@ class TweetPostTool:
         try:
             response = requests.post(self.upload_url, headers={"Authorization": f"Bearer {self.api_bearer}"}, data=params)
             if response.status_code not in (200, 201, 202):
-                raise requests.HTTPError(f"FINALIZE failed: {response.status_code} {response.text}")
+                raise TweetPostError(f"FINALIZE failed: {response.status_code} {response.text}")
             processing_info = response.json().get("processing_info")
             if not processing_info:
                 return
@@ -163,11 +168,11 @@ class TweetPostTool:
             if state == "succeeded":
                 return
             elif state == "failed":
-                raise requests.HTTPError("Video processing failed after FINALIZE.")
+                raise TweetPostError("Video processing failed after FINALIZE.")
             check_after = processing_info.get("check_after_secs", 1)
             self._poll_status(media_id, check_after)
         except requests.RequestException as e:
-            raise requests.HTTPError(f"FINALIZE request failed: {str(e)}")
+            raise TweetPostError(f"FINALIZE request failed: {str(e)}")
 
     def _poll_status(self, media_id: str, initial_delay: int = 1) -> None:
         delay = initial_delay
@@ -178,14 +183,14 @@ class TweetPostTool:
             try:
                 response = requests.post(self.upload_url, headers={"Authorization": f"Bearer {self.api_bearer}"}, data=params)
                 if response.status_code != 200:
-                    raise requests.HTTPError(f"STATUS failed: {response.status_code} {response.text}")
+                    raise TweetPostError(f"STATUS failed: {response.status_code} {response.text}")
                 processing_info = response.json().get("processing_info", {})
                 state = processing_info.get("state")
                 if state == "succeeded":
                     return
                 elif state == "failed":
-                    raise requests.HTTPError("Video processing failed during STATUS polling.")
+                    raise TweetPostError("Video processing failed during STATUS polling.")
                 delay = processing_info.get("check_after_secs", delay)
             except requests.RequestException as e:
-                raise requests.HTTPError(f"STATUS request failed: {str(e)}")
-        raise requests.HTTPError("Video processing timed out during STATUS polling.")
+                raise TweetPostError(f"STATUS request failed: {str(e)}")
+        raise TweetPostError("Video processing timed out during STATUS polling.")
