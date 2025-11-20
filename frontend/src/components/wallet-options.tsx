@@ -1,6 +1,6 @@
 'use client';
 
-import { useConnect } from 'wagmi';
+import { useConnect, useAccount, useSignMessage } from 'wagmi';
 import { useState, useEffect, useRef } from 'react';
 import { Wallet } from 'lucide-react';
 
@@ -14,6 +14,36 @@ export function WalletOptionsMenu({ variant = 'default', className = '' }: Walle
   const { connectors, connect, isPending } = useConnect();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
+
+
+  const handleAuth = async (walletAddress: string) => {
+    try {
+      const signature = await signMessageAsync({
+        message: `Sign in to Agonus`,
+      });
+
+      const response = await fetch('/api/auth/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: walletAddress, signature })
+      });
+
+      const { token } = await response.json();
+
+      // Store JWT token
+      localStorage.setItem('agonus_jwt', token);
+    } catch (err) {
+      console.error('Authentication failed:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isConnected && address) {
+      handleAuth(address);
+    }
+  }, [isConnected, address]);
 
   // Close menu when clicking outside
   useEffect(() => {

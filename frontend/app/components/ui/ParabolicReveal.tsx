@@ -1,9 +1,15 @@
 'use client';
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 
 export default function ParabolicReveal() {
+  const [mounted, setMounted] = useState(false);
   const [progress, setProgress] = useState(0.4);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Only render on client to avoid hydration mismatches
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const width = 600;
   const height = 300;
@@ -70,6 +76,15 @@ export default function ParabolicReveal() {
   const xTicks = 10;
   const yTicks = 4;
   const tickLength = 6;
+
+  // Don't render until mounted on client to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="w-[600px] h-[300px] rounded-xl shadow-lg bg-gray-900/40 backdrop-blur-md" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center py-16">

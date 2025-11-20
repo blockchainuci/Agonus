@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#projectID
+a7265c85f8d632dd4a9c0c035ec56da6
