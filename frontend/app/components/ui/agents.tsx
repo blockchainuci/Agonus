@@ -67,6 +67,8 @@ export const agents = [
 ];
 export type Agent = typeof agents[number];
 
+export type Agent = (typeof agents)[number];
+
 const badgeColors = {
   blue: 'bg-blue-400/10 text-blue-400 ring-1 ring-blue-400/30',
   red: 'bg-red-400/10 text-red-400 ring-1 ring-red-400/30',

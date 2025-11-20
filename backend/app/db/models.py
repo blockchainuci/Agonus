@@ -1,160 +1,137 @@
-# from typing import List
-# from typing import Optional
-# from sqlalchemy import ForeignKey
-# from sqlalchemy import String, Numeric, Integer, UUID
-# from sqlalchemy import DateTime, func
-# from sqlalchemy.orm import DeclarativeBase
-# from sqlalchemy.orm import Mapped
-# from sqlalchemy.orm import mapped_column
-# from sqlalchemy.orm import relationship
-
-##LEAVING SQLACLHEMY STUFF IN CASE WE HAVE TO TRANSITION BACK FOR EFFECTIVE ASYNC SUPPORT
 from __future__ import annotations
-from datetime import datetime
-from uuid import UUID
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 from decimal import Decimal
-from typing import List, Optional, Any
+from typing import Optional, Any
 import enum
 
-from sqlmodel import SQLModel, Field, Column, JSON, Enum as SQLEnum, Relationship
-from pydantic import ConfigDict
+from sqlalchemy import String, Numeric, Integer, Enum as SQLEnum, Index
+from sqlalchemy import ForeignKey, JSON
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
-#ENUMS
-class StatusEnum(enum.Enum):
+# BASE
+class Base(DeclarativeBase):
+    pass
+
+
+# ENUMS
+class StatusEnum(str, enum.Enum):
     upcoming = "upcoming"
     live = "live"
     completed = "completed"
 
 
-class ActionEnum(enum.Enum):
+class ActionEnum(str, enum.Enum):
     buy = "buy"
     sell = "sell"
     hold = "hold"
 
 
-#MODELS
-class Tournament(SQLModel, table=True):
+# MODELS
+class Tournament(Base):
     __tablename__ = "tournament"
 
-    id: Optional[UUID] = Field(default=None, primary_key=True)
-    name: str
-    status: StatusEnum = Field(sa_column=Column(SQLEnum(StatusEnum)))
-    start_date: datetime
-    end_date: datetime
-    prize_pool: Decimal
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    winner_agent_id: Optional[UUID] = Field(default=None, foreign_key="agent.id")
+    __table_args__ = (
+        Index("ix_tournament_status", "status"),
+        Index("ix_tournament_dates", "start_date", "end_date"),
+    )
 
-    trades: List[Trade] = Relationship(back_populates="tournament")
-    bets: List[Bet] = Relationship(back_populates="tournament")
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String, index=True)
+    status: Mapped[StatusEnum] = mapped_column(SQLEnum(StatusEnum, native_enum=False))
+    start_date: Mapped[datetime] = mapped_column()
+    end_date: Mapped[datetime] = mapped_column()
+    prize_pool: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=2))
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc)
+    )
+    winner_agent_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("agent.id"), index=True, default=None
+    )
 
-    # ✅ Allow arbitrary SQLAlchemy types
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    # Relationships - clean and simple!
+    trades: Mapped[list["Trade"]] = relationship(back_populates="tournament")
+    bets: Mapped[list["Bet"]] = relationship(back_populates="tournament")
 
 
-class Agent(SQLModel, table=True):
+class Agent(Base):
     __tablename__ = "agent"
 
-    id: Optional[UUID] = Field(default=None, primary_key=True)
-    name: str
-    personality: str
-    strategy_type: str
-    avatar_url: Optional[str] = None
-    stats: Optional[Any] = Field(default=None, sa_column=Column(JSON))
-    memory: Optional[Any] = Field(default=None, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String, index=True)
+    personality: Mapped[str] = mapped_column(String)
+    strategy_type: Mapped[str] = mapped_column(String, index=True)
+    avatar_url: Mapped[Optional[str]] = mapped_column(String, default=None)
+    stats: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    memory: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc)
+    )
 
-    trades: List[Trade] = Relationship(back_populates="agent")
-    bets: List[Bet] = Relationship(back_populates="agent")
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    trades: Mapped[list["Trade"]] = relationship(back_populates="agent")
+    bets: Mapped[list["Bet"]] = relationship(back_populates="agent")
 
 
-class AgentState(SQLModel, table=True):
+class AgentState(Base):
     __tablename__ = "agent_state"
 
-    agent_id: UUID = Field(foreign_key="agent.id", primary_key=True)
-    tournament_id: UUID = Field(foreign_key="tournament.id", primary_key=True)
-    portfolio: Any = Field(sa_column=Column(JSON))
-    portfolio_value_usd: Decimal
-    rank: int
-    trades_count: int
-    last_decision: str
-    updated_at: datetime
+    agent_id: Mapped[UUID] = mapped_column(ForeignKey("agent.id"), primary_key=True)
+    tournament_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tournament.id"), primary_key=True
+    )
+    portfolio: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    portfolio_value_usd: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=2))
+    rank: Mapped[int] = mapped_column(Integer)
+    trades_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_decision: Mapped[str] = mapped_column(String)
+    updated_at: Mapped[datetime] = mapped_column()
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-
-class Trade(SQLModel, table=True):
+class Trade(Base):
     __tablename__ = "trade"
 
-    id: Optional[UUID] = Field(default=None, primary_key=True)
-    agent_id: UUID = Field(foreign_key="agent.id")
-    tournament_id: UUID = Field(foreign_key="tournament.id")
-    action: ActionEnum = Field(sa_column=Column(SQLEnum(ActionEnum)))
-    asset: str
-    amount: Decimal
-    price: Decimal
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    __table_args__ = (
+        Index("ix_trade_agent_tournament", "agent_id", "tournament_id"),
+        Index("ix_trade_timestamp", "timestamp"),
+    )
 
-    tournament: Optional[Tournament] = Relationship(back_populates="trades")
-    agent: Optional[Agent] = Relationship(back_populates="trades")
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    agent_id: Mapped[UUID] = mapped_column(ForeignKey("agent.id"), index=True)
+    tournament_id: Mapped[UUID] = mapped_column(ForeignKey("tournament.id"), index=True)
+    action: Mapped[ActionEnum] = mapped_column(SQLEnum(ActionEnum, native_enum=False))
+    asset: Mapped[str] = mapped_column(String, index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=8))
+    price: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=8))
+    timestamp: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc)
+    )
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    tournament: Mapped["Tournament"] = relationship(back_populates="trades")
+    agent: Mapped["Agent"] = relationship(back_populates="trades")
 
 
-class Bet(SQLModel, table=True):
+class Bet(Base):
     __tablename__ = "bet"
 
-    id: UUID = Field(primary_key=True)
-    user_address: str
-    agent_id: UUID = Field(foreign_key="agent.id")
-    tournament_id: UUID = Field(foreign_key="tournament.id")
-    amount: Decimal
-    odds: Decimal
-    placed_at: datetime = Field(default_factory=datetime.utcnow())
-    settled: bool
-    payout: Optional[Decimal] = None
+    __table_args__ = (
+        Index("ix_bet_user_tournament", "user_address", "tournament_id"),
+        Index("ix_bet_settled", "settled"),
+    )
 
-    tournament: Optional[Tournament] = Relationship(back_populates="bets")
-    agent: Optional[Agent] = Relationship(back_populates="bets")
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    user_address: Mapped[str] = mapped_column(String, index=True)
+    agent_id: Mapped[UUID] = mapped_column(ForeignKey("agent.id"), index=True)
+    tournament_id: Mapped[UUID] = mapped_column(ForeignKey("tournament.id"), index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=2))
+    odds: Mapped[Decimal] = mapped_column(Numeric(precision=10, scale=2))
+    placed_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc)
+    )
+    settled: Mapped[bool] = mapped_column(default=False)
+    payout: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(precision=20, scale=2), default=None
+    )
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-# class Tournament(Base):
-#     __tablename__ = "tournament"
-
-#     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-#     name: Mapped[str] = mapped_column(nullable=False)
-#     status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum, native_enum=True), nullable=False)
-#     start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-#     end_date : Mapped[datetime] = mapped_column(DateTime, nullable=False)
-#     prize_pool: Mapped[Numeric] = mapped_column(Numeric, nullable=False)
-#     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-#     winner_agent_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('agent.id'))
-
-# class Agent(Base):
-#     __tablename__ = "agent"
-
-#     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-#     name: Mapped[str] = mapped_column(String, nullable=False)
-#     personality: Mapped[str] = mapped_column(String, nullable=False)
-#     strategy_type: Mapped[str] = mapped_column(String, nullable=False)
-#     avatar_url: Mapped[str] = mapped_column(String, nullable=True)
-#     stats: Mapped[JSON] = mapped_column(JSON, nullable=False)
-#     memory: Mapped[JSON] = mapped_column(JSON, nullable=False)
-#     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-# class AgentState(Base):
-#     __tablename__ = "agent_state"
-
-#     agent_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('agent.id'), primary_key=True)
-#     tournament_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('tournament.id'), primary_key=True)
-#     portfolio: Mapped[JSON] = mapped_column(JSON, nullable=False)
-#     portfolio_value_usd: Mapped[Numeric] = mapped_column(Numeric, nullable = False)
-#     rank: Mapped[Integer] = mapped_column(Integer, nullable=False)
-#     trades_count: Mapped[Integer] = mapped_column(Integer, nullable=False)
-#     last_decision: Mapped[str] = mapped_column(String, nullable=False)
-#     updated_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False)
-
+    tournament: Mapped["Tournament"] = relationship(back_populates="bets")
+    agent: Mapped["Agent"] = relationship(back_populates="bets")
