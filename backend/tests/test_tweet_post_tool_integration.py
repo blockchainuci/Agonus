@@ -10,7 +10,7 @@ Run: pytest backend/tests/test_tweet_post_tool_integration.py -v -s
 import pytest
 import os
 
-from app.agents.tools.tweet_post_tool import TweetPostTool, TweetPostError
+from backend.app.agents.tools.tweet_post_tool import TweetPostTool, TweetPostError
 
 
 @pytest.fixture(scope="module")

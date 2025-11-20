@@ -6,8 +6,8 @@ Run: pytest backend/tests/test_trade_tool.py -v
 
 import pytest
 from datetime import datetime, timezone
-from app.agents.tools import TradeTool
-from app.agents.data_classes import Trade
+from backend.app.agents.tools import TradeTool
+from backend.app.agents.data_classes import Trade
 
 
 @pytest.fixture
