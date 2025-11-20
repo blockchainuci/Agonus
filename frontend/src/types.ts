@@ -71,7 +71,7 @@ export interface CreateTournamentData {
     description?: string;
     entry_fee?: number;
     max_participants?: number;
-    rules?: Record<string, any>;
+    rules?: Record<string, unknown>;
 }
 
 export interface UpdateTournamentData extends Partial<CreateTournamentData> {

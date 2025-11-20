@@ -18,29 +18,28 @@ export function WalletOptionsMenu({ variant = 'default', className = '' }: Walle
   const { signMessageAsync } = useSignMessage();
 
 
-  const handleAuth = async (address: string) => {
-  try {
-    const signature = await signMessageAsync({
-      message: `Sign in to Agonus`,
-    });
+  const handleAuth = async (walletAddress: string) => {
+    try {
+      const signature = await signMessageAsync({
+        message: `Sign in to Agonus`,
+      });
 
-    const response = await fetch('/api/auth/wallet', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, signature })
-    });
+      const response = await fetch('/api/auth/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: walletAddress, signature })
+      });
 
-    const { token } = await response.json();
+      const { token } = await response.json();
 
+      // Store JWT token
+      localStorage.setItem('agonus_jwt', token);
+    } catch (err) {
+      console.error('Authentication failed:', err);
+    }
+  };
 
-    // Store JWT token
-    localStorage.setItem('agonus_jwt', token);
-
-  } catch (err) {
-    console.error('Authentication failed:', err);
-  }
-};
-    useEffect(() => {
+  useEffect(() => {
     if (isConnected && address) {
       handleAuth(address);
     }
