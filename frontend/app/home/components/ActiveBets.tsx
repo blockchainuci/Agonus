@@ -14,7 +14,7 @@ export default function ActiveBets() {
           {active.map((bet) => (
             <div key={bet.id} className="border border-white/5 rounded-lg p-3">
               <p className="font-medium text-white">{bet.agent}</p>
-              <p className="text-gray-400 text-sm">{bet.amount} ETH</p>
+              <p className="text-gray-400 text-sm">{bet.amount_eth} ETH</p>
             </div>
           ))}
         </div>

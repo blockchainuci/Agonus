@@ -65,6 +65,7 @@ export const agents = [
     trend: 'up',
   },
 ];
+export type Agent = typeof agents[number];
 
 const badgeColors = {
   blue: 'bg-blue-400/10 text-blue-400 ring-1 ring-blue-400/30',
