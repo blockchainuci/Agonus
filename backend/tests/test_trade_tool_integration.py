@@ -11,7 +11,7 @@ Run: pytest backend/tests/test_trade_tool_integration.py -v -s
 """
 
 import pytest
-from app.agents.datatools import TradeTool
+from app.agents.tools import TradeTool
 
 
 @pytest.fixture(scope="module")

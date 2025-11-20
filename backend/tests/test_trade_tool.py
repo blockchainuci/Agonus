@@ -6,7 +6,7 @@ Run: pytest backend/tests/test_trade_tool.py -v
 
 import pytest
 from datetime import datetime, timezone
-from app.agents.datatools import TradeTool
+from app.agents.tools import TradeTool
 from app.agents.data_classes import Trade
 
 
