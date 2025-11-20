@@ -8,6 +8,10 @@ from ..onchain.ts_swap_wrapper import execute_ts_swap
 
 logger = logging.getLogger(__name__)
 
+class TradeToolError(Exception):
+    '''Custom exception for TradeTool errors.'''
+    pass
+
 
 class TradeTool:
     """Execute on-chain trades and helper calculations."""
@@ -19,13 +23,13 @@ class TradeTool:
         action = action.upper()
         if action not in ["BUY", "SELL"]:
             logger.error(f"Invalid action: {action}")
-            raise ValueError(f"Invalid action: {action}. Must be 'BUY' or 'SELL'")
+            raise TradeToolError(f"Invalid action {action}. Must be 'BUY' or 'SELL'")
 
         token = token.upper()
         supported_tokens = ["WETH", "CBBTC"]
         if token not in supported_tokens:
             logger.error(f"Invalid token: {token}")
-            raise ValueError(f"Invalid token: '{token}'. Must be one of {supported_tokens}")
+            raise TradeToolError(f"Invalid token: '{token}'. Must be one of {supported_tokens}")
 
         token_decimals = {
             "USDC": 6,
@@ -88,7 +92,7 @@ class TradeTool:
         except Exception as e:
             error_msg = f"Trade execution failed for {self.agent_id}: {str(e)}"
             logger.error(error_msg)
-            raise Exception(error_msg) from e
+            raise TradeToolError(error_msg) from e
 
     def _get_avg_buy_price(self, token: str, trade_history: List[Trade]) -> float:
         buy_trades = [t for t in trade_history if t.token == token and t.action == "BUY"]
