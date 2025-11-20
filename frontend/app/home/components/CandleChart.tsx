@@ -10,6 +10,7 @@ import {
   Activity
 } from 'lucide-react';
 import { mockOhlcv } from '../data/mockOhlcv';
+import { CandlestickSeries } from 'lightweight-charts';
 
 export default function CandleChart() {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
@@ -19,7 +20,7 @@ export default function CandleChart() {
   useEffect(() => {
     if (!chartContainerRef.current || !mockOhlcv || mockOhlcv.length === 0) return;
 
-    // Dynamically import lightweight-charts only on client
+    // dynamically import lightweight-charts only on client
     import('lightweight-charts').then((LightweightCharts) => {
       if (!chartContainerRef.current) return;
 
@@ -47,37 +48,13 @@ export default function CandleChart() {
         },
       });
 
-      // Try different methods based on version
-      let candlestickSeries;
-      
-      try {
-        // Try v4+ method first
-        candlestickSeries = (chart as any).addCandlestickSeries({
-          upColor: '#10b981',
-          downColor: '#ef4444',
-          borderVisible: false,
-          wickUpColor: '#10b981',
-          wickDownColor: '#ef4444',
-        });
-      } catch (e1) {
-        try {
-          // Try v3 method
-          candlestickSeries = (chart as any).addSeries('Candlestick', {
-            upColor: '#10b981',
-            downColor: '#ef4444',
-            borderVisible: false,
-            wickUpColor: '#10b981',
-            wickDownColor: '#ef4444',
-          });
-        } catch (e2) {
-          // Fallback to line chart if candlestick fails
-          console.warn('Candlestick series not available, using line chart');
-          candlestickSeries = (chart as any).addLineSeries({
-            color: '#FFD700',
-            lineWidth: 2,
-          });
-        }
-      }
+      let candlestickSeries = chart.addSeries(CandlestickSeries, {
+        upColor: '#10b981',
+        downColor: '#ef4444',
+        borderVisible: false,
+        wickUpColor: '#10b981',
+        wickDownColor: '#ef4444',
+      });
 
       // Format data for the chart
       const formattedData = mockOhlcv.map((d: any) => {
