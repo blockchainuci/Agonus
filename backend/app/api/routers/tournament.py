@@ -4,7 +4,7 @@ from sqlalchemy import select
 from uuid import UUID
 
 from backend.app.db.database import get_db
-from backend.app.db.models import Tournament
+from backend.app.db.models import Tournament, Agent
 from backend.app.schemas.tournament import (
     TournamentCreate,
     TournamentUpdate,
@@ -13,6 +13,24 @@ from backend.app.schemas.tournament import (
 from backend.app.api.deps import require_admin
 
 router = APIRouter()
+
+
+async def validate_agents(session: AsyncSession, agent_ids: list[UUID]) -> list[Agent]:
+    #validates that all provided agent_ids exist in the db
+    if not agent_ids:
+        raise HTTPException(status_code=400, detail="At least one agent is required")
+
+    stmt = select(Agent).where(Agent.id.in_(agent_ids))
+    result = await session.execute(stmt)
+    agents = result.scalars().all()
+
+    if len(agents) != len(agent_ids):
+        raise HTTPException(status_code=400, detail="One or more agents not found")
+
+    return agents
+
+
+
 
 
 @router.get("/", response_model=list[TournamentResponse])
