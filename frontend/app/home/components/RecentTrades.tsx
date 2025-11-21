@@ -10,6 +10,7 @@ import {
   Download,
 } from 'lucide-react';
 import { mockTrades } from '../data/mockTrades';
+import {mockTournaments} from '../data/mockTournament';
 
 // define type
 interface Trade {
@@ -26,6 +27,9 @@ interface RecentTradesProps {
 }
 
 export default function RecentTrades({ tournamentId }: RecentTradesProps) {
+  // get tournament status 
+  const tournament = mockTournaments.find((t) => t.id === tournamentId);
+  const isLiveTournament = tournament?.status === 'LIVE';
   // Filter trades by tournament ID
   const filteredTrades = mockTrades.filter(
     (trade) => trade.tournament_id === tournamentId
@@ -92,7 +96,27 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
       </div>
 
       {/* trades list */}
-      <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar relative z-10">
+      <div className="space-y-2 max-h-[500px] overflow-y-scroll pr-2 custom-scrollbar relative z-10">
+      <style jsx>{`
+          .scrollbar-always-visible::-webkit-scrollbar {
+            width: 8px;
+          }
+          .scrollbar-always-visible::-webkit-scrollbar-track {
+            background: rgba(255, 215, 0, 0.05);
+            border-radius: 10px;
+          }
+          .scrollbar-always-visible::-webkit-scrollbar-thumb {
+            background: rgba(255, 215, 0, 0.3);
+            border-radius: 10px;
+            transition: background 0.3s;
+          }
+          .scrollbar-always-visible::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 215, 0, 0.5);
+          }
+          .scrollbar-always-visible::-webkit-scrollbar-thumb {
+            min-height: 40px;
+          }
+        `}</style>
         {filteredTrades.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -120,7 +144,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
               >
                 {/* glow effect on hover */}
                 <div
-                  className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity ${
+                  className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity ${
                     isBuy
                       ? 'bg-gradient-to-r from-green-500/10 to-transparent'
                       : 'bg-gradient-to-r from-red-500/10 to-transparent'
@@ -177,7 +201,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                 </div>
 
                 {/* pulse indicator for recent trades */}
-                {index === 0 && (
+                {index === 0 && isLiveTournament &&(
                   <motion.div
                     className={`absolute top-4 right-4 w-2 h-2 rounded-full ${
                       isBuy ? 'bg-green-400' : 'bg-red-400'
