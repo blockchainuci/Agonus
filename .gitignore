@@ -9,6 +9,7 @@ venv/
 .env.local
 *.secret
 *.env
+*.claude
 
 # Trading bot (NEVER COMMIT PRIVATE KEYS)
 backend/trading-bot/.env
@@ -54,3 +55,4 @@ secrets/
 **/.history/
 #Table Deployment
 backend/app/db/deploy_tables.py
+
