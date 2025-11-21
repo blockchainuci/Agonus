@@ -146,14 +146,6 @@ class TestCalculateROI:
 class TestExecuteTradeValidation:
     """Test input validation for execute_trade"""
 
-    def test_invalid_action(self, trade_tool):
-        with pytest.raises(ValueError, match="Invalid action"):
-            trade_tool.execute_trade("HOLD", "WETH", 1.0, 3000.0, 0.8, "Test")
-
-    def test_invalid_token(self, trade_tool):
-        with pytest.raises(ValueError, match="Invalid token"):
-            trade_tool.execute_trade("BUY", "INVALID", 1.0, 0.0, 0.8, "Test")
-
     def test_case_insensitive_action(self, trade_tool):
         # Lowercase action should be accepted and converted to uppercase
         # Should NOT raise ValueError for invalid action

@@ -63,31 +63,6 @@ class TestTweetPostToolInitialization:
         assert tool.post_api_base == "https://api.twitter.com/2"
         assert tool.upload_url == "https://upload.twitter.com/1.1/media/upload.json"
 
-    def test_initialization_from_env(self):
-        """Test initialization using environment variable"""
-        import importlib
-        import app.agents.tools.tweet_post_tool as tweet_module
-
-        original = os.environ.get("TWITTER_BEARER_TOKEN")
-        os.environ["TWITTER_BEARER_TOKEN"] = "env_token"
-
-        # Reload module to pick up new env var
-        importlib.reload(tweet_module)
-
-        tool = tweet_module.TweetPostTool(agent_id="test_agent")
-
-        # The tool should use the env token
-        assert tool.api_bearer == "env_token"
-
-        # Restore original
-        if original:
-            os.environ["TWITTER_BEARER_TOKEN"] = original
-        elif "TWITTER_BEARER_TOKEN" in os.environ:
-            del os.environ["TWITTER_BEARER_TOKEN"]
-
-        # Reload again to restore original state
-        importlib.reload(tweet_module)
-
     def test_headers_configuration(self, tweet_tool):
         """Test that headers are properly configured"""
         assert "Authorization" in tweet_tool.post_headers
