@@ -9,13 +9,20 @@ import {
   DollarSign,
   Activity,
 } from 'lucide-react';
-import { mockOhlcv } from '../data/mockOhlcv';
+import { getOhlcvByTournament } from '../data/mockOhlcv';
 import { CandlestickSeries } from 'lightweight-charts';
 
-export default function CandleChart() {
+interface CandleChartProps {
+  tournamentId: number;
+}
+
+export default function CandleChart({ tournamentId }: CandleChartProps) {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const [timeframe, setTimeframe] = useState('1h');
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Get OHLCV data for the selected tournament
+  const mockOhlcv = getOhlcvByTournament(tournamentId);
 
   useEffect(() => {
     if (!chartContainerRef.current || !mockOhlcv || mockOhlcv.length === 0)
@@ -79,16 +86,22 @@ export default function CandleChart() {
         chart.remove();
       };
     });
-  }, [isFullscreen]);
+  }, [isFullscreen, tournamentId, mockOhlcv]); // Re-render when tournament changes
 
   const timeframes = ['1m', '5m', '15m', '1h', '4h', '1d'];
-  const currentPrice = mockOhlcv?.[mockOhlcv.length - 1].close;
-  const change24h = 5.2;
-  const volume24h = 1200000;
+  const currentPrice = mockOhlcv?.[mockOhlcv.length - 1]?.close || 0;
+
+  // Calculate 24h change based on first and last price
+  const firstPrice = mockOhlcv?.[0]?.close || currentPrice;
+  const change24h =
+    firstPrice > 0 ? ((currentPrice - firstPrice) / firstPrice) * 100 : 0;
+
+  const volume24h = 1200000; // Mock volume - you can calculate this from trades if needed
 
   return (
     <motion.div
       className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg overflow-hidden"
+      key={tournamentId} // Re-animate when tournament changes
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -102,6 +115,9 @@ export default function CandleChart() {
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">Portfolio Value</h3>
+              <p className="text-xs text-gray-400">
+                Tournament #{tournamentId}
+              </p>
               <div className="flex items-center gap-3 mt-1">
                 <p className="text-2xl font-bold text-[#FFD700]">
                   ${currentPrice.toFixed(2)}
@@ -112,7 +128,7 @@ export default function CandleChart() {
                   }`}
                 >
                   {change24h >= 0 ? '↗' : '↘'}
-                  {Math.abs(change24h)}%
+                  {Math.abs(change24h).toFixed(2)}%
                 </span>
               </div>
             </div>
@@ -178,7 +194,7 @@ export default function CandleChart() {
                   className={`text-lg font-bold ${change24h >= 0 ? 'text-green-400' : 'text-red-400'}`}
                 >
                   {change24h >= 0 ? '+' : ''}
-                  {change24h}%
+                  {change24h.toFixed(2)}%
                 </p>
               </div>
             </div>

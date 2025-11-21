@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { mockTournaments } from '../data/mockTournament';
 import AgentPositions from './AgentPositions';
 import ActiveBets from './ActiveBets';
+
+interface TournamentContainerProps {
+  selectedTournamentId: number;
+  onTournamentChange: (id: number) => void;
+}
 
 function TournamentStatusBar({
   tournament,
@@ -123,11 +128,10 @@ function TournamentStatusBar({
   );
 }
 
-export default function TournamentContainer() {
-  const [selectedTournamentId, setSelectedTournamentId] = useState(
-    mockTournaments[0].id
-  );
-
+export default function TournamentContainer({
+  selectedTournamentId,
+  onTournamentChange,
+}: TournamentContainerProps) {
   // Find the selected tournament
   const selectedTournament =
     mockTournaments.find((t) => t.id === selectedTournamentId) ||
@@ -138,13 +142,13 @@ export default function TournamentContainer() {
       {/* Tournament Status Bar - Header */}
       <TournamentStatusBar
         tournament={selectedTournament}
-        onTournamentChange={setSelectedTournamentId}
+        onTournamentChange={onTournamentChange}
       />
 
       {/* Agent Positions and Active Bets - Content Area */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-        <AgentPositions />
-        <ActiveBets />
+        <AgentPositions tournamentId={selectedTournamentId} />
+        <ActiveBets tournamentId={selectedTournamentId} />
       </div>
     </div>
   );

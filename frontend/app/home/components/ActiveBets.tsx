@@ -5,13 +5,23 @@ import { mockBets } from '../data/mockBet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, TrendingUp, XCircle, Clock, Zap } from 'lucide-react';
 
-export default function ActiveBets() {
+// ADD THIS INTERFACE
+interface ActiveBetsProps {
+  tournamentId: number;
+}
+
+// UPDATE THIS LINE TO ACCEPT THE PROP
+export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
   const [filter, setFilter] = useState<'active' | 'past'>('active');
 
-  // Filter bets based on status
-  const activeBets = mockBets.filter((b) => b.status === 'active');
+  // Filter bets based on status AND tournament_id
+  const activeBets = mockBets.filter(
+    (b) => b.status === 'active' && b.tournament_id === tournamentId
+  );
   const pastBets = mockBets.filter(
-    (b) => b.status === 'won' || b.status === 'lost'
+    (b) =>
+      (b.status === 'won' || b.status === 'lost') &&
+      b.tournament_id === tournamentId
   );
 
   const displayedBets = filter === 'active' ? activeBets : pastBets;
@@ -41,14 +51,14 @@ export default function ActiveBets() {
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">Your Bets</h3>
-            <p className="text-xs text-gray-400">Track your positions</p>
+            <p className="text-xs text-gray-400">Tournament #{tournamentId}</p>
           </div>
         </div>
 
         {/* Total stats badge */}
         <div className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-full">
           <span className="text-xs text-cyan-400 font-semibold">
-            {mockBets.length} Total Bets
+            {displayedBets.length} Bets
           </span>
         </div>
       </div>
