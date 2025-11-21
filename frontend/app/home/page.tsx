@@ -2,6 +2,7 @@ import UserProfileCard from './components/UserInfo';
 import TournamentContainer from './components/TournamentStatusBar';
 import CandleChart from './components/CandleChart';
 import RecentTrades from './components/RecentTrades';
+import ActiveBets from './components/ActiveBets';
 
 export default function HomePage() {
   return (
@@ -24,6 +25,7 @@ export default function HomePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8"></div>
 
       <RecentTrades />
+      <ActiveBets />
     </div>
   );
 }

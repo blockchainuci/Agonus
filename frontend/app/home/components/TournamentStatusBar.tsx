@@ -1,45 +1,118 @@
 'use client';
 
-import { mockTournament } from '../data/mockTournament';
+import { useState } from 'react';
+import { mockTournaments } from '../data/mockTournament';
 import AgentPositions from './AgentPositions';
 import ActiveBets from './ActiveBets';
 
-function TournamentStatusBar() {
-  const t = mockTournament;
+function TournamentStatusBar({
+  tournament,
+  onTournamentChange,
+}: {
+  tournament: (typeof mockTournaments)[0];
+  onTournamentChange: (tournamentId: number) => void;
+}) {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Format the end time nicely
-  const formattedEndTime = new Date(t.end_time).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const formattedEndTime = new Date(tournament.end_time).toLocaleDateString(
+    'en-US',
+    {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }
+  );
+
+  // Get status badge color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'LIVE':
+        return 'bg-green-500/20 text-green-400';
+      case 'ENDED':
+        return 'bg-gray-500/20 text-gray-400';
+      case 'UPCOMING':
+        return 'bg-blue-500/20 text-blue-400';
+      default:
+        return 'bg-gray-500/20 text-gray-400';
+    }
+  };
 
   return (
-    <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-2 border-b border-white/10 bg-gradient-to-r from-blue-900/20 to-transparent">
+    <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-2 border-b border-white/10 bg-gradient-to-r from-blue-900/20 to-transparent relative">
       <div className="flex items-center gap-3">
         <div className="text-yellow-400 font-bold text-2xl">TOURNAMENT</div>
-        <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
-          <svg
-            className="w-5 h-5 text-blue-900"
-            fill="currentColor"
-            viewBox="0 0 20 20"
+
+        {/* Dropdown Button with Triangle */}
+        <div className="relative">
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center hover:bg-yellow-300 transition-colors"
           >
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-          </svg>
+            <svg
+              className="w-4 h-4 text-blue-900"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+            </svg>
+          </button>
+
+          {/* Dropdown Menu */}
+          {isDropdownOpen && (
+            <div className="absolute top-full left-0 mt-2 w-64 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-50">
+              <div className="py-1">
+                {mockTournaments.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      onTournamentChange(t.id);
+                      setIsDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 hover:bg-slate-700 transition-colors ${
+                      t.id === tournament.id ? 'bg-slate-700/50' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-white font-semibold">
+                          Tournament #{t.id}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          ${t.prize_pool_usd.toLocaleString()} •{' '}
+                          {new Date(t.end_time).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2 py-1 rounded-md font-semibold uppercase text-xs ${getStatusColor(t.status)}`}
+                      >
+                        {t.status}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="text-gray-400 text-sm flex flex-wrap gap-4 items-center">
         <span className="flex items-center gap-2">
           Status:{' '}
-          <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-md font-semibold uppercase text-xs">
-            {t.status}
+          <span
+            className={`px-2 py-1 rounded-md font-semibold uppercase text-xs ${getStatusColor(tournament.status)}`}
+          >
+            {tournament.status}
           </span>
         </span>
         <span>
           Prize Pool:{' '}
           <span className="text-white font-semibold">
-            ${t.prize_pool_usd.toLocaleString()}
+            ${tournament.prize_pool_usd.toLocaleString()}
           </span>
         </span>
         <span>
@@ -51,10 +124,22 @@ function TournamentStatusBar() {
 }
 
 export default function TournamentContainer() {
+  const [selectedTournamentId, setSelectedTournamentId] = useState(
+    mockTournaments[0].id
+  );
+
+  // Find the selected tournament
+  const selectedTournament =
+    mockTournaments.find((t) => t.id === selectedTournamentId) ||
+    mockTournaments[0];
+
   return (
     <div className="flex flex-col gap-0 w-full bg-black/20 backdrop-blur rounded-2xl border border-white/10 overflow-hidden">
       {/* Tournament Status Bar - Header */}
-      <TournamentStatusBar />
+      <TournamentStatusBar
+        tournament={selectedTournament}
+        onTournamentChange={setSelectedTournamentId}
+      />
 
       {/* Agent Positions and Active Bets - Content Area */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
