@@ -97,27 +97,27 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
             <p className="text-gray-400 text-sm">No {filter} bets</p>
           </div>
         ) : (
-  <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2 relative z-10 scrollbar-always-visible">
-    <style jsx>{`
-      .scrollbar-always-visible::-webkit-scrollbar {
-        width: 8px;
-      }
-      .scrollbar-always-visible::-webkit-scrollbar-track {
-        background: rgba(255, 215, 0, 0.05);
-        border-radius: 10px;
-      }
-      .scrollbar-always-visible::-webkit-scrollbar-thumb {
-        background: rgba(255, 215, 0, 0.3);
-        border-radius: 10px;
-        transition: background 0.3s;
-      }
-      .scrollbar-always-visible::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 215, 0, 0.5);
-      }
-      .scrollbar-always-visible::-webkit-scrollbar-thumb {
-        min-height: 40px;
-      }
-    `}</style>
+          <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2 relative z-10 scrollbar-always-visible">
+            <style jsx>{`
+              .scrollbar-always-visible::-webkit-scrollbar {
+                width: 8px;
+              }
+              .scrollbar-always-visible::-webkit-scrollbar-track {
+                background: rgba(255, 215, 0, 0.05);
+                border-radius: 10px;
+              }
+              .scrollbar-always-visible::-webkit-scrollbar-thumb {
+                background: rgba(255, 215, 0, 0.3);
+                border-radius: 10px;
+                transition: background 0.3s;
+              }
+              .scrollbar-always-visible::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 215, 0, 0.5);
+              }
+              .scrollbar-always-visible::-webkit-scrollbar-thumb {
+                min-height: 40px;
+              }
+            `}</style>
             <AnimatePresence mode="wait">
               {displayedBets.map((bet, index) => (
                 <motion.div
