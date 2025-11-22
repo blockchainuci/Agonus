@@ -83,7 +83,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                 whileHover={{ x: 4 }}
               >
                 {/* background gradient on hover */}
-                <div className="absolute inset-0 bg-gradient-to-r from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 <div className="relative z-10">
                   {/* token info row */}
