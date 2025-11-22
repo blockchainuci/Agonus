@@ -35,7 +35,6 @@ export default function HomePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8"></div>
 
       <RecentTrades tournamentId={selectedTournamentId} />
-      <ActiveBets tournamentId={selectedTournamentId} />
     </div>
   );
 }
