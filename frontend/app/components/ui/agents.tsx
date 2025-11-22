@@ -65,7 +65,6 @@ export const agents = [
     trend: 'up',
   },
 ];
-export type Agent = typeof agents[number];
 
 export type Agent = (typeof agents)[number];
 
