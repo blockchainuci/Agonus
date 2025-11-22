@@ -1,4 +1,4 @@
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 from pathlib import Path
 import json
 
@@ -9,17 +9,17 @@ class Settings(BaseSettings):
     CONTRACT_ADDRESS: str = "0x..."  # Base Sepolia address
     ADMIN_PRIVATE_KEY: str = "..."  # Admin wallet key (from env)
     RPC_URL: str = "https://sepolia.base.org"  # Base Sepolia RPC
-    CONTRACT_ABI: str = "backend/app/contracts/AgonusBetting.json"  # Load from file or embed
+    CONTRACT_ABI_PATH: str = "backend/app/contracts/AgonusBetting.json"  # Load from file or embed
     CHAIN_ID: int = 84532  #check with sumanth
 
     @property
     def CONTRACT_ABI(self):
         '''Load contract abi from json file'''
         
-        path = Path(self.CONTRACT_ABI)
+        path = Path(self.CONTRACT_ABI_PATH)
         if not path.exists():
             #temp return
-            return []
+            raise FileNotFoundError(f"Contract ABI file not found at {path}")
 
         data = json.loads(path.read_text())
         

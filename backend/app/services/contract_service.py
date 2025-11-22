@@ -1,6 +1,8 @@
 from web3 import Web3
 from eth_account import Account
 
+from fastapi.concurrency import run_in_threadpool
+
 from backend.app.core.config import settings
 
 from typing import Any
@@ -74,37 +76,65 @@ async def cancel_tournament(contract_tournament_id: int) -> str:
 
 async def get_tournament_state(contract_tournament_id: int) -> dict[str, Any]:
     """
-    Get tournament state from the contract.
+    Read tournament struct from the AgonusBetting contract.
 
-    Should read tournaments[tournamentId] and return:
-        - isActive
-        - isSettled
-        - totalPool
-        - winningAgentId
-        - agentCount
+    Calls:
+        tournaments(tournamentId) -> (
+            isActive: bool,
+            isSettled: bool,
+            totalPool: uint256,
+            winningAgentId: uint256,
+            agentCount: uint256
+        )
 
-    TODO: implement when struct layout is confirmed.
+    Returns a Python dict with those fields.
     """
-    raise NotImplementedError("get_tournament_state not implemented yet")
+
+    def _inner() -> dict[str, Any]:
+        data = contract.functions.tournaments(contract_tournament_id).call()
+
+        return {
+            "isActive": data[0],
+            "isSettled": data[1],
+            "totalPool": int(data[2]),
+            "winningAgentId": int(data[3]),
+            "agentCount": int(data[4]),
+        }
+
+    return await run_in_threadpool(_inner)
 
 
 async def get_agent_pool(contract_tournament_id: int, agent_id: int) -> int:
     """
-    Get total pool amount for a specific agent in a tournament.
+    Get total bet amount on a given agent in a given tournament.
 
-    Should read: agentPools[tournamentId][agentId]
-
-    TODO: implement.
+    Reads:
+        agentPools[tournamentId][agentId]
     """
-    raise NotImplementedError("get_agent_pool not implemented yet")
+
+    def _inner() -> int:
+        amount = contract.functions.agentPools(
+            contract_tournament_id,
+            agent_id,
+        ).call()
+        return int(amount)
+
+    return await run_in_threadpool(_inner)
 
 
 async def get_agent_odds(contract_tournament_id: int, agent_id: int) -> int:
     """
-    Get odds for a given agent in a tournament, in basis points.
+    Get odds for a given agent in a tournament, in basis points (1% = 100 bp).
 
-    Should call: getAgentOdds(tournamentId, agentId)
-
-    TODO: implement.
+    Calls:
+        getAgentOdds(tournamentId, agentId)
     """
-    raise NotImplementedError("get_agent_odds not implemented yet")
+
+    def _inner() -> int:
+        odds_bp = contract.functions.getAgentOdds(
+            contract_tournament_id,
+            agent_id,
+        ).call()
+        return int(odds_bp)
+
+    return await run_in_threadpool(_inner)
