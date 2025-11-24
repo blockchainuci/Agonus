@@ -72,7 +72,7 @@ export default function ParabolicReveal() {
   const tickLength = 6;
 
   return (
-    <div className="flex items-center justify-center py-16">
+    <div className="relative flex items-center justify-center py-16">
       <svg
         ref={svgRef}
         width={width}

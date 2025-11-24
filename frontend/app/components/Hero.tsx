@@ -24,10 +24,12 @@ export default function Hero() {
       className="relative flex flex-col items-center justify-center text-center py-32 px-6 overflow-hidden bg-gradient-to-b from-[var(--hero-navy)] to-[var(--hero-navy-2)] scroll-mt-24 min-h-screen"
     >
       {/* Subtle glow - moves slower (parallax) */}
+      <div className="relative">
       <motion.div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,215,0,0.10),transparent_60%)]"
         style={{ y: y1 }}
       />
+      </div>
 
       {/* Content - fades out as you scroll */}
       <motion.div className="relative z-10 w-full" style={{ opacity }}>
