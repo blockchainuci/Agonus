@@ -66,11 +66,19 @@ class MarketDataTool:
         try:
             response = requests.get(url, headers=self.headers, params=params)
             if response.status_code == 200:
-                logger.debug(f"Price fetched successfully for {token}")
-                return response.json()
+                data = response.json()
+                # Extract price from response dict: {"eth": {"usd": 3850.23}}
+                token_key = token.lower()
+                if token_key in data and "usd" in data[token_key]:
+                    price = float(data[token_key]["usd"])
+                    logger.debug(f"Price fetched successfully for {token}: ${price}")
+                    return price
+                else:
+                    logger.error(f"Unexpected API response format: {data}")
+                    return 0.0
             else:
                 logger.error(f"Failed to fetch price: {response.status_code} {response.text}")
-                return None
+                return 0.0
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
             raise MarketDataError(f"Request failed: {e}")

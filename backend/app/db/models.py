@@ -36,10 +36,11 @@ class Tournament(Base):
         Index("ix_tournament_status", "status"),
         Index("ix_tournament_dates", "start_date", "end_date"),
     )
-
+    contract_tournament_id: Mapped[Optional[int]] = mapped_column(index=True, default=None)
+    agent_contract_mapping: Mapped[dict] = mapped_column(JSON, default=dict)  # {"uuid": 1, "uuid2": 2}
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String, index=True)
-    status: Mapped[StatusEnum] = mapped_column(SQLEnum(StatusEnum, native_enum=False))
+    status: Mapped[StatusEnum] = mapped_column(SQLEnum(StatusEnum, native_enum=False), default=StatusEnum.upcoming)
     start_date: Mapped[datetime] = mapped_column()
     end_date: Mapped[datetime] = mapped_column()
     prize_pool: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=2))

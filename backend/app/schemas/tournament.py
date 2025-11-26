@@ -5,10 +5,9 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 
-# Base schema with all possible fields
+# Base schema with common fields
 class TournamentBase(BaseModel):
     name: str
-    status: str  # or use StatusEnum
     start_date: datetime
     end_date: datetime
     prize_pool: Decimal
@@ -16,7 +15,7 @@ class TournamentBase(BaseModel):
 
 # Schema for creating tournaments (POST)
 class TournamentCreate(TournamentBase):
-    pass
+    agent_ids: list[UUID]  # NEW: Agents participating in this tournament
 
 
 # Schema for updating tournaments (PUT/PATCH)
@@ -29,10 +28,21 @@ class TournamentUpdate(BaseModel):
     winner_agent_id: Optional[UUID] = None
 
 
+# NEW: Schema for linking contract after creation
+class TournamentContractLink(BaseModel):
+    contract_tournament_id: int
+    tx_hash: Optional[str] = None  # For verification/tracking
+
+
 # Schema for responses (GET)
 class TournamentResponse(TournamentBase):
     id: UUID
+    status: str  # StatusEnum as string
     created_at: datetime
     winner_agent_id: Optional[UUID] = None
+
+    # NEW: Contract integration fields
+    contract_tournament_id: Optional[int] = None
+    agent_contract_mapping: dict[str, int] = {}  # {"agent-uuid": 1, "agent-uuid2": 2}
 
     model_config = ConfigDict(from_attributes=True)

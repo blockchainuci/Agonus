@@ -8,18 +8,29 @@ from ..onchain.ts_swap_wrapper import execute_ts_swap
 
 logger = logging.getLogger(__name__)
 
+
 class TradeToolError(Exception):
-    '''Custom exception for TradeTool errors.'''
+    """Custom exception for TradeTool errors."""
+
     pass
 
 
 class TradeTool:
     """Execute on-chain trades and helper calculations."""
+
     def __init__(self, agent_id: str):
         self.agent_id = agent_id
         logger.info(f"TradeTool initialized for agent_id={agent_id}")
 
-    def execute_trade(self, action: str, token: str, qty: float, price: float, confidence: float, summary: str) -> Trade:
+    def execute_trade(
+        self,
+        action: str,
+        token: str,
+        qty: float,
+        price: float,
+        confidence: float,
+        summary: str,
+    ) -> Trade:
         action = action.upper()
         if action not in ["BUY", "SELL"]:
             logger.error(f"Invalid action: {action}")
@@ -29,7 +40,9 @@ class TradeTool:
         supported_tokens = ["WETH", "CBBTC"]
         if token not in supported_tokens:
             logger.error(f"Invalid token: {token}")
-            raise TradeToolError(f"Invalid token: '{token}'. Must be one of {supported_tokens}")
+            raise TradeToolError(
+                f"Invalid token: '{token}'. Must be one of {supported_tokens}"
+            )
 
         token_decimals = {
             "USDC": 6,
@@ -40,7 +53,9 @@ class TradeTool:
         trade_id = int(time.time() * 1000)
         timestamp = datetime.now(timezone.utc)
 
-        logger.info(f"Executing {action} trade: {qty} {token} for agent {self.agent_id}")
+        logger.info(
+            f"Executing {action} trade: {qty} {token} for agent {self.agent_id}"
+        )
 
         try:
             if action == "BUY":
@@ -55,7 +70,9 @@ class TradeTool:
                 amount_out_wei = int(swap_result["amount_out"])
                 actual_qty = amount_out_wei / (10 ** token_decimals[token])
                 actual_price = qty / actual_qty if actual_qty > 0 else 0
-                logger.info(f"BUY completed: received {actual_qty} {token} at {actual_price} USDC/{token}")
+                logger.info(
+                    f"BUY completed: received {actual_qty} {token} at {actual_price} USDC/{token}"
+                )
             else:
                 logger.debug(f"Swapping {qty} {token} for USDC")
                 swap_result = execute_ts_swap(
@@ -69,7 +86,9 @@ class TradeTool:
                 usdc_received = amount_out_wei / (10 ** token_decimals["USDC"])
                 actual_qty = qty
                 actual_price = usdc_received / qty if qty > 0 else 0
-                logger.info(f"SELL completed: sold {actual_qty} {token} for {usdc_received} USDC at {actual_price} USDC/{token}")
+                logger.info(
+                    f"SELL completed: sold {actual_qty} {token} for {usdc_received} USDC at {actual_price} USDC/{token}"
+                )
 
             trade = Trade(
                 trade_id=trade_id,
@@ -86,7 +105,9 @@ class TradeTool:
                 roi=None,
             )
 
-            logger.debug(f"Trade created: trade_id={trade_id}, tx_hash={swap_result['tx_hash']}")
+            logger.debug(
+                f"Trade created: trade_id={trade_id}, tx_hash={swap_result['tx_hash']}"
+            )
             return trade
 
         except Exception as e:
@@ -95,7 +116,9 @@ class TradeTool:
             raise TradeToolError(error_msg) from e
 
     def _get_avg_buy_price(self, token: str, trade_history: List[Trade]) -> float:
-        buy_trades = [t for t in trade_history if t.token == token and t.action == "BUY"]
+        buy_trades = [
+            t for t in trade_history if t.token == token and t.action == "BUY"
+        ]
         if not buy_trades:
             logger.debug(f"No buy trades found for {token}")
             return 0.0
@@ -107,7 +130,9 @@ class TradeTool:
         logger.debug(f"Average buy price for {token}: {avg_price}")
         return avg_price
 
-    def calculate_realized_pnl(self, sell_trade: Trade, trade_history: List[Trade]) -> float:
+    def calculate_realized_pnl(
+        self, sell_trade: Trade, trade_history: List[Trade]
+    ) -> float:
         avg_buy_price = self._get_avg_buy_price(sell_trade.token, trade_history)
         if avg_buy_price == 0:
             return 0.0

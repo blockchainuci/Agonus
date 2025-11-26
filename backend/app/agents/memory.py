@@ -1,5 +1,6 @@
 from typing import List, Optional, Any
-from backend.app.agents.data_classes import Trade
+from uuid import UUID
+from .data_classes import Trade
 
 
 class AgentMemory:
@@ -24,10 +25,31 @@ class AgentMemory:
             Max trades to keep in short-term before pruning
     """
 
-    def __init__(self, agent_id: int, long_term_db: Optional[Any] = None, vector_db: Optional[Any] = None, max_short_term: int = 100):
+    def __init__(
+        self,
+        agent_id: str,
+        agent_uuid: Optional[UUID] = None,
+        tournament_uuid: Optional[UUID] = None,
+        database_tool: Optional[Any] = None,
+        vector_db: Optional[Any] = None,
+        max_short_term: int = 100
+    ):
+        """
+        Initialize AgentMemory.
+
+        Args:
+            agent_id: String agent identifier (e.g., "agent_1")
+            agent_uuid: UUID of agent in database (optional)
+            tournament_uuid: UUID of tournament in database (optional)
+            database_tool: DatabaseTool instance for persistence
+            vector_db: Vector database client (optional)
+            max_short_term: Max trades to keep in short-term memory
+        """
         self.agent_id = agent_id
+        self.agent_uuid = agent_uuid
+        self.tournament_uuid = tournament_uuid
         self.short_term: List[Trade] = []
-        self.long_term_db = long_term_db
+        self.database_tool = database_tool
         self.vector_db = vector_db
         self.max_short_term = max_short_term
 
@@ -39,7 +61,11 @@ class AgentMemory:
             trade : Trade
                 Trade object representing an executed action.
         """
-        pass
+        self.short_term.append(trade)
+
+        # Prune if exceeds max
+        if len(self.short_term) > self.max_short_term:
+            self.short_term = self.short_term[-self.max_short_term:]
 
     def get_short_term_memory(self, n: Optional[int] = None):
         """
@@ -54,17 +80,19 @@ class AgentMemory:
             List[Trade]
                 List of recent Trade objects.
         """
-        pass
+        if n is None:
+            return self.short_term.copy()
+        return self.short_term[-n:]
 
     def reset_short_term_memory(self):
         """
             Clear all trades from short-term memory.
             Called at the end of a tournament.
         """
-        pass
+        self.short_term = []
 
 
-    def save_to_long_term(self, trade: Trade):
+    async def save_to_long_term(self, trade: Trade):
         """
         Save a single trade to the long-term database.
 
@@ -72,7 +100,18 @@ class AgentMemory:
             trade : Trade
                 Trade object to be saved persistently.
         """
-        pass
+        if self.database_tool and self.agent_uuid and self.tournament_uuid:
+            try:
+                await self.database_tool.save_trade(
+                    trade=trade,
+                    agent_uuid=self.agent_uuid,
+                    tournament_uuid=self.tournament_uuid
+                )
+            except Exception as e:
+                # Log but don't crash if DB save fails
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to save trade to database: {e}")
 
     def save_batch_to_long_term(self, trades: List[Trade]):
         """
@@ -82,8 +121,12 @@ class AgentMemory:
         Args:
             trades: List of trades to save
         """
+        # TODO: Implement batch database persistence
+        if self.long_term_db:
+            # Placeholder for batch DB save
+            pass
 
-    def load_long_term_history(self, limit: Optional[int] = None):
+    async def load_long_term_history(self, limit: Optional[int] = None) -> List[Trade]:
         """
         Retrieve historical trades from the long-term database.
 
@@ -95,7 +138,19 @@ class AgentMemory:
             List[Trade]
                 List of historical trades for this agent.
         """
-        pass
+        if self.database_tool and self.agent_uuid and self.tournament_uuid:
+            try:
+                trades = await self.database_tool.load_agent_trades(
+                    agent_uuid=self.agent_uuid,
+                    tournament_uuid=self.tournament_uuid,
+                    limit=limit
+                )
+                return trades
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to load trade history from database: {e}")
+        return []
 
 
 
@@ -109,7 +164,10 @@ class AgentMemory:
             embedder : Any
                 Embedding tool with a `.embed_text()` or similar method.
         """
-        pass
+        # TODO: Implement vector embedding storage
+        if self.vector_db and embedder:
+            # Placeholder for vector DB storage
+            pass
 
     def query_vector_memory(self, query: str, embedder: Any, top_k: int = 5):
         """
@@ -127,7 +185,11 @@ class AgentMemory:
             List[Dict[str, Any]]
                 Ranked list of matching trades and similarity scores.
         """
-        pass
+        # TODO: Implement vector similarity search
+        if self.vector_db and embedder:
+            # Placeholder for vector search
+            pass
+        return []
 
 
 

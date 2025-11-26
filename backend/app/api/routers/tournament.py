@@ -40,8 +40,9 @@ async def create_tournament(
     admin: dict = Depends(require_admin),
 ):
     """POST route to create a new tournament"""
-    # Create tournament from schema
-    tournament = Tournament(**tournament_data.model_dump())
+    # Create tournament from schema, excluding agent_ids (not a Tournament model field)
+    tournament_dict = tournament_data.model_dump(exclude={"agent_ids"})
+    tournament = Tournament(**tournament_dict)
 
     session.add(tournament)
     await session.commit()

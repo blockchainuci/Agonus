@@ -43,8 +43,8 @@ def execute_ts_swap(
     if not agent_private_key:
         raise ValueError(f"Missing environment variable: {private_key_var}")
 
-    # Get RPC URL
-    rpc_url = os.getenv("RPC_LOCAL", "http://127.0.0.1:8545")
+    # Get RPC URL (prioritize RPC_URL for testnet/mainnet, fallback to RPC_LOCAL for local dev)
+    rpc_url = os.getenv("RPC_URL") or os.getenv("RPC_LOCAL", "http://127.0.0.1:8545")
 
     # Map Python token names to TypeScript token names
     # Python uses "CBBTC" but TypeScript uses "cbBTC"
