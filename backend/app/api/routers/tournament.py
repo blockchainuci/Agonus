@@ -4,12 +4,13 @@ from sqlalchemy import select
 from uuid import UUID
 
 from backend.app.db.database import get_db
-from backend.app.db.models import Tournament
+from backend.app.db.models import Tournament, AgentState, Agent
 from backend.app.schemas.tournament import (
     TournamentCreate,
     TournamentUpdate,
     TournamentResponse,
 )
+from backend.app.schemas.agent_state import AgentStateResponse
 from backend.app.api.deps import require_admin
 
 router = APIRouter()
@@ -31,6 +32,46 @@ async def get_tournament(tournament_id: UUID, session: AsyncSession = Depends(ge
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament Not Found")
     return tournament
+
+
+@router.get("/{tournament_id}/leaderboard", response_model=list[AgentStateResponse])
+async def get_tournament_leaderboard(
+    tournament_id: UUID, session: AsyncSession = Depends(get_db)
+):
+    """GET route for tournament leaderboard - agents ranked by portfolio value"""
+    # Verify tournament exists
+    tournament = await session.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
+
+    # Get all agent states for this tournament, ordered by portfolio value
+    statement = (
+        select(AgentState)
+        .where(AgentState.tournament_id == tournament_id)
+        .order_by(AgentState.portfolio_value_usd.desc())
+    )
+    result = await session.execute(statement)
+    agent_states = result.scalars().all()
+
+    return agent_states
+
+
+@router.get("/{tournament_id}/agents", response_model=list[AgentStateResponse])
+async def get_tournament_agents(
+    tournament_id: UUID, session: AsyncSession = Depends(get_db)
+):
+    """GET route for all agents in a tournament with their current state"""
+    # Verify tournament exists
+    tournament = await session.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
+
+    # Get all agent states for this tournament
+    statement = select(AgentState).where(AgentState.tournament_id == tournament_id)
+    result = await session.execute(statement)
+    agent_states = result.scalars().all()
+
+    return agent_states
 
 
 @router.post("/", response_model=TournamentResponse, status_code=201)
