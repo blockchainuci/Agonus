@@ -12,6 +12,10 @@ from backend.app.schemas.tournament import (
 )
 from backend.app.schemas.agent_state import AgentStateResponse
 from backend.app.api.deps import require_admin
+from backend.app.agents.scheduler import (
+    run_agent_decision,
+    initialize_tournament_agents,
+)
 
 router = APIRouter()
 
@@ -88,7 +92,26 @@ async def create_tournament(
     session.add(tournament)
     await session.commit()
     await session.refresh(tournament)
+
     return tournament
+
+
+@router.post("/{tournament_id}/start")
+async def start_tournament(tournament_id: str):
+    initialize_tournament_agents.delay(
+        tournament_uuid=tournament_id, agent_uuids=["uuid-1", "uuid-2"]
+    )
+    return {"message": "Tournament initialization started"}
+
+
+@router.post("/agents/{agent_id}/force-run")
+async def force_agent_run(agent_id: str, tournament_id: str):
+    # 2. Force a single agent to think NOW
+    task = run_agent_decision.delay(
+        agent_uuid=agent_id, tournament_uuid=tournament_id, recover_from_crash=True
+    )
+
+    return {"task_id": task.id, "status": "Queued"}
 
 
 @router.put("/{tournament_id}", response_model=TournamentResponse)
@@ -131,4 +154,3 @@ async def delete_tournament(
     await session.commit()
 
     return {"message": f"Tournament {tournament_id} deleted successfully"}
-
