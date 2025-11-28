@@ -5,6 +5,9 @@ import UserProfileCard from './components/UserInfo';
 import TournamentContainer from './components/TournamentStatusBar';
 import CandleChart from './components/CandleChart';
 import RecentTrades from './components/RecentTrades';
+import AgentListSection from './dashboard/AgentListSection';
+import { agents } from './data/mockAgents';
+
 
 export default function HomePage() {
   // Add tournament state management
@@ -41,6 +44,11 @@ export default function HomePage() {
               />
             </div>
           </div>
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent rounded-3xl blur-xl -z-10"></div>
+          <AgentListSection />
         </div>
 
         {/* Section 2: Chart - Purple tint */}
