@@ -12,21 +12,22 @@ import { getOhlcvByTournament } from '../data/mockOhlcv';
 import type { UTCTimestamp, ISeriesApi, IChartApi } from 'lightweight-charts';
 import { CandlestickSeries } from 'lightweight-charts';
 
+// Zustand store
+import { useTournamentStore } from '@/src/store/useTournamentStore';
+
 /* ----------------------------- Types ----------------------------- */
 
-// A single OHLC candle in Lightweight Charts format
 export interface OhlcCandle {
-  time: UTCTimestamp; // seconds since epoch
+  time: UTCTimestamp;
   open: number;
   high: number;
   low: number;
   close: number;
-  // volume is optional in case you add it later
   volume?: number;
 }
 
 interface CandleChartProps {
-  tournamentId: number;
+  tournamentId?: number; // now optional
 }
 
 /* --------------------- Local aggregation utils ------------------ */
@@ -51,7 +52,6 @@ function aggregateOhlc(data: OhlcCandle[], groupSize: number): OhlcCandle[] {
       high,
       low,
       close,
-      // If volume exists, sum it:
       volume: group.reduce((acc, c) => acc + (c.volume ?? 0), 0) || undefined,
     });
   }
@@ -60,7 +60,7 @@ function aggregateOhlc(data: OhlcCandle[], groupSize: number): OhlcCandle[] {
 }
 
 const timeframeMap: Record<string, number> = {
-  '1m': 1,   // mock fallback (still 5m resolution)
+  '1m': 1,
   '5m': 1,
   '15m': 3,
   '1h': 12,
@@ -71,16 +71,26 @@ const timeframeMap: Record<string, number> = {
 /* --------------------------- Component --------------------------- */
 
 export default function CandleChart({ tournamentId }: CandleChartProps) {
+  // Zustand fallback
+  const storeTournamentId = Number(
+    useTournamentStore((s) => s.selectedTournamentId)
+  );
+
+  // Final tournament ID that chart actually uses
+  const finalTournamentId = tournamentId ?? storeTournamentId;
+
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
-  const [timeframe, setTimeframe] = useState<'1m' | '5m' | '15m' | '1h' | '4h' | '1d'>('1h');
+  const [timeframe, setTimeframe] = useState<
+    '1m' | '5m' | '15m' | '1h' | '4h' | '1d'
+  >('1h');
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // raw mock data typed
-  const rawData = getOhlcvByTournament(tournamentId) as OhlcCandle[];
+  // Load data using the FINAL tournament ID
+  const rawData = getOhlcvByTournament(finalTournamentId) as OhlcCandle[];
   const groupSize = timeframeMap[timeframe] ?? 1;
   const ohlcv = aggregateOhlc(rawData, groupSize);
 
-  // ESC exits fullscreen
+  /* ---------------- ESC exits fullscreen ---------------- */
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsFullscreen(false);
@@ -89,6 +99,7 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
 
+  /* ---------------- Chart Init + Resize ---------------- */
   useEffect(() => {
     const container = chartContainerRef.current;
     if (!container || ohlcv.length === 0) return;
@@ -96,14 +107,11 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
     let chart: IChartApi | null = null;
     let series: ISeriesApi<'Candlestick'> | null = null;
 
-    // lightweight-charts dynamically imported only on client
     import('lightweight-charts').then((LightweightCharts) => {
       if (!chartContainerRef.current) return;
 
       const ctn = chartContainerRef.current;
-
-      // clear old canvases (prevents double charts)
-      ctn.innerHTML = '';
+      ctn.innerHTML = ''; // reset old chart
 
       chart = LightweightCharts.createChart(ctn, {
         width: ctn.clientWidth,
@@ -146,7 +154,6 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
 
       window.addEventListener('resize', handleResize);
 
-      // cleanup for this import callback
       return () => {
         window.removeEventListener('resize', handleResize);
         chart?.remove();
@@ -155,18 +162,15 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
       };
     });
 
-    // cleanup for the effect itself (if it re-runs before import resolves)
     return () => {
       chart?.remove();
       chart = null;
       series = null;
       if (container) container.innerHTML = '';
     };
-  }, [isFullscreen, timeframe, tournamentId, ohlcv]);
+  }, [isFullscreen, timeframe, finalTournamentId, ohlcv]);
 
-  const timeframeButtons: Array<'1m' | '5m' | '15m' | '1h' | '4h' | '1d'> = [
-    '1m', '5m', '15m', '1h', '4h', '1d',
-  ];
+  /* ---------------- Calculations ---------------- */
 
   const currentPrice = ohlcv[ohlcv.length - 1]?.close ?? 0;
   const firstPrice = ohlcv[0]?.close ?? currentPrice;
@@ -174,6 +178,8 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
     firstPrice > 0 ? ((currentPrice - firstPrice) / firstPrice) * 100 : 0;
 
   const volume24h = 1_200_000;
+
+  /* ---------------- UI (UNCHANGED) ---------------- */
 
   return (
     <div
@@ -199,7 +205,8 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">Portfolio Value</h3>
-              <p className="text-xs text-gray-400">Tournament #{tournamentId}</p>
+              <p className="text-xs text-gray-400">Tournament #{finalTournamentId}</p>
+
               <div className="flex items-center gap-3 mt-1">
                 <p className="text-2xl font-bold text-[#FFD700]">
                   ${currentPrice.toFixed(2)}
@@ -219,10 +226,10 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
           {/* Timeframe + Fullscreen */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10">
-              {timeframeButtons.map((tf) => (
+              {['1m', '5m', '15m', '1h', '4h', '1d'].map((tf) => (
                 <button
                   key={tf}
-                  onClick={() => setTimeframe(tf)}
+                  onClick={() => setTimeframe(tf as any)}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     timeframe === tf
                       ? 'bg-[#FFD700] text-[#001D3D]'

@@ -10,7 +10,10 @@ import {
   Download,
 } from 'lucide-react';
 import { mockTrades } from '../data/mockTrades';
-import {mockTournaments} from '../data/mockTournament';
+import { mockTournaments } from '../data/mockTournament';
+
+// Zustand
+import { useTournamentStore } from '@/src/store/useTournamentStore';
 
 // define type
 interface Trade {
@@ -22,17 +25,19 @@ interface Trade {
   tournament_id: number;
 }
 
-interface RecentTradesProps {
-  tournamentId: number;
-}
+export default function RecentTrades() {
+  // read tournament from Zustand
+  const selectedTournamentId = Number(
+    useTournamentStore((s) => s.selectedTournamentId)
+  );
 
-export default function RecentTrades({ tournamentId }: RecentTradesProps) {
   // get tournament status 
-  const tournament = mockTournaments.find((t) => t.id === tournamentId);
+  const tournament = mockTournaments.find((t) => t.id === selectedTournamentId);
   const isLiveTournament = tournament?.status === 'LIVE';
+
   // Filter trades by tournament ID
   const filteredTrades = mockTrades.filter(
-    (trade) => trade.tournament_id === tournamentId
+    (trade) => trade.tournament_id === selectedTournamentId
   );
 
   const formatTime = (timestamp: string) => {
@@ -55,7 +60,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
   return (
     <motion.div
       className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-6 relative overflow-hidden"
-      key={tournamentId} // Re-animate when tournament changes
+      key={selectedTournamentId} // Re-animate when tournament changes
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -71,7 +76,9 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">Recent Trades</h3>
-            <p className="text-xs text-gray-400">Tournament #{tournamentId}</p>
+            <p className="text-xs text-gray-400">
+              Tournament #{selectedTournamentId}
+            </p>
           </div>
         </div>
 
@@ -97,7 +104,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
 
       {/* trades list */}
       <div className="space-y-2 max-h-[500px] overflow-y-scroll pr-2 custom-scrollbar relative z-10">
-      <style jsx>{`
+        <style jsx>{`
           .scrollbar-always-visible::-webkit-scrollbar {
             width: 8px;
           }
@@ -117,6 +124,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
             min-height: 40px;
           }
         `}</style>
+
         {filteredTrades.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -142,7 +150,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                {/* glow effect on hover */}
+                {/* glow */}
                 <div
                   className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity ${
                     isBuy
@@ -151,9 +159,8 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                   }`}
                 />
 
-                {/* left side: icon + info */}
+                {/* left */}
                 <div className="flex items-center gap-3 relative z-10">
-                  {/* action icon */}
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       isBuy ? 'bg-green-500/20' : 'bg-red-500/20'
@@ -167,7 +174,6 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                   </div>
 
                   <div>
-                    {/* trade action & token */}
                     <div className="flex items-center gap-2 mb-1">
                       <span
                         className={`font-bold text-xs uppercase ${
@@ -181,27 +187,25 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                       </span>
                     </div>
 
-                    {/* amount */}
                     <p className="text-sm text-gray-400">
                       Amount: {formatCurrency(trade.amount_usd)}
                     </p>
                   </div>
                 </div>
 
-                {/* right side: price + time */}
+                {/* right */}
                 <div className="text-right relative z-10">
                   <p className="font-bold text-white mb-1">
                     ${trade.price_usd.toLocaleString()}
                   </p>
-
                   <div className="flex items-center gap-1 text-xs text-gray-500 justify-end">
                     <Clock className="w-3 h-3" />
                     {formatTime(trade.timestamp)}
                   </div>
                 </div>
 
-                {/* pulse indicator for recent trades */}
-                {index === 0 && isLiveTournament &&(
+                {/* live pulse indicator */}
+                {index === 0 && isLiveTournament && (
                   <motion.div
                     className={`absolute top-4 right-4 w-2 h-2 rounded-full ${
                       isBuy ? 'bg-green-400' : 'bg-red-400'
@@ -227,7 +231,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
       {filteredTrades.length > 0 && (
         <div className="mt-6 pt-4 border-t border-white/10 relative z-10">
           <div className="grid grid-cols-2 gap-4">
-            {/* total buy volume */}
+            {/* total buy */}
             <div className="bg-green-500/5 rounded-lg p-3 border border-green-500/20">
               <div className="flex items-center gap-2 mb-1">
                 <ArrowUpRight className="w-4 h-4 text-green-400" />
@@ -244,7 +248,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
               </p>
             </div>
 
-            {/* total sell volume */}
+            {/* total sell */}
             <div className="bg-red-500/5 rounded-lg p-3 border border-red-500/20">
               <div className="flex items-center gap-2 mb-1">
                 <ArrowDownRight className="w-4 h-4 text-red-400" />
@@ -264,7 +268,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
         </div>
       )}
 
-      {/* bottom accent line */}
+      {/* bottom accent */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500/30 via-purple-500/30 to-red-500/30 blur-sm" />
     </motion.div>
   );

@@ -3,17 +3,25 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { AgentBet } from '@/lib/types/AgentBet';
+import { useTournamentStore } from '@/src/store/useTournamentStore';   // ⭐ ADDED
 
 interface AgentCardProps {
   agent: AgentBet;
   totalAgents: number;
-  forceExpand?: boolean;     // ⭐ ADDED
+  forceExpand?: boolean;
 }
 
-export default function AgentCard({ agent, totalAgents, forceExpand }: AgentCardProps) {
+export default function AgentCard({
+  agent,
+  totalAgents,
+  forceExpand,
+}: AgentCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // ⭐ Sync global expand/collapse
+  // ⭐ Zustand bet modal
+  const openBetModal = useTournamentStore((s) => s.openBetModal);
+
+  // Sync global expand/collapse
   React.useEffect(() => {
     if (forceExpand !== undefined) {
       setExpanded(forceExpand);
@@ -44,13 +52,23 @@ export default function AgentCard({ agent, totalAgents, forceExpand }: AgentCard
             {agent.odds}x
           </span>
 
-          <button className="mt-2 px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-black font-semibold rounded-lg">
+          {/* ⭐ FIXED — Bet button opens modal */}
+          <button
+            className="mt-2 px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-black font-semibold rounded-lg"
+            onClick={(e) => {
+              e.stopPropagation();   // prevent accordion toggling
+              openBetModal(agent);   // ⭐ open modal
+            }}
+          >
             Bet on Agent
           </button>
 
           <button
             className="text-gray-300 mt-2 flex items-center"
-            onClick={() => setExpanded(!expanded)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
           >
             {expanded ? (
               <>
@@ -65,6 +83,7 @@ export default function AgentCard({ agent, totalAgents, forceExpand }: AgentCard
         </div>
       </div>
 
+      {/* EXPANDED CONTENT */}
       {expanded && (
         <div className="mt-4 border-t border-gray-700 pt-4 space-y-4">
           {agent.personality && (
@@ -92,9 +111,7 @@ export default function AgentCard({ agent, totalAgents, forceExpand }: AgentCard
 
             <div>
               <span className="font-semibold text-white">P&L:</span>{' '}
-              {agent.pnl !== undefined
-                ? `$${agent.pnl.toLocaleString()}`
-                : '—'}
+              {agent.pnl !== undefined ? `$${agent.pnl.toLocaleString()}` : '—'}
             </div>
 
             {agent.volatility !== undefined && (
