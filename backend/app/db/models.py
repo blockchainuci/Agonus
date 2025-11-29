@@ -49,6 +49,27 @@ class Tournament(Base):
     winner_agent_id: Mapped[Optional[UUID]] = mapped_column(
         ForeignKey("agent.id"), index=True, default=None
     )
+    
+    #ADDED BY JACOB
+    
+    #on-chain tournament ID 
+    contract_tournament_id: Mapped[Optional[int]] = mapped_column(
+        Integer, index=True, nullable=True
+    )
+
+    #map agent uuids to 1 based contract agent indices
+    agent_contract_mapping: Mapped[Optional[dict[str, int]]] = mapped_column(
+        JSON, default=dict
+    )
+
+    #contract lifestyle status
+    contract_status: Mapped[Optional[str]] = mapped_column(
+        String, default="PENDING"
+    )
+
+
+
+
 
     # Relationships - clean and simple!
     trades: Mapped[list["Trade"]] = relationship(back_populates="tournament")

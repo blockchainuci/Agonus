@@ -16,7 +16,9 @@ class TournamentBase(BaseModel):
 
 # Schema for creating tournaments (POST)
 class TournamentCreate(TournamentBase):
-    pass
+    
+    #ids of agents participating in the tournament
+    agent_ids: list[UUID]
 
 
 # Schema for updating tournaments (PUT/PATCH)
@@ -34,5 +36,11 @@ class TournamentResponse(TournamentBase):
     id: UUID
     created_at: datetime
     winner_agent_id: Optional[UUID] = None
+    
+    
+    #ADDED BY JACOB
+    #expose chain id on responses
+    contract_tournament_id: Optional[int] = None
+    #agent_contract_mapping: Optional[dict[str, int]] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -2,7 +2,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from uuid import uuid4
-from backend.app.db.models import Tournament
+from backend.app.db.models import Tournament, Agent
 
 
 @pytest.mark.anyio
@@ -76,15 +76,26 @@ async def test_get_tournament_not_found(client):
 
 
 @pytest.mark.anyio
-async def test_create_tournament(client):
+async def test_create_tournament(client, test_db):
     '''Test for creating a tournament'''
     now = datetime.now(timezone.utc)
+
+    dummy_agent = Agent(
+        name="Test Agent",
+        personality="test",
+        strategy_type="test",
+    )
+    test_db.add(dummy_agent)
+    await test_db.commit()
+    await test_db.refresh(dummy_agent)
+
     body = {
         "name": "Winter Cup",
         "status": "upcoming",
         "start_date": (now + timedelta(days=30)).isoformat(),
         "end_date": (now + timedelta(days=37)).isoformat(),
         "prize_pool": 20000.00,
+        "agent_ids": [str(dummy_agent.id)], # temporary: no agents for this simple test
     }
     r = await client.post("/tournaments/", json=body)
     assert r.status_code == 201, r.text
