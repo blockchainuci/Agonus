@@ -85,6 +85,7 @@ async def test_create_tournament(client):
         "start_date": (now + timedelta(days=30)).isoformat(),
         "end_date": (now + timedelta(days=37)).isoformat(),
         "prize_pool": 20000.00,
+        "agent_ids": [], # temporary: no agents for this simple test
     }
     r = await client.post("/tournaments/", json=body)
     assert r.status_code == 201, r.text
