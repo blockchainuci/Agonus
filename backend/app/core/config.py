@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./agonus.db"
 
     # Blockchain and contract settings
-    CONTRACT_ADDRESS: str  # Base Sepolia address (from .env)
-    ADMIN_PRIVATE_KEY: str  # Admin wallet key (from .env)
+    CONTRACT_ADDRESS: str = "0x0000000000000000000000000000000000000001" # Base Sepolia address (from .env)
+    ADMIN_PRIVATE_KEY: str = "0x0000000000000000000000000000000000000000000000000000000000000001" # Admin wallet key (from .env)
     RPC_URL: str = "https://sepolia.base.org"  # Base Sepolia RPC
     CONTRACT_ABI_PATH: str = "backend/app/contracts/AgonusBetting.json"
     CHAIN_ID: int = 84532
