@@ -19,7 +19,10 @@ class Settings(BaseSettings):
     @property
     def CONTRACT_ABI(self):
         """Load contract ABI from json file"""
-        path = Path(self.CONTRACT_ABI_PATH)
+
+        # Resolve path relative to this file so it works in CI and locally
+        path = Path(__file__).resolve().parent.parent / "contracts" / "AgonusBetting.json"
+
         if not path.exists():
             raise FileNotFoundError(f"Contract ABI file not found at {path}")
 
