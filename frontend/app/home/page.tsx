@@ -1,15 +1,18 @@
 'use client';
 
+import HomeNavbar from './components/HomeNavBar';
 import UserProfileCard from './components/UserInfo';
 import TournamentContainer from './components/TournamentStatusBar';
 import CandleChart from './components/CandleChart';
 import RecentTrades from './components/RecentTrades';
 import AgentListSection from './dashboard/AgentListSection';
-import BetModal from './components/BetModal';   // ⭐ ADD THIS
+import BetModal from './components/BetModal'; // ⭐ ADD THIS
 import { useTournamentStore } from '@/src/store/useTournamentStore';
 
 export default function HomePage() {
-  const selectedTournamentId = useTournamentStore((s) => s.selectedTournamentId);
+  const selectedTournamentId = useTournamentStore(
+    (s) => s.selectedTournamentId
+  );
 
   return (
     <div className="relative min-h-screen">
@@ -23,8 +26,10 @@ export default function HomePage() {
       {/* Grid pattern */}
       <div className="fixed inset-0 -z-10 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
 
-      <div className="pt-24 max-w-7xl mx-auto flex flex-col gap-12 p-6">
+      {/* Navbar */}
+      <HomeNavbar />
 
+      <div className="pt-24 max-w-7xl mx-auto flex flex-col gap-12 p-6">
         {/* Section 1: User Profile + Tournament */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent rounded-3xl blur-xl -z-10"></div>
@@ -56,7 +61,6 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-transparent rounded-3xl blur-xl -z-10"></div>
           <RecentTrades />
         </div>
-
       </div>
 
       {/* ⭐ ADD BET MODAL HERE — always mounted, Zustand controls visibility */}

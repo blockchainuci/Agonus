@@ -2,12 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  TrendingUp,
-  Maximize2,
-  Minimize2,
-  Plus,
-} from 'lucide-react';
+import { TrendingUp, Maximize2, Minimize2, Plus } from 'lucide-react';
 import { getOhlcvByTournament } from '../data/mockOhlcv';
 import type { UTCTimestamp, ISeriesApi, IChartApi } from 'lightweight-charts';
 import { CandlestickSeries } from 'lightweight-charts';
@@ -205,7 +200,9 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">Portfolio Value</h3>
-              <p className="text-xs text-gray-400">Tournament #{finalTournamentId}</p>
+              <p className="text-xs text-gray-400">
+                Tournament #{finalTournamentId}
+              </p>
 
               <div className="flex items-center gap-3 mt-1">
                 <p className="text-2xl font-bold text-[#FFD700]">
