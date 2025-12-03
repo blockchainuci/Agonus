@@ -185,6 +185,7 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
       }
     >
       <motion.div
+        id="CandleChart"
         className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 
           backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl 
           w-full max-w-7xl overflow-hidden"

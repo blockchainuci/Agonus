@@ -10,7 +10,7 @@ export interface UserProfile {
 }
 
 export const mockUser: UserProfile = {
-  walletId: "178930",
+  walletId: "0x8d8c7B3E9F2a1D5c6B4e8F0A3C7D9E2B5F8A23C5",
   name: "Steph Curry",
   pronouns: "he/him",
   profilePicUrl: undefined, // Wwll use placeholder

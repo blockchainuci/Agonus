@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Wallet, Copy, Check, Mail, Trophy, TrendingUp } from 'lucide-react';
 import { UserProfile, mockUser } from '../data/mockUser';
 
 interface UserProfileCardProps {
@@ -9,6 +10,12 @@ interface UserProfileCardProps {
   onViewProfile?: () => void;
   onDisconnectWallet?: () => void;
 }
+
+// Helper to truncate wallet address: 0x8d8c…23C5
+const truncateAddress = (address: string) => {
+  if (!address || address.length < 10) return address;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+};
 
 export const UserProfileCard: React.FC<UserProfileCardProps> = ({
   user = mockUser,
@@ -20,6 +27,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [currentUser, setCurrentUser] = useState(user);
   const [editedUser, setEditedUser] = useState(user);
+  const [copied, setCopied] = useState(false);
 
   const getInitials = (name: string) => {
     return name
@@ -28,6 +36,12 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleCopyWallet = () => {
+    navigator.clipboard.writeText(currentUser.walletId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleSaveChanges = () => {
@@ -61,12 +75,23 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
     }));
   };
 
+  // Placeholder stats (will be replaced with real data later)
+  const stats = {
+    totalBalance: 12345.67,
+    tournamentsPlayed: 8,
+    winRate: 62,
+  };
+
   return (
-    <div className="relative bg-gradient-to-br from-blue-800 to-blue-950 rounded-3xl p-8 shadow-xl max-w-sm w-full min-h-[600px] antialiased">
+    <div
+      id="UserInfo"
+      className="relative bg-gradient-to-br from-blue-800 to-blue-950 rounded-3xl p-8 shadow-xl max-w-sm w-full antialiased"
+    >
+      {/* Edit Mode */}
       <div
         className={`
-          absolute inset-0 p-8 overflow-y-auto
-          transition-opacity duration-200
+          absolute inset-0 p-8 overflow-y-auto rounded-3xl bg-gradient-to-br from-blue-800 to-blue-950
+          transition-opacity duration-200 z-20
           ${isEditing ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
         `}
       >
@@ -74,11 +99,10 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
           Edit Profile
         </h2>
 
-        {/* Standardized spacing */}
-        <div className="space-y-8">
+        <div className="space-y-6">
           {/* NAME */}
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-300 whitespace-nowrap">
+            <label className="block text-sm font-semibold text-slate-300">
               Name
             </label>
             <input
@@ -93,7 +117,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
 
           {/* pronouns */}
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-300 whitespace-nowrap">
+            <label className="block text-sm font-semibold text-slate-300">
               Pronouns <span className="text-slate-400">(Optional)</span>
             </label>
             <input
@@ -108,71 +132,43 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
 
           {/* wallet id */}
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-300 whitespace-nowrap">
+            <label className="block text-sm font-semibold text-slate-300">
               Wallet ID
             </label>
             <input
               type="text"
-              value={editedUser.walletId}
+              value={currentUser.walletId}
               disabled
-              className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-400 cursor-not-allowed"
+              className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-400 cursor-not-allowed font-mono text-sm"
             />
           </div>
 
-          {/* socials*/}
-          <div className="pt-2 border-t border-slate-700">
-            <h3 className="text-lg font-semibold text-yellow-400 mb-4 whitespace-nowrap">
-              Social Media
-            </h3>
-
-            <div className="space-y-6">
-              {/* twitter/x */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-300 whitespace-nowrap">
-                  Twitter / X
-                </label>
-                <input
-                  type="text"
-                  value={editedUser.socialMedia?.twitter || ''}
-                  onChange={(e) =>
-                    handleSocialMediaChange('twitter', e.target.value)
-                  }
-                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white
-                             focus:outline-none focus:border-yellow-400"
-                  placeholder="@username"
-                />
-              </div>
-
-              {/* emaill */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-300 whitespace-nowrap">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={editedUser.socialMedia?.email || ''}
-                  onChange={(e) =>
-                    handleSocialMediaChange('email', e.target.value)
-                  }
-                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white
-                             focus:outline-none focus:border-yellow-400"
-                  placeholder="your@email.com"
-                />
-              </div>
-            </div>
+          {/* email */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-300">
+              Email
+            </label>
+            <input
+              type="email"
+              value={editedUser.socialMedia?.email || ''}
+              onChange={(e) => handleSocialMediaChange('email', e.target.value)}
+              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white
+                         focus:outline-none focus:border-yellow-400"
+              placeholder="your@email.com"
+            />
           </div>
 
           {/* buttons */}
           <div className="flex gap-3 pt-2">
             <button
               onClick={handleSaveChanges}
-              className="flex-1 bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-semibold py-3 rounded-lg"
+              className="flex-1 bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-semibold py-3 rounded-lg transition"
             >
               Save Changes
             </button>
             <button
               onClick={handleCancelEdit}
-              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg"
+              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition"
             >
               Cancel
             </button>
@@ -180,7 +176,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
         </div>
       </div>
 
-      {/* view mode */}
+      {/* View Mode */}
       <div
         className={`
           transition-opacity duration-200
@@ -188,7 +184,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
         `}
       >
         {/* Menu */}
-        <div className="absolute top-6 right-6">
+        <div className="absolute top-6 right-6 z-10">
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="text-yellow-400 hover:text-yellow-300"
@@ -201,7 +197,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
           </button>
 
           {isMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-10">
+            <div className="absolute right-0 mt-2 w-56 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-20">
               <div className="py-1">
                 {onViewProfile && (
                   <button
@@ -225,7 +221,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
                 </button>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(currentUser.walletId);
+                    handleCopyWallet();
                     setIsMenuOpen(false);
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-slate-700"
@@ -251,9 +247,9 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
           )}
         </div>
 
-        {/* Profile section */}
-        <div className="flex justify-start mb-6">
-          <div className="w-36 h-36 rounded-full bg-slate-200 flex items-center justify-center text-4xl font-bold text-slate-700">
+        {/* Profile Picture */}
+        <div className="flex justify-start mb-5">
+          <div className="w-24 h-24 rounded-full bg-slate-200 flex items-center justify-center text-2xl font-bold text-slate-700 shadow-lg">
             {currentUser.profilePicUrl ? (
               <img
                 src={currentUser.profilePicUrl}
@@ -266,55 +262,85 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
           </div>
         </div>
 
-        <h2 className="text-4xl font-bold text-yellow-400 mb-1 leading-tight">
+        {/* Name */}
+        <h2 className="text-2xl font-bold text-yellow-400 mb-0.5 leading-tight">
           {currentUser.name}
         </h2>
 
         {currentUser.pronouns && (
-          <p className="text-blue-200 text-sm mb-6">({currentUser.pronouns})</p>
+          <p className="text-blue-200 text-sm mb-3">({currentUser.pronouns})</p>
         )}
 
-        <div className="w-full h-1.5 bg-blue-900 rounded-full mb-8">
-          <div className="h-full w-full bg-yellow-400 rounded-full"></div>
+        {/* Wallet ID - Big label style */}
+        <div className="mb-5">
+          <div className="flex items-center gap-1.5 text-slate-400 text-xs uppercase tracking-wide mb-2">
+            <Wallet size={12} />
+            <span>Wallet</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-yellow-400 font-mono text-2xl font-bold tracking-wide">
+              {truncateAddress(currentUser.walletId)}
+            </span>
+            <button
+              onClick={handleCopyWallet}
+              className="p-1.5 rounded-md hover:bg-white/10 transition text-slate-400 hover:text-yellow-400"
+              title="Copy full address"
+            >
+              {copied ? (
+                <Check size={18} className="text-green-400" />
+              ) : (
+                <Copy size={18} />
+              )}
+            </button>
+          </div>
         </div>
 
-        <div className="mb-6">
-          <p className="text-white text-lg font-medium">
-            WALLET ID: <span className="font-mono">{currentUser.walletId}</span>
-          </p>
+        {/* Divider */}
+        <div className="w-full h-px bg-blue-700/50 mb-5"></div>
+
+        {/* Total Account Balance */}
+        <div className="mb-5">
+          <div className="text-slate-400 text-xs uppercase tracking-wide mb-1">
+            Total Balance
+          </div>
+          <div className="text-yellow-400 text-3xl font-bold">
+            $
+            {stats.totalBalance.toLocaleString('en-US', {
+              minimumFractionDigits: 2,
+            })}
+          </div>
+          <div className="text-slate-500 text-xs mt-1">
+            Updates after each tournament settles
+          </div>
         </div>
 
-        {currentUser.socialMedia && (
-          <div className="flex gap-4">
-            {currentUser.socialMedia.twitter && (
-              <button className="w-14 h-14 bg-yellow-400 rounded-full flex items-center justify-center hover:bg-yellow-300">
-                <svg
-                  className="w-7 h-7 text-blue-900"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                </svg>
-              </button>
-            )}
+        {/* Quick Stats Row */}
+        <div className="flex gap-3">
+          <div className="flex-1 bg-blue-900/50 rounded-xl p-3 border border-blue-700/30">
+            <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
+              <Trophy size={12} />
+              <span>Tournaments</span>
+            </div>
+            <div className="text-white font-bold text-lg">
+              {stats.tournamentsPlayed}
+            </div>
+          </div>
+          <div className="flex-1 bg-blue-900/50 rounded-xl p-3 border border-blue-700/30">
+            <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
+              <TrendingUp size={12} />
+              <span>Win Rate</span>
+            </div>
+            <div className="text-green-400 font-bold text-lg">
+              {stats.winRate}%
+            </div>
+          </div>
+        </div>
 
-            {currentUser.socialMedia.email && (
-              <button className="w-14 h-14 bg-yellow-400 rounded-full flex items-center justify-center hover:bg-yellow-300">
-                <svg
-                  className="w-7 h-7 text-blue-900"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"
-                  />
-                </svg>
-              </button>
-            )}
+        {/* Email if exists */}
+        {currentUser.socialMedia?.email && (
+          <div className="flex items-center gap-2 text-slate-300 text-sm mt-4 pt-4 border-t border-blue-700/30">
+            <Mail size={14} className="text-yellow-400" />
+            <span>{currentUser.socialMedia.email}</span>
           </div>
         )}
       </div>

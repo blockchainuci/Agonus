@@ -31,7 +31,7 @@ export default function RecentTrades() {
     useTournamentStore((s) => s.selectedTournamentId)
   );
 
-  // get tournament status 
+  // get tournament status
   const tournament = mockTournaments.find((t) => t.id === selectedTournamentId);
   const isLiveTournament = tournament?.status === 'LIVE';
 
@@ -59,6 +59,7 @@ export default function RecentTrades() {
 
   return (
     <motion.div
+      id="RecentTrades"
       className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-6 relative overflow-hidden"
       key={selectedTournamentId} // Re-animate when tournament changes
       initial={{ opacity: 0, y: 20 }}
