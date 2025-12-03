@@ -1,7 +1,21 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from backend.app.api.routers import tournament, agent, trade, bet, auth, market_data
 
 app = FastAPI(title="Agonus API")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",  # Next.js frontend
+        "http://localhost:3001",  # Alternative port
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 # Register routers
 app.include_router(tournament.router, prefix="/tournaments", tags=["Tournaments"])

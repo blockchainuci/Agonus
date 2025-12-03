@@ -1,26 +1,36 @@
 'use client';
 
 import React, { useState } from 'react';
-import { mockTournaments } from '../data/mockTournament';
 import AgentPositions from './AgentPositions';
 import ActiveBets from './ActiveBets';
+import { useTournaments, useTournament } from '@/src/hooks/useTournaments';
 
 interface TournamentContainerProps {
-  selectedTournamentId: number;
-  onTournamentChange: (id: number) => void;
+  selectedTournamentId: string;
+  onTournamentChange: (id: string) => void;
 }
 
 function TournamentStatusBar({
   tournament,
   onTournamentChange,
+  allTournaments,
 }: {
-  tournament: (typeof mockTournaments)[0];
-  onTournamentChange: (tournamentId: number) => void;
+  tournament: any;
+  onTournamentChange: (tournamentId: string) => void;
+  allTournaments: any[];
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  if (!tournament) {
+    return (
+      <div className="p-6 flex items-center justify-center border-b border-white/10 bg-gradient-to-r from-blue-900/20 to-transparent">
+        <p className="text-gray-400">Loading tournament...</p>
+      </div>
+    );
+  }
+
   // Format the end time nicely
-  const formattedEndTime = new Date(tournament.end_time).toLocaleDateString(
+  const formattedEndTime = new Date(tournament.end_date).toLocaleDateString(
     'en-US',
     {
       month: 'short',
@@ -31,12 +41,12 @@ function TournamentStatusBar({
 
   // Get status badge color
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'LIVE':
+    switch (status.toLowerCase()) {
+      case 'live':
         return 'bg-green-500/20 text-green-400';
-      case 'ENDED':
+      case 'completed':
         return 'bg-gray-500/20 text-gray-400';
-      case 'UPCOMING':
+      case 'upcoming':
         return 'bg-blue-500/20 text-blue-400';
       default:
         return 'bg-gray-500/20 text-gray-400';
@@ -67,7 +77,7 @@ function TournamentStatusBar({
           {isDropdownOpen && (
             <div className="absolute top-full left-0 mt-2 w-64 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-50">
               <div className="py-1">
-                {mockTournaments.map((t) => (
+                {allTournaments.map((t) => (
                   <button
                     key={t.id}
                     onClick={() => {
@@ -81,11 +91,11 @@ function TournamentStatusBar({
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-white font-semibold">
-                          Tournament #{t.id}
+                          {t.name}
                         </p>
                         <p className="text-xs text-gray-400">
-                          ${t.prize_pool_usd.toLocaleString()} •{' '}
-                          {new Date(t.end_time).toLocaleDateString('en-US', {
+                          ${parseFloat(t.prize_pool).toLocaleString()} •{' '}
+                          {new Date(t.end_date).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                           })}
@@ -117,7 +127,7 @@ function TournamentStatusBar({
         <span>
           Prize Pool:{' '}
           <span className="text-white font-semibold">
-            ${tournament.prize_pool_usd.toLocaleString()}
+            ${parseFloat(tournament.prize_pool).toLocaleString()}
           </span>
         </span>
         <span>
@@ -132,10 +142,18 @@ export default function TournamentContainer({
   selectedTournamentId,
   onTournamentChange,
 }: TournamentContainerProps) {
-  // Find the selected tournament
-  const selectedTournament =
-    mockTournaments.find((t) => t.id === selectedTournamentId) ||
-    mockTournaments[0];
+  const { data: tournaments, isLoading } = useTournaments();
+  const { data: selectedTournament } = useTournament(selectedTournamentId);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-0 w-full bg-black/20 backdrop-blur rounded-2xl border border-white/10 overflow-hidden">
+        <div className="p-6 flex items-center justify-center">
+          <p className="text-gray-400">Loading tournaments...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-0 w-full bg-black/20 backdrop-blur rounded-2xl border border-white/10 overflow-hidden">
@@ -143,6 +161,7 @@ export default function TournamentContainer({
       <TournamentStatusBar
         tournament={selectedTournament}
         onTournamentChange={onTournamentChange}
+        allTournaments={tournaments || []}
       />
 
       {/* Agent Positions and Active Bets - Content Area */}

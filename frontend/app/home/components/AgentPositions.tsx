@@ -1,5 +1,4 @@
 'use client';
-import { mockPositions } from '../data/mockPositions';
 import { motion } from 'framer-motion';
 import {
   Wallet,
@@ -8,22 +7,27 @@ import {
   PieChart,
   Sparkles,
 } from 'lucide-react';
+import { useTournamentAgentStates } from '@/src/hooks/useAgentStates';
+import { useAgents } from '@/src/hooks/useAgents';
 
 interface AgentPositionsProps {
-  tournamentId: number;
+  tournamentId: string;
 }
 
 export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
-  // Filter positions by tournament ID
-  const filteredPositions = mockPositions.filter(
-    (pos) => pos.tournament_id === tournamentId
-  );
+  // Fetch real data from backend
+  const { data: agentStates, isLoading: statesLoading } =
+    useTournamentAgentStates(tournamentId);
+  const { data: agents, isLoading: agentsLoading } = useAgents();
+
+  const isLoading = statesLoading || agentsLoading;
 
   // calculate total portfolio value for this tournament
-  const totalValue = filteredPositions.reduce(
-    (sum, pos) => sum + pos.current_value_usd,
-    0
-  );
+  const totalValue =
+    agentStates?.reduce(
+      (sum, state) => sum + parseFloat(state.portfolio_value_usd),
+      0,
+    ) || 0;
 
   return (
     <motion.div
@@ -60,22 +64,36 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
 
       {/* positions list */}
       <div className="space-y-3 mb-6 relative z-10">
-        {filteredPositions.length === 0 ? (
+        {isLoading ? (
           <div className="text-center py-8">
-            <p className="text-gray-400">No positions for this tournament</p>
+            <p className="text-gray-400">Loading agent data...</p>
+          </div>
+        ) : !agentStates || agentStates.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-400">No agents for this tournament</p>
           </div>
         ) : (
-          filteredPositions.map((position, index) => {
+          agentStates.map((agentState, index) => {
+            const agent = agents?.find((a) => a.id === agentState.agent_id);
+            const agentName = agent?.name || `Agent ${index + 1}`;
+            const portfolioValue = parseFloat(agentState.portfolio_value_usd);
             const percentOfTotal =
-              totalValue > 0
-                ? (position.current_value_usd / totalValue) * 100
-                : 0;
-            const change =
-              (position.current_value_usd / (position.amount * 2000) - 1) * 100; // Mock change
+              totalValue > 0 ? (portfolioValue / totalValue) * 100 : 0;
+
+            // Get top asset from portfolio
+            const portfolioEntries = Object.entries(
+              agentState.portfolio as Record<string, number>,
+            );
+            const topAsset =
+              portfolioEntries.length > 0
+                ? portfolioEntries.reduce((max, current) =>
+                    current[1] > max[1] ? current : max,
+                  )
+                : null;
 
             return (
               <motion.div
-                key={position.token}
+                key={agentState.agent_id}
                 className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10 transition-all cursor-pointer group relative overflow-hidden"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -86,38 +104,42 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                 <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 <div className="relative z-10">
-                  {/* token info row */}
+                  {/* agent info row */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      {/* token icon */}
+                      {/* agent avatar or icon */}
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold shadow-lg">
-                        {position.token[0]}
+                        {agent?.avatar_url ? (
+                          <img
+                            src={agent.avatar_url}
+                            alt={agentName}
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          agentName[0].toUpperCase()
+                        )}
                       </div>
 
                       <div>
-                        <p className="font-bold text-white">{position.token}</p>
+                        <p className="font-bold text-white">{agentName}</p>
                         <p className="text-xs text-gray-400">
-                          {position.amount} {position.token}
+                          Rank #{agentState.rank} •{' '}
+                          {agentState.trades_count} trades
                         </p>
                       </div>
                     </div>
 
-                    {/* value and change */}
+                    {/* value and rank */}
                     <div className="text-right">
                       <p className="font-bold text-white">
-                        ${position.current_value_usd.toLocaleString()}
+                        ${portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       </p>
-                      <div
-                        className={`flex items-center gap-1 text-xs justify-end ${
-                          change >= 0 ? 'text-green-400' : 'text-red-400'
-                        }`}
-                      >
-                        {change >= 0 ? (
-                          <TrendingUp className="w-3 h-3" />
-                        ) : (
-                          <TrendingDown className="w-3 h-3" />
+                      <div className="flex items-center gap-1 text-xs justify-end text-gray-400">
+                        {topAsset && (
+                          <>
+                            Top: {topAsset[0]}
+                          </>
                         )}
-                        {Math.abs(change).toFixed(1)}%
                       </div>
                     </div>
                   </div>
@@ -126,7 +148,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-400">
-                        Portfolio allocation
+                        Tournament share
                       </span>
                       <span className="text-[#FFD700] font-semibold">
                         {percentOfTotal.toFixed(1)}%
@@ -164,7 +186,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
       </div>
 
       {/* total portfolio summary */}
-      {filteredPositions.length > 0 && (
+      {agentStates && agentStates.length > 0 && (
         <div className="pt-6 border-t border-white/10 relative z-10">
           <div className="bg-gradient-to-r from-[#FFD700]/10 to-[#FFC300]/5 rounded-xl p-4 border border-[#FFD700]/20">
             <div className="flex items-center justify-between">
@@ -176,10 +198,10 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
               </div>
               <div className="text-right">
                 <p className="text-2xl font-bold text-[#FFD700]">
-                  ${totalValue.toLocaleString()}
+                  ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  {filteredPositions.length} assets
+                  {agentStates.length} agents
                 </p>
               </div>
             </div>

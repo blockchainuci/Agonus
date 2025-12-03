@@ -14,9 +14,17 @@ export function useTournaments() {
   return useQuery<Tournament[]>({
     queryKey: ["tournaments"],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/tournaments`);
-      if (!res.ok) throw new Error("Failed to fetch tournaments");
-      return res.json();
+      console.log('Fetching tournaments from:', `${API_URL}/tournaments/`);
+      const res = await fetch(`${API_URL}/tournaments/`);
+      console.log('Tournaments response status:', res.status);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Tournaments fetch error:', errorText);
+        throw new Error(`Failed to fetch tournaments: ${res.status}`);
+      }
+      const data = await res.json();
+      console.log('Tournaments data:', data);
+      return data;
     },
   });
 }
@@ -26,7 +34,7 @@ export function useTournament(tournamentId: ID) {
   return useQuery<Tournament>({
     queryKey: ["tournaments", tournamentId],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/tournaments/${tournamentId}`);
+      const res = await fetch(`${API_URL}/tournaments/${tournamentId}/`);
       if (!res.ok) throw new Error("Tournament not found");
       return res.json();
     },
@@ -128,7 +136,7 @@ export function useTournamentLeaderboard(tournamentId: ID) {
     queryKey: ["tournaments", tournamentId, "leaderboard"],
     queryFn: async () => {
       const res = await fetch(
-        `${API_URL}/tournaments/${tournamentId}/leaderboard`,
+        `${API_URL}/tournaments/${tournamentId}/leaderboard/`,
       );
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
       return res.json();

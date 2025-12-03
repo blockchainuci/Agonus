@@ -7,7 +7,7 @@ import { Trophy, TrendingUp, XCircle, Clock, Zap } from 'lucide-react';
 
 // ADD THIS INTERFACE
 interface ActiveBetsProps {
-  tournamentId: number;
+  tournamentId: string;
 }
 
 // UPDATE THIS LINE TO ACCEPT THE PROP
@@ -16,12 +16,12 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
 
   // Filter bets based on status AND tournament_id
   const activeBets = mockBets.filter(
-    (b) => b.status === 'active' && b.tournament_id === tournamentId
+    (b) => b.status === 'active' && b.tournament_id.toString() === tournamentId
   );
   const pastBets = mockBets.filter(
     (b) =>
       (b.status === 'won' || b.status === 'lost') &&
-      b.tournament_id === tournamentId
+      b.tournament_id.toString() === tournamentId
   );
 
   const displayedBets = filter === 'active' ? activeBets : pastBets;

@@ -9,31 +9,16 @@ import {
   Filter,
   Download,
 } from 'lucide-react';
-import { mockTrades } from '../data/mockTrades';
-import {mockTournaments} from '../data/mockTournament';
-
-// define type
-interface Trade {
-  action: string;
-  token: string;
-  amount_usd: number;
-  price_usd: number;
-  timestamp: string;
-  tournament_id: number;
-}
+import { useTournamentTrades } from '@/src/hooks/useTrades';
 
 interface RecentTradesProps {
-  tournamentId: number;
+  tournamentId: string;
 }
 
 export default function RecentTrades({ tournamentId }: RecentTradesProps) {
-  // get tournament status 
-  const tournament = mockTournaments.find((t) => t.id === tournamentId);
-  const isLiveTournament = tournament?.status === 'LIVE';
-  // Filter trades by tournament ID
-  const filteredTrades = mockTrades.filter(
-    (trade) => trade.tournament_id === tournamentId
-  );
+  const { data: trades, isLoading } = useTournamentTrades(tournamentId);
+  const filteredTrades = trades || [];
+  const isLiveTournament = true; // Assume live for now
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -127,12 +112,15 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
             </p>
           </div>
         ) : (
-          filteredTrades.map((trade: Trade, index: number) => {
+          filteredTrades.map((trade, index: number) => {
             const isBuy = trade.action.toLowerCase() === 'buy';
+            const amount = parseFloat(trade.amount);
+            const price = parseFloat(trade.price);
+            const amountUsd = amount * price;
 
             return (
               <motion.div
-                key={index}
+                key={trade.id}
                 className={`flex items-center justify-between p-4 rounded-xl border transition-all hover:scale-[1.01] cursor-pointer group relative overflow-hidden ${
                   isBuy
                     ? 'bg-green-500/5 border-green-500/20 hover:bg-green-500/10'
@@ -177,13 +165,13 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                         {trade.action}
                       </span>
                       <span className="font-semibold text-white">
-                        {trade.token}
+                        {trade.asset}
                       </span>
                     </div>
 
                     {/* amount */}
                     <p className="text-sm text-gray-400">
-                      Amount: {formatCurrency(trade.amount_usd)}
+                      Amount: {formatCurrency(amountUsd)}
                     </p>
                   </div>
                 </div>
@@ -191,7 +179,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                 {/* right side: price + time */}
                 <div className="text-right relative z-10">
                   <p className="font-bold text-white mb-1">
-                    ${trade.price_usd.toLocaleString()}
+                    ${price.toLocaleString()}
                   </p>
 
                   <div className="flex items-center gap-1 text-xs text-gray-500 justify-end">
