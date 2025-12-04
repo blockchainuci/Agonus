@@ -2,10 +2,32 @@
 
 import React, { useState, useMemo } from 'react';
 import AgentCard from './AgentCard';
-import { agents as mockAgents } from '../data/mockAgents';
+import { mockAgents } from '../data/mockAgents';
 
 // Zustand
 import { useTournamentStore } from '@/src/store/useTournamentStore';
+
+// -----------------------------------------
+// 1. Normalize backend -> frontend fields
+// -----------------------------------------
+function normalizeAgents() {
+  return mockAgents.map((a, index) => ({
+    ...a,
+
+    // Backend snake_case → camelCase
+    winRate: a.win_rate,
+    roiPercent: a.roi_percent,
+    riskScore: a.risk_score,
+    holdingsValue: a.holdings_value,
+    totalValue: a.total_value,
+    numTrades: a.num_trades,
+
+    // Defaults for fields the UI expects
+    tournamentId: a.tournament_id,  // now comes from mock data
+    rank: index + 1,                // simple placeholder ranking
+    odds: Number((1 + Math.random()).toFixed(2)), // mock odds
+  }));
+}
 
 export default function AgentListSection() {
   const [forceExpandAll, setForceExpandAll] = useState<boolean | undefined>(undefined);
@@ -14,28 +36,30 @@ export default function AgentListSection() {
   const [sortBy, setSortBy] = useState<'rank' | 'winRate' | 'odds'>('rank');
   const [search, setSearch] = useState('');
 
-  // 🔥 Read tournament ID from Zustand
+  // Zustand tournament ID
   const selectedTournamentId = Number(
     useTournamentStore((s) => s.selectedTournamentId)
   );
 
-  // -------------------------------
-  // PROCESSING (filter + search + sort)
-  // -------------------------------
+  // Normalize backend agents once
+  const agents = useMemo(() => normalizeAgents(), []);
+
+  // ----------------------------------------------------
+  // FILTER + SEARCH + SORT PROCESSING PIPELINE
+  // ----------------------------------------------------
   const processedAgents = useMemo(() => {
-    // 🔥 1) FILTER agents by tournament
-    let list = mockAgents.filter(
+    let list = agents.filter(
       (a) => Number(a.tournamentId) === selectedTournamentId
     );
 
-    // 2) Search
+    // Search filter
     if (search.trim() !== '') {
       list = list.filter((a) =>
         a.name.toLowerCase().includes(search.toLowerCase())
       );
     }
 
-    // 3) Sorting
+    // Sorting logic
     list.sort((a, b) => {
       let result = 0;
 
@@ -47,7 +71,7 @@ export default function AgentListSection() {
     });
 
     return list;
-  }, [sortBy, sortDirection, search, selectedTournamentId]);
+  }, [agents, sortBy, sortDirection, search, selectedTournamentId]);
 
   const totalAgentsShown = processedAgents.length;
 
@@ -57,8 +81,12 @@ export default function AgentListSection() {
     setOpenId((prev) => (prev === id ? null : id));
   };
 
+  // ------------------------------------------
+  // RENDER
+  // ------------------------------------------
   return (
     <div className="border border-white/10 rounded-xl bg-black/20 backdrop-blur p-6 flex flex-col">
+      
       {/* Header */}
       <div className="sticky top-0 z-20 bg-black/40 backdrop-blur px-4 pt-3 pb-4 mb-4 border-b border-white/5 rounded-t-xl">
 
@@ -68,10 +96,10 @@ export default function AgentListSection() {
           </h2>
 
           <span className="text-sm text-gray-300">
-            Total Agents: {mockAgents.filter(
-              (a) => Number(a.tournamentId) === selectedTournamentId
+            Total Agents: {agents.filter(a =>
+              Number(a.tournamentId) === selectedTournamentId
             ).length}
-            {totalAgentsShown !== mockAgents.length && (
+            {totalAgentsShown !== agents.length && (
               <> • Showing: {totalAgentsShown}</>
             )}
           </span>
@@ -99,6 +127,7 @@ export default function AgentListSection() {
             Collapse All
           </button>
 
+          {/* Sort Mode */}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
@@ -109,6 +138,7 @@ export default function AgentListSection() {
             <option value="odds">Sort: Odds</option>
           </select>
 
+          {/* Sort Direction */}
           <select
             value={sortDirection}
             onChange={(e) => setSortDirection(e.target.value as any)}
@@ -118,6 +148,7 @@ export default function AgentListSection() {
             <option value="desc">Desc ↓</option>
           </select>
 
+          {/* Search */}
           <input
             type="text"
             placeholder="Search agents..."
@@ -131,13 +162,10 @@ export default function AgentListSection() {
       {/* Agent List */}
       <div className="space-y-4 overflow-y-auto max-h-[540px] pr-2">
         {processedAgents.map((agent) => {
-          let forceExpandProp: boolean | undefined = undefined;
-
-          if (forceExpandAll !== undefined) {
-            forceExpandProp = forceExpandAll;
-          } else {
-            forceExpandProp = openId === agent.id;
-          }
+          let forceExpandProp: boolean | undefined =
+            forceExpandAll !== undefined
+              ? forceExpandAll
+              : openId === agent.id;
 
           return (
             <div

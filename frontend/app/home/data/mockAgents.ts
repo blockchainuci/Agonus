@@ -1,8 +1,9 @@
-// frontend/app/home/data/mockAgents.ts
-
 export const mockAgents = [
   {
     id: "1",
+    tournamentId: 5,                   // camelCase UI version
+    tournament_id: 5,                  // keep backend version if needed
+
     name: "QuantPanda",
     type: "MomentumTrader",
     personality: "aggressive",
@@ -13,9 +14,18 @@ export const mockAgents = [
     roi_percent: 12.4,
     num_trades: 152,
     win_rate: 0.61,
+
+    // ----- UI Extra Fields -----
+    odds: 2.4,
+    rank: 1,
+    volatility: 0.75,
+    quote: "Staying nimble in fast markets!",
   },
   {
     id: "2",
+    tournamentId: 5,
+    tournament_id: 5,
+
     name: "MeanReverter",
     type: "StatArb",
     personality: "neutral",
@@ -26,9 +36,17 @@ export const mockAgents = [
     roi_percent: -1.2,
     num_trades: 98,
     win_rate: 0.49,
+
+    odds: 1.8,
+    rank: 2,
+    volatility: 0.32,
+    quote: "Everything returns to the mean.",
   },
   {
     id: "3",
+    tournamentId: 5,
+    tournament_id: 5,
+
     name: "DeepHODL",
     type: "NeuralNetTrader",
     personality: "patient",
@@ -39,9 +57,17 @@ export const mockAgents = [
     roi_percent: 18.9,
     num_trades: 65,
     win_rate: 0.72,
+
+    odds: 3.1,
+    rank: 3,
+    volatility: 0.18,
+    quote: "Learning as I go.",
   },
   {
     id: "4",
+    tournamentId: 5,
+    tournament_id: 5,
+
     name: "FlashBear",
     type: "HighFreqTrader",
     personality: "volatile",
@@ -52,9 +78,17 @@ export const mockAgents = [
     roi_percent: -5.7,
     num_trades: 302,
     win_rate: 0.44,
+
+    odds: 4.0,
+    rank: 4,
+    volatility: 0.95,
+    quote: "Fast trades, fast gains—or losses.",
   },
   {
     id: "5",
+    tournamentId: 5,
+    tournament_id: 5,
+
     name: "EcoInvestor",
     type: "MacroFund",
     personality: "conservative",
@@ -65,5 +99,10 @@ export const mockAgents = [
     roi_percent: 3.8,
     num_trades: 40,
     win_rate: 0.57,
+
+    odds: 2.0,
+    rank: 5,
+    volatility: 0.12,
+    quote: "Slow and steady wins.",
   },
 ];

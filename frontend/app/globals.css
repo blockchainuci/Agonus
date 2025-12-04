@@ -322,3 +322,38 @@ body {
     opacity: 0;
   }
 }
+
+/* Premium Tooltip Styling */
+@layer components {
+  .tooltip-box {
+    @apply absolute opacity-0 pointer-events-none 
+           transition-all duration-200 ease-out
+           bg-[#0d1220]/95 backdrop-blur-md 
+           border border-white/10 rounded-xl
+           text-xs text-gray-300 shadow-xl 
+           p-3 w-64 z-50 translate-y-1;
+  }
+
+  .tooltip-title {
+    @apply text-gray-200 font-semibold mb-1;
+  }
+
+  /* Fade-in utility class */
+  .animate-fadeInUp {
+    animation: fadeInUp 0.25s ease-out forwards;
+  }
+}
+
+/* -------------------------------------------------
+   Keyframes must be OUTSIDE @layer
+-------------------------------------------------- */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

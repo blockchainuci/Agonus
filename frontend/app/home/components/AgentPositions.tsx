@@ -11,11 +11,11 @@ export interface Position {
   current_value_usd: number;
 }
 
-// TEMP MOCK (will be replaced with real hook)
+// TEMP MOCK (replace with real hook later)
 import { mockPositions } from "@/app/home/data/mockPositions";
 
 export default function AgentPositions({ tournamentId }: { tournamentId: number }) {
-  // Filter for this tournament only
+  // Filter positions for this tournament
   const positions: Position[] = mockPositions.filter(
     (p) => String(p.tournament_id) === String(tournamentId)
   );
@@ -29,17 +29,20 @@ export default function AgentPositions({ tournamentId }: { tournamentId: number 
   return (
     <motion.div
       className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40
-                 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-6"
+                 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg
+                 p-6 flex flex-col h-[480px]"
       key={tournamentId}
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
     >
       {/* HEADER */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-[#FFD700]/20 flex items-center justify-center">
-            <svg width="20" height="20" fill="#FFD700"><circle cx="10" cy="10" r="6" /></svg>
+            <svg width="20" height="20" fill="#FFD700">
+              <circle cx="10" cy="10" r="6" />
+            </svg>
           </div>
 
           <div>
@@ -49,21 +52,27 @@ export default function AgentPositions({ tournamentId }: { tournamentId: number 
         </div>
       </div>
 
-      {/* LIST */}
-      <div className="space-y-3">
+      {/* LIST (scrollable middle section) */}
+      <div
+        className="flex-1 space-y-3 overflow-y-auto pr-2
+                   scrollbar-thin scrollbar-thumb-[#FFD700]/40 
+                   scrollbar-track-transparent"
+      >
         {positions.length === 0 ? (
           <p className="text-center text-gray-400 py-6">
             No positions for this tournament
           </p>
         ) : (
           positions.map((p, index) => {
-            const pct =
-              totalValue > 0 ? (p.current_value_usd / totalValue) * 100 : 0;
+            const pct = totalValue > 0
+              ? (p.current_value_usd / totalValue) * 100
+              : 0;
 
             return (
               <motion.div
                 key={`${p.agent_id}-${p.token}-${index}`}
-                className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10"
+                className="bg-white/5 hover:bg-white/10 rounded-xl p-4 
+                           border border-white/10"
                 initial={{ opacity: 0, x: -15 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
@@ -73,7 +82,8 @@ export default function AgentPositions({ tournamentId }: { tournamentId: number 
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br
                                     from-blue-500 to-cyan-500 
-                                    flex items-center justify-center text-white font-bold">
+                                    flex items-center justify-center 
+                                    text-white font-bold">
                       {p.token[0]}
                     </div>
 
@@ -114,9 +124,9 @@ export default function AgentPositions({ tournamentId }: { tournamentId: number 
         )}
       </div>
 
-      {/* SUMMARY */}
+      {/* SUMMARY (sticky bottom section) */}
       {positions.length > 0 && (
-        <div className="border-t border-white/10 mt-6 pt-6">
+        <div className="border-t border-white/10 mt-4 pt-4">
           <div className="bg-[#FFD700]/10 p-4 rounded-xl border border-[#FFD700]/20">
             <div className="flex items-center justify-between">
               <span className="text-gray-300 text-sm">Total Portfolio Value</span>

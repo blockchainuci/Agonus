@@ -42,19 +42,19 @@ export default function HomePage() {
         {/* Agent List */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent rounded-3xl blur-xl -z-10"></div>
-          <AgentListSection />
+          <AgentListSection/>
         </div>
 
         {/* Chart */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-transparent rounded-3xl blur-xl -z-10"></div>
-          <CandleChart />
+          <CandleChart tournamentId={selectedTournamentId} />
         </div>
 
         {/* Recent Trades */}
         <div className="relative pb-12">
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-transparent rounded-3xl blur-xl -z-10"></div>
-          <RecentTrades />
+          <RecentTrades tournamentId={selectedTournamentId} />
         </div>
 
       </div>
