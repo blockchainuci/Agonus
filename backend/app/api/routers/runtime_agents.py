@@ -1,12 +1,11 @@
 from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
 from datetime import datetime
+from typing import Dict, Any
 
-# ❗ FIXED IMPORT PATHS — REMOVE "backend."
 from app.tools.market_data import MarketDataTool
 from app.agents.executor import ACTIVE_AGENTS
 
-router = APIRouter(prefix="/api/agents", tags=["agents"])
+router = APIRouter(prefix="/runtime/agents", tags=["runtime-agents"])
 
 # Shared market tool instance for caching
 _market_tool = MarketDataTool()

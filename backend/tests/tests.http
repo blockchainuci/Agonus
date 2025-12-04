@@ -1,0 +1,95 @@
+### ============================================
+### 🔥 BACKEND HEALTH CHECK
+### ============================================
+
+GET http://localhost:8000/
+Accept: application/json
+
+
+### ============================================
+### 🔥 RUNTIME AGENTS — LIST ALL
+### ============================================
+
+GET http://localhost:8000/runtime/agents/
+Accept: application/json
+
+
+### ============================================
+### 🔥 RUNTIME AGENT PORTFOLIO
+### ============================================
+
+GET http://localhost:8000/runtime/agents/1/portfolio
+Accept: application/json
+
+###
+GET http://localhost:8000/runtime/agents/2/portfolio
+Accept: application/json
+
+
+### ============================================
+### 🔥 RUNTIME AGENT TRADES
+### ============================================
+
+GET http://localhost:8000/runtime/agents/1/trades
+Accept: application/json
+
+###
+GET http://localhost:8000/runtime/agents/2/trades
+Accept: application/json
+
+
+### ============================================
+### 🔥 RUNTIME MARKET PRICES
+### ============================================
+
+GET http://localhost:8000/runtime/agents/market/prices
+Accept: application/json
+
+
+### ============================================
+### 🔥 TOURNAMENT API (if DB enabled)
+### ============================================
+
+GET http://localhost:8000/tournaments/
+Accept: application/json
+
+###
+GET http://localhost:8000/tournaments/1
+Accept: application/json
+
+
+### ============================================
+### 🔥 AGENTS API (DB agents, NOT runtime agents)
+### ============================================
+
+GET http://localhost:8000/agents/
+Accept: application/json
+
+###
+GET http://localhost:8000/agents/1
+Accept: application/json
+
+
+### ============================================
+### 🔥 TRADES API (DB trades)
+### ============================================
+
+GET http://localhost:8000/trades/
+Accept: application/json
+
+
+### ============================================
+### 🔥 BETS API
+### ============================================
+
+GET http://localhost:8000/bets/
+Accept: application/json
+
+
+### ============================================
+### 🔥 MARKET DATA (DB-driven)
+### ============================================
+
+GET http://localhost:8000/market-data/prices
+Accept: application/json
+

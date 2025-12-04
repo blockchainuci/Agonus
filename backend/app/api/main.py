@@ -1,16 +1,28 @@
 from fastapi import FastAPI
-from app.api.routers import tournament, agent, trade, bet, auth, market_data
+
+# ✅ NEW runtime agents router (live AI trading agents)
+from app.api.routers.runtime_agents import router as runtime_agents_router
+
+# ✅ Existing backend routers (database-driven)
+from app.api.routers import tournament
+from app.api.routers import agent
+from app.api.routers import trade
+from app.api.routers import bet
+from app.api.routers import auth
+from app.api.routers import market_data
+
 
 app = FastAPI(title="Agonus API")
 
-# Register routers
+# ------------------------------
+# Register Routers
+# ------------------------------
+
+# 🔥 LIVE agents (runtime AI bots tracked in memory)
+app.include_router(runtime_agents_router)
+
+# 📦 Database-backed REST endpoints
 app.include_router(tournament.router, prefix="/tournaments", tags=["Tournaments"])
 app.include_router(agent.router, prefix="/agents", tags=["Agents"])
 app.include_router(trade.router, prefix="/trades", tags=["Trades"])
-app.include_router(bet.router, prefix="/bets", tags=["Bets"])
-app.include_router(auth.router, prefix="/auth", tags=["Auth"])
-app.include_router(market_data.router, prefix="/market-data", tags=["Market Data"])
-
-@app.get("/")
-def root():
-    return {"message": "Agonus API running 🚀"}
+app.include_router(runtime_agents_router)
