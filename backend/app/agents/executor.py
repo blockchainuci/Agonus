@@ -143,8 +143,8 @@ class TradingAgent(BaseAgent):
                 func=self._execute_trade_wrapper,
                 description=(
                     "Execute a trade. Format: 'ACTION TOKEN AMOUNT CONFIDENCE SUMMARY' "
-                    "Example: 'BUY WETH 10 0.8 Bullish momentum detected'. "
-                    "ACTION must be BUY or SELL. TOKEN must be WETH or CBBTC. "
+                    "Example: 'BUY ETH 10 0.8 Bullish momentum detected'. "
+                    "ACTION must be BUY or SELL. TOKEN must be ETH or BTC. "
                     "AMOUNT is USDC for BUY, token quantity for SELL. "
                     "CONFIDENCE is 0.0-1.0. SUMMARY is brief explanation."
                 ),
@@ -155,10 +155,9 @@ class TradingAgent(BaseAgent):
         llm = ChatOpenAI(model=self.model_name, temperature=0.7)
         logger.info(f"Using OpenAI model: {self.model_name}")
 
-        # Define ReAct prompt
+        # Define ReAct prompt with proper format
         prompt = PromptTemplate.from_template(
-            """
-You are an AI trading agent with the following characteristics:
+            """You are an AI trading agent with the following characteristics:
 
 Agent ID: {agent_id}
 Personality: {personality}
@@ -170,28 +169,48 @@ Total Portfolio Value: ${total_value}
 Market Context:
 {market_context}
 
-Available Tools:
-{tools}
-Tool Names: {tool_names}
-
 Your goal is to maximize returns while respecting your risk tolerance.
 
 Guidelines:
 - For BUY trades: amount is USDC to spend
 - For SELL trades: amount is quantity of token to sell
-- Only trade WETH and CBBTC
+- Only trade ETH and BTC (use token symbols: ETH, BTC)
 - Check portfolio before trading
 - Conservative agents should trade less frequently
 - Aggressive agents can take larger positions
 - Always provide reasoning in your summary
 
-Current Task: {input}
+TOOLS:
+------
+You have access to the following tools:
 
-Think step-by-step about market conditions, portfolio state, and risk tolerance.
-Then use the available tools to make decisions.
+{tools}
 
-{agent_scratchpad}
-"""
+RESPONSE FORMAT:
+----------------
+Use the following format EXACTLY:
+
+Thought: Think about what you need to do
+Action: the tool name, must be one of [{tool_names}]
+Action Input: the input to the tool
+Observation: the result of the tool
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now have enough information to provide a final answer
+Final Answer: your final response summarizing the decision made
+
+IMPORTANT RULES:
+- ALWAYS start with "Thought:"
+- ALWAYS use "Action:" followed by ONE tool name from the list
+- ALWAYS use "Action Input:" followed by the input
+- DO NOT skip any steps in the format
+- DO NOT use markdown code blocks
+- DO NOT add extra text between format elements
+
+Begin!
+
+Question: {input}
+
+Thought:{agent_scratchpad}"""
         )
 
         # Create ReAct agent
@@ -203,7 +222,8 @@ Then use the available tools to make decisions.
             tools=tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=10,
+            max_iterations=15,  # Allow more iterations for complex decisions
+            max_execution_time=60,  # 60 second timeout
         )
 
     def _execute_trade_wrapper(self, trade_input: str) -> str:
@@ -228,14 +248,9 @@ Then use the available tools to make decisions.
             summary = parts[4]
 
             # Get current market price for the trade
-            price_data = self.market_tool.get_price(token)
-            if not price_data:
+            price = self.market_tool.get_price(token)
+            if not price or price == 0:
                 return f"Error: Could not fetch price for {token}"
-
-            # Extract price from response
-            price = price_data.get(token.lower(), {}).get("usd", 0)
-            if price == 0:
-                return f"Error: Invalid price data for {token}"
 
             # Validate trade
             is_valid, reason = self.validate_trade(action, token, amount, price)

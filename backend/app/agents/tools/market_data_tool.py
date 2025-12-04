@@ -33,8 +33,11 @@ class MarketDataTool:
         self.headers = {"x-cg-demo-api-key": self.api_key}
         self.supported_tokens = {
             "ETH": "ethereum",
+            "WETH": "ethereum",  # Wrapped ETH uses same price as ETH
             "SOL": "solana",
             "BTC": "bitcoin",
+            "CBBTC": "bitcoin",  # Coinbase Wrapped BTC uses same price as BTC
+            "TBTC": "bitcoin",  # Tokenized BTC uses same price as BTC
             "BNB": "binance",  # binancecoin id for coingecko
             "DOGE": "dogecoin",
             "XRP": "ripple",
