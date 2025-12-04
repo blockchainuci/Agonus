@@ -15,6 +15,7 @@ import {
   mockOhlcv,
   type OhlcCandle,
 } from '@/app/home/data/mockOhlcv';
+import { useTournamentStore } from '@/src/store/useTournamentStore';
 
 /* ----------------------------------------
    TYPES
@@ -118,7 +119,11 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
     vwap: true,
   });
 
-  const baseData = mockOhlcv[tournamentId] ?? mockOhlcv[1];
+  const storeTournamentId = useTournamentStore(s => s.selectedTournamentId);
+  const finalTournamentId = tournamentId ?? storeTournamentId;
+
+
+  const baseData = mockOhlcv[finalTournamentId] ?? mockOhlcv[1];
 
   const ohlcv = useMemo(() => computeOhlcv(baseData, timeframe), [
     baseData,
