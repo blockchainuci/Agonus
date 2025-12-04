@@ -3,16 +3,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
-from backend.app.db.database import get_db
-from backend.app.db.models import Tournament, AgentState, Agent
-from backend.app.schemas.tournament import (
+# FIXED IMPORT PATHS
+from app.db.database import get_db
+from app.db.models import Tournament, AgentState, Agent
+from app.schemas.tournament import (
     TournamentCreate,
     TournamentUpdate,
     TournamentResponse,
 )
-from backend.app.schemas.agent_state import AgentStateResponse
-from backend.app.api.deps import require_admin
-from backend.app.agents.scheduler import (
+from app.schemas.agent_state import AgentStateResponse
+from app.api.deps import require_admin
+from app.agents.scheduler import (
     run_agent_decision,
     initialize_tournament_agents,
 )
@@ -42,40 +43,32 @@ async def get_tournament(tournament_id: UUID, session: AsyncSession = Depends(ge
 async def get_tournament_leaderboard(
     tournament_id: UUID, session: AsyncSession = Depends(get_db)
 ):
-    """GET route for tournament leaderboard - agents ranked by portfolio value"""
-    # Verify tournament exists
+    """GET leaderboard ordered by portfolio value"""
     tournament = await session.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament Not Found")
 
-    # Get all agent states for this tournament, ordered by portfolio value
     statement = (
         select(AgentState)
         .where(AgentState.tournament_id == tournament_id)
         .order_by(AgentState.portfolio_value_usd.desc())
     )
     result = await session.execute(statement)
-    agent_states = result.scalars().all()
-
-    return agent_states
+    return result.scalars().all()
 
 
 @router.get("/{tournament_id}/agents", response_model=list[AgentStateResponse])
 async def get_tournament_agents(
     tournament_id: UUID, session: AsyncSession = Depends(get_db)
 ):
-    """GET route for all agents in a tournament with their current state"""
-    # Verify tournament exists
+    """GET agents participating in tournament"""
     tournament = await session.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament Not Found")
 
-    # Get all agent states for this tournament
     statement = select(AgentState).where(AgentState.tournament_id == tournament_id)
     result = await session.execute(statement)
-    agent_states = result.scalars().all()
-
-    return agent_states
+    return result.scalars().all()
 
 
 @router.post("/", response_model=TournamentResponse, status_code=201)
@@ -84,8 +77,7 @@ async def create_tournament(
     session: AsyncSession = Depends(get_db),
     admin: dict = Depends(require_admin),
 ):
-    """POST route to create a new tournament"""
-    # Create tournament from schema, excluding agent_ids (not a Tournament model field)
+    """POST create a new tournament"""
     tournament_dict = tournament_data.model_dump(exclude={"agent_ids"})
     tournament = Tournament(**tournament_dict)
 
@@ -106,11 +98,9 @@ async def start_tournament(tournament_id: str):
 
 @router.post("/agents/{agent_id}/force-run")
 async def force_agent_run(agent_id: str, tournament_id: str):
-    # 2. Force a single agent to think NOW
     task = run_agent_decision.delay(
         agent_uuid=agent_id, tournament_uuid=tournament_id, recover_from_crash=True
     )
-
     return {"task_id": task.id, "status": "Queued"}
 
 
@@ -121,12 +111,11 @@ async def update_tournament(
     session: AsyncSession = Depends(get_db),
     admin: dict = Depends(require_admin),
 ):
-    """PUT route for updating a tournament"""
+    """PUT update tournament"""
     db_tournament = await session.get(Tournament, tournament_id)
     if not db_tournament:
         raise HTTPException(status_code=404, detail="Tournament Not Found")
 
-    # Update only provided fields
     update_data = tournament_data.model_dump(exclude_unset=True)
 
     for key, value in update_data.items():
@@ -145,7 +134,7 @@ async def delete_tournament(
     session: AsyncSession = Depends(get_db),
     admin: dict = Depends(require_admin),
 ):
-    """DELETE route for deleting a tournament"""
+    """DELETE tournament"""
     tournament = await session.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament Not Found")

@@ -3,9 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
-from backend.app.db.database import get_db
-from backend.app.db.models import Trade
-from backend.app.schemas.trade import TradeCreate, TradeResponse
+# ❗ FIXED: remove "backend."
+from app.db.database import get_db
+from app.db.models import Trade
+from app.schemas.trade import TradeCreate, TradeResponse
 
 router = APIRouter()
 
@@ -68,11 +69,9 @@ async def create_trade(
     trade_data: TradeCreate, session: AsyncSession = Depends(get_db)
 ):
     """POST route for creating a new trade"""
-    # Create Trade model from schema
     trade = Trade(**trade_data.model_dump())
 
     session.add(trade)
     await session.commit()
     await session.refresh(trade)
     return trade
-

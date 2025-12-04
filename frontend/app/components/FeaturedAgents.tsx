@@ -1,22 +1,24 @@
 'use client';
 
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef } from 'react';
-import { agents } from './ui/agents';
-import { spacing, typography, layout, animations } from '../design-tokens';
+import { motion, useScroll, useTransform } from "framer-motion";
+import { useRef } from "react";
 
-// ⭐ Correct component import
-import CenteredAgentCarousel from './CenteredAgentCarousel';
+import { spacing, typography, layout, animations } from "../design-tokens";
+
+// Backend-format agents
+import { mockAgents } from "@/app/home/data/mockAgents";
+
+// Backend-correct AgentCard (used inside the carousel)
+import CenteredAgentCarousel from "./CenteredAgentCarousel";
 
 export default function FeaturedAgents() {
   const ref = useRef(null);
 
   const { scrollYProgress } = useScroll({
     target: ref,
-    offset: ['start end', 'end start'],
+    offset: ["start end", "end start"],
   });
 
-  // Parallax background motion
   const y = useTransform(scrollYProgress, [0, 1], [100, -100]);
   const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
 
@@ -26,7 +28,7 @@ export default function FeaturedAgents() {
       ref={ref}
       className={`${spacing.section.x} ${spacing.section.y} relative overflow-hidden`}
     >
-      {/* Background pattern parallax */}
+      {/* Background Pattern */}
       <motion.div
         className="absolute inset-0 opacity-5 pointer-events-none"
         style={{ y }}
@@ -34,18 +36,18 @@ export default function FeaturedAgents() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-            backgroundSize: '50px 50px',
+            backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
+            backgroundSize: "50px 50px",
           }}
         />
       </motion.div>
 
       {/* Content */}
       <motion.div
-        className={`${layout.container['2xl']} mx-auto relative z-10`}
+        className={`${layout.container["2xl"]} mx-auto relative z-10`}
         style={{ opacity }}
       >
-        {/* Heading */}
+        {/* Title */}
         <motion.div
           className="text-center mb-20"
           initial={animations.fadeInUp.initial}
@@ -57,13 +59,13 @@ export default function FeaturedAgents() {
             Featured Agents
           </h2>
           <p className={`${typography.tagline} max-w-3xl mx-auto`}>
-            Meet the <span className="text-[#FFD700]">AI trading agents</span>{' '}
+            Meet the <span className="text-[#FFD700]">AI trading agents</span>{" "}
             competing in the tournament
           </p>
         </motion.div>
 
-        {/* ⭐ NEW Centered carousel */}
-        <CenteredAgentCarousel items={agents} />
+        {/* ⭐ The carousel already uses AgentCard internally */}
+        <CenteredAgentCarousel items={mockAgents} />
       </motion.div>
     </section>
   );
