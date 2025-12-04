@@ -45,6 +45,8 @@ celery_app.conf.update(
     # Worker settings
     worker_prefetch_multiplier=1,  # Fetch one task at a time
     worker_max_tasks_per_child=100,  # Restart worker after 100 tasks
+    # Use solo pool to avoid multiprocessing issues with async SQLAlchemy
+    worker_pool="solo",  # Single-threaded execution, safe for async
     # Time limits
     task_soft_time_limit=300,  # 5 minutes soft limit
     task_time_limit=600,  # 10 minutes hard limit
@@ -83,8 +85,37 @@ celery_app.conf.beat_schedule = {
 }
 
 # Task routing (optional - for scaling specific task types)
-celery_app.conf.task_routes = {
-    "app.agents.scheduler.run_agent_decision": {"queue": "agents"},
-    "app.agents.scheduler.execute_agent_trade": {"queue": "trading"},
-    "app.agents.scheduler.recover_agent_state": {"queue": "recovery"},
-}
+# DISABLED: Use default queue for single-worker setup
+# To enable multiple queues, uncomment and start workers with: -Q agents,trading,recovery
+# celery_app.conf.task_routes = {
+#     "app.agents.scheduler.run_agent_decision": {"queue": "agents"},
+#     "app.agents.scheduler.execute_agent_trade": {"queue": "trading"},
+#     "app.agents.scheduler.recover_agent_state": {"queue": "recovery"},
+# }
+
+
+# Worker initialization - dispose engine in forked processes to avoid connection issues
+@celery_app.task(bind=True)
+def worker_init_hook(self):
+    """
+    Called after worker process fork to reinitialize database connections.
+    This prevents "another operation is in progress" errors with asyncpg.
+    """
+    from app.db.database import engine
+    # Dispose of any connections inherited from parent process
+    engine.sync_engine.dispose()
+
+
+# Register worker process init signal
+from celery.signals import worker_process_init
+
+
+@worker_process_init.connect
+def init_worker_process(**kwargs):
+    """
+    Reinitialize database engine after worker fork.
+    This is crucial for multiprocessing pools with async SQLAlchemy.
+    """
+    from app.db.database import engine
+    # Dispose engine to force new connections in this process
+    engine.sync_engine.dispose()

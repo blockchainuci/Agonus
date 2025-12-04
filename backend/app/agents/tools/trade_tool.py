@@ -37,7 +37,7 @@ class TradeTool:
             raise TradeToolError(f"Invalid action {action}. Must be 'BUY' or 'SELL'")
 
         token = token.upper()
-        supported_tokens = ["WETH", "CBBTC"]
+        supported_tokens = ["WETH", "CBBTC", "USDC"]
         if token not in supported_tokens:
             logger.error(f"Invalid token: {token}")
             raise TradeToolError(

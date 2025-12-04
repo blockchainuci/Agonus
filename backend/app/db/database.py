@@ -1,5 +1,6 @@
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.pool import NullPool
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -20,20 +21,37 @@ MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", 10))
 DB_ECHO = os.getenv("DB_ECHO", "False").lower() == "true"
 
 # Create async engine
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=DB_ECHO,
-    # 1. Connection Pooling limits
-    pool_size=POOL_SIZE,
-    max_overflow=MAX_OVERFLOW,
-    pool_timeout=30,  # Wait 30s for a connection before failing
-    pool_recycle=1800,  # Refresh connections every 30 mins
-    # 2. Neon / Asyncpg requirements
-    connect_args={
-        "ssl": "require",  # Crucial for Neon
-        # "statement_cache_size": 0 # Uncomment only if you see "prepared statement" errors
-    },
-)
+# Use NullPool for Celery workers to avoid "operation in progress" errors
+# NullPool creates a new connection for each session and disposes it immediately
+USE_NULL_POOL = os.getenv("USE_NULL_POOL", "False").lower() == "true"
+
+if USE_NULL_POOL:
+    # NullPool: No connection pooling - creates fresh connection each time
+    # Use this for Celery workers to avoid asyncpg connection conflicts
+    engine = create_async_engine(
+        DATABASE_URL,
+        echo=DB_ECHO,
+        poolclass=NullPool,
+        connect_args={
+            "ssl": "require",  # Crucial for Neon
+        },
+    )
+else:
+    # Standard pooling: Use for FastAPI server
+    engine = create_async_engine(
+        DATABASE_URL,
+        echo=DB_ECHO,
+        # 1. Connection Pooling limits
+        pool_size=POOL_SIZE,
+        max_overflow=MAX_OVERFLOW,
+        pool_timeout=30,  # Wait 30s for a connection before failing
+        pool_recycle=1800,  # Refresh connections every 30 mins
+        # 2. Neon / Asyncpg requirements
+        connect_args={
+            "ssl": "require",  # Crucial for Neon
+            # "statement_cache_size": 0 # Uncomment only if you see "prepared statement" errors
+        },
+    )
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
@@ -54,7 +72,7 @@ async def get_db():
 async def init_db():
     # Import Base here to avoid circular imports during setup
     # Note: Adjust the import path if your models moved
-    from backend.app.db.models import Base
+    from app.db.models import Base
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

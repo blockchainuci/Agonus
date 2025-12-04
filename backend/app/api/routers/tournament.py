@@ -3,6 +3,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
+from ...agents.data_classes import Portfolio
+import logging
+import asyncio
+from typing import List, Dict, Any, Optional
+from uuid import UUID
+from datetime import datetime, timezone, timedelta
+
+from celery import Task, group, chain
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ...celery_config import celery_app
+from ...db.database import AsyncSessionLocal
+from ...db.models import Tournament, Agent, AgentState, StatusEnum
+from ...agents.executor import TradingAgent
+from ...agents.tools import DatabaseTool
+
 from backend.app.db.database import get_db
 from backend.app.db.models import Tournament, AgentState, Agent
 from backend.app.schemas.tournament import (
@@ -78,30 +95,176 @@ async def get_tournament_agents(
     return agent_states
 
 
+# @router.post("/", response_model=TournamentResponse, status_code=201)
+# async def create_tournament(
+#     tournament_data: TournamentCreate,
+#     session: AsyncSession = Depends(get_db),
+#     admin: dict = Depends(require_admin),
+# ):
+#     pass
+
+# def initialize_tournament_agents(
+#     tournament_uuid: str,
+#     agent_uuids: List[str]
+# ) -> Dict[str, Any]:
+#     """
+#     Initialize agent states for a new tournament.
+
+#     Args:
+#         tournament_uuid: Tournament UUID (as string)
+#         agent_uuids: List of agent UUIDs (as strings)
+
+#     Returns:
+#         Dict with initialization results
+#     """
+#     # logger.info(f"Initializing agents for tournament: {tournament_uuid}")
+#     try:
+#         return asyncio.run(
+#             _initialize_tournament_agents_async(
+#                 UUID(tournament_uuid),
+#                 [UUID(uuid) for uuid in agent_uuids]
+#             )
+#         )
+#     except Exception as e:
+#         # logger.error(f"Failed to initialize tournament agents: {e}")
+#         raise
+
+
+# async def _initialize_tournament_agents_async(
+#     tournament_uuid: UUID,
+#     agent_uuids: List[UUID]
+# ) -> Dict[str, Any]:
+#     """
+#     Async implementation of agent initialization.
+#     """
+#     async with AsyncSessionLocal() as session:
+#         db_tool = DatabaseTool(session)
+#         initialized = []
+
+#         for agent_uuid in agent_uuids:
+#             # Load agent
+#             stmt = select(Agent).where(Agent.id == agent_uuid)
+#             result = await session.execute(stmt)
+#             agent = result.scalar_one_or_none()
+
+#             if not agent:
+#                 # logger.warning(f"Agent not found: {agent_uuid}")
+#                 continue
+
+#             # Create initial portfolio
+#             from ...agents.data_classes import Portfolio
+
+#             portfolio = Portfolio(
+#                 agent_id=agent.name,
+#                 cash=500.0,
+#                 holdings={},
+#                 starting_val=500.0,
+#                 total_value=500.0
+#             )
+
+#             # Save initial state
+#             await db_tool.save_agent_state(
+#                 agent_uuid=agent_uuid,
+#                 tournament_uuid=tournament_uuid,
+#                 portfolio=portfolio,
+#                 rank=0,
+#                 last_decision="Tournament initialized"
+#             )
+
+#             initialized.append(str(agent_uuid))
+#             # logger.info(f"Initialized agent: {agent.name}")
+
+#         return {
+#             "tournament_id": str(tournament_uuid),
+#             "agents_initialized": len(initialized),
+#             "agent_ids": initialized,
+#             "timestamp": datetime.now(timezone.utc).isoformat()
+#         }
+
+#     """POST route to create a new tournament"""
+#     # Create tournament from schema, excluding agent_ids (not a Tournament model field)
+#     tournament_dict = tournament_data.model_dump(exclude={"agent_ids"})
+#     tournament = Tournament(**tournament_dict)
+
+#     session.add(tournament)
+#     await session.commit()
+#     await session.refresh(tournament)
+
+#     return tournament
+
+
+# @router.post("/{tournament_id}/start")
+# async def start_tournament(tournament_id: str):
+#     initialize_tournament_agents.delay(
+#         tournament_uuid=tournament_id, agent_uuids=["uuid-1", "uuid-2"]
+#     )
+#     return {"message": "Tournament initialization started"}
+
+
+async def initialize_agents_for_tournament(
+    session: AsyncSession,
+    tournament_id: UUID,
+    agent_ids: list[UUID],
+):
+    db = DatabaseTool(session)
+
+    for agent_id in agent_ids:
+
+        # Load the agent
+        result = await session.execute(select(Agent).where(Agent.id == agent_id))
+        agent = result.scalar_one_or_none()
+
+        if not agent:
+            raise ValueError(f"Agent not found: {agent_id}")
+
+        # Create initial portfolio
+        portfolio = Portfolio(
+            agent_id=str(agent_id),
+            cash=500.0,
+            holdings={},
+            starting_val=500.0,
+            total_value=500.0,
+        )
+
+        # Save agent-state entry in DB
+        await db.save_agent_state(
+            agent_uuid=agent_id,
+            tournament_uuid=tournament_id,
+            portfolio=portfolio,
+            rank=0,
+            last_decision="Tournament initialized",
+        )
+
+
 @router.post("/", response_model=TournamentResponse, status_code=201)
 async def create_tournament(
-    tournament_data: TournamentCreate,
+    data: TournamentCreate,
     session: AsyncSession = Depends(get_db),
-    admin: dict = Depends(require_admin),
 ):
-    """POST route to create a new tournament"""
-    # Create tournament from schema, excluding agent_ids (not a Tournament model field)
-    tournament_dict = tournament_data.model_dump(exclude={"agent_ids"})
-    tournament = Tournament(**tournament_dict)
+    # 1️⃣ Create the tournament row
+    tournament = Tournament(
+        name=data.name,
+        start_date=data.start_date,
+        end_date=data.end_date,
+        prize_pool=data.prize_pool,
+        status=StatusEnum.upcoming,
+    )
 
     session.add(tournament)
+    await session.flush()  # ensures tournament.id exists without commit
+
+    # 2️⃣ Initialize agent states
+    await initialize_agents_for_tournament(
+        session=session,
+        tournament_id=tournament.id,
+        agent_ids=data.agent_ids,
+    )
+
+    # 3️⃣ Commit the whole transaction atomically
     await session.commit()
     await session.refresh(tournament)
 
     return tournament
-
-
-@router.post("/{tournament_id}/start")
-async def start_tournament(tournament_id: str):
-    initialize_tournament_agents.delay(
-        tournament_uuid=tournament_id, agent_uuids=["uuid-1", "uuid-2"]
-    )
-    return {"message": "Tournament initialization started"}
 
 
 @router.post("/agents/{agent_id}/force-run")

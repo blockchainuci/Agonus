@@ -32,10 +32,12 @@ logger = logging.getLogger(__name__)
 # CELERY TASK BASE CLASS
 # ============================================================================
 
+
 class AgentTask(Task):
     """
     Base task class with automatic retry and error handling.
     """
+
     autoretry_for = (Exception,)
     max_retries = 3
     default_retry_delay = 60
@@ -63,12 +65,10 @@ class AgentTask(Task):
 # AGENT DECISION TASKS
 # ============================================================================
 
-@celery_app.task(base=AgentTask, bind=True, name="run_agent_decision")
+
+@celery_app.task(base=AgentTask, bind=True, name="app.agents.scheduler.run_agent_decision")
 def run_agent_decision(
-    self,
-    agent_uuid: str,
-    tournament_uuid: str,
-    recover_from_crash: bool = True
+    self, agent_uuid: str, tournament_uuid: str, recover_from_crash: bool = True
 ) -> Dict[str, Any]:
     """
     Run a single agent's decision loop.
@@ -81,15 +81,15 @@ def run_agent_decision(
     Returns:
         Dict with decision result and metrics
     """
-    logger.info(f"Running agent decision: agent={agent_uuid}, tournament={tournament_uuid}")
+    logger.info(
+        f"Running agent decision: agent={agent_uuid}, tournament={tournament_uuid}"
+    )
 
     try:
         # Run async task in event loop
         return asyncio.run(
             _run_agent_decision_async(
-                UUID(agent_uuid),
-                UUID(tournament_uuid),
-                recover_from_crash
+                UUID(agent_uuid), UUID(tournament_uuid), recover_from_crash
             )
         )
     except Exception as e:
@@ -99,9 +99,7 @@ def run_agent_decision(
 
 
 async def _run_agent_decision_async(
-    agent_uuid: UUID,
-    tournament_uuid: UUID,
-    recover_from_crash: bool
+    agent_uuid: UUID, tournament_uuid: UUID, recover_from_crash: bool
 ) -> Dict[str, Any]:
     """
     Async implementation of agent decision loop.
@@ -127,7 +125,7 @@ async def _run_agent_decision_async(
                 agent_uuid=agent_uuid,
                 tournament_uuid=tournament_uuid,
                 database_tool=db_tool,
-                recover_from_crash=recover_from_crash
+                recover_from_crash=recover_from_crash,
             )
 
             # Attempt recovery if requested
@@ -156,7 +154,7 @@ async def _run_agent_decision_async(
                 "tournament_id": str(tournament_uuid),
                 "decision": last_decision,
                 "performance": performance,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -164,7 +162,7 @@ async def _run_agent_decision_async(
             raise
 
 
-@celery_app.task(base=AgentTask, name="run_all_live_tournament_agents")
+@celery_app.task(base=AgentTask, name="app.agents.scheduler.run_all_live_tournament_agents")
 def run_all_live_tournament_agents() -> Dict[str, Any]:
     """
     Run decision loops for all agents in live tournaments.
@@ -190,8 +188,10 @@ async def _run_all_live_tournament_agents_async() -> Dict[str, Any]:
     async with AsyncSessionLocal() as session:
         # Get all live tournaments
         stmt = select(Tournament).where(Tournament.status == StatusEnum.live)
+
         result = await session.execute(stmt)
         tournaments = result.scalars().all()
+        logger.info(f"Tournaments: {tournaments}")
 
         logger.info(f"Found {len(tournaments)} live tournaments")
 
@@ -199,34 +199,32 @@ async def _run_all_live_tournament_agents_async() -> Dict[str, Any]:
 
         for tournament in tournaments:
             # Get all agent states for this tournament
-            stmt = select(AgentState).where(
-                AgentState.tournament_id == tournament.id
-            )
+            stmt = select(AgentState).where(AgentState.tournament_id == tournament.id)
             result = await session.execute(stmt)
             agent_states = result.scalars().all()
 
-            logger.info(
-                f"Tournament '{tournament.name}': {len(agent_states)} agents"
-            )
+            logger.info(f"Tournament '{tournament.name}': {len(agent_states)} agents")
 
             # Launch async task for each agent
             for agent_state in agent_states:
                 task = run_agent_decision.delay(
                     agent_uuid=str(agent_state.agent_id),
                     tournament_uuid=str(tournament.id),
-                    recover_from_crash=True
+                    recover_from_crash=True,
                 )
-                tasks_launched.append({
-                    "task_id": task.id,
-                    "agent_id": str(agent_state.agent_id),
-                    "tournament_id": str(tournament.id)
-                })
+                tasks_launched.append(
+                    {
+                        "task_id": task.id,
+                        "agent_id": str(agent_state.agent_id),
+                        "tournament_id": str(tournament.id),
+                    }
+                )
 
         return {
             "tournaments_processed": len(tournaments),
             "tasks_launched": len(tasks_launched),
             "tasks": tasks_launched,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 
@@ -234,7 +232,8 @@ async def _run_all_live_tournament_agents_async() -> Dict[str, Any]:
 # TOURNAMENT MANAGEMENT TASKS
 # ============================================================================
 
-@celery_app.task(base=AgentTask, name="check_tournament_transitions")
+
+@celery_app.task(base=AgentTask, name="app.agents.scheduler.check_tournament_transitions")
 def check_tournament_transitions() -> Dict[str, Any]:
     """
     Check and transition tournament statuses (upcoming -> live -> completed).
@@ -260,31 +259,22 @@ async def _check_tournament_transitions_async() -> Dict[str, Any]:
         transitions = {"started": [], "completed": []}
 
         # Start upcoming tournaments
-        stmt = (
-            select(Tournament)
-            .where(
-                Tournament.status == StatusEnum.upcoming,
-                Tournament.start_date <= now
-            )
+        stmt = select(Tournament).where(
+            Tournament.status == StatusEnum.upcoming, Tournament.start_date <= now
         )
         result = await session.execute(stmt)
         tournaments_to_start = result.scalars().all()
 
         for tournament in tournaments_to_start:
             tournament.status = StatusEnum.live
-            transitions["started"].append({
-                "id": str(tournament.id),
-                "name": tournament.name
-            })
+            transitions["started"].append(
+                {"id": str(tournament.id), "name": tournament.name}
+            )
             logger.info(f"Tournament started: {tournament.name}")
 
         # Complete live tournaments
-        stmt = (
-            select(Tournament)
-            .where(
-                Tournament.status == StatusEnum.live,
-                Tournament.end_date <= now
-            )
+        stmt = select(Tournament).where(
+            Tournament.status == StatusEnum.live, Tournament.end_date <= now
         )
         result = await session.execute(stmt)
         tournaments_to_complete = result.scalars().all()
@@ -308,22 +298,28 @@ async def _check_tournament_transitions_async() -> Dict[str, Any]:
                     f"value=${winner_state.portfolio_value_usd}"
                 )
 
-            transitions["completed"].append({
-                "id": str(tournament.id),
-                "name": tournament.name,
-                "winner_id": str(tournament.winner_agent_id) if tournament.winner_agent_id else None
-            })
+            transitions["completed"].append(
+                {
+                    "id": str(tournament.id),
+                    "name": tournament.name,
+                    "winner_id": (
+                        str(tournament.winner_agent_id)
+                        if tournament.winner_agent_id
+                        else None
+                    ),
+                }
+            )
             logger.info(f"Tournament completed: {tournament.name}")
 
         await session.commit()
 
         return {
             "transitions": transitions,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 
-@celery_app.task(base=AgentTask, name="update_tournament_rankings")
+@celery_app.task(base=AgentTask, name="app.agents.scheduler.update_tournament_rankings")
 def update_tournament_rankings() -> Dict[str, Any]:
     """
     Update agent rankings for all live tournaments.
@@ -370,12 +366,14 @@ async def _update_tournament_rankings_async() -> Dict[str, Any]:
 
         await session.commit()
 
-        logger.info(f"Updated {rankings_updated} agent rankings across {len(tournaments)} tournaments")
+        logger.info(
+            f"Updated {rankings_updated} agent rankings across {len(tournaments)} tournaments"
+        )
 
         return {
             "tournaments_processed": len(tournaments),
             "rankings_updated": rankings_updated,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 
@@ -383,7 +381,8 @@ async def _update_tournament_rankings_async() -> Dict[str, Any]:
 # CRASH RECOVERY TASKS
 # ============================================================================
 
-@celery_app.task(base=AgentTask, name="recover_crashed_agents")
+
+@celery_app.task(base=AgentTask, name="app.agents.scheduler.recover_crashed_agents")
 def recover_crashed_agents() -> Dict[str, Any]:
     """
     Detect and recover agents that haven't updated in a while.
@@ -415,7 +414,7 @@ async def _recover_crashed_agents_async() -> Dict[str, Any]:
             .join(Tournament, AgentState.tournament_id == Tournament.id)
             .where(
                 Tournament.status == StatusEnum.live,
-                AgentState.updated_at < stale_threshold
+                AgentState.updated_at < stale_threshold,
             )
         )
         result = await session.execute(stmt)
@@ -432,31 +431,28 @@ async def _recover_crashed_agents_async() -> Dict[str, Any]:
 
             # Launch recovery task
             task = recover_agent_state.delay(
-                agent_uuid=str(agent_state.agent_id),
-                tournament_uuid=str(tournament.id)
+                agent_uuid=str(agent_state.agent_id), tournament_uuid=str(tournament.id)
             )
 
-            recovery_tasks.append({
-                "task_id": task.id,
-                "agent_id": str(agent_state.agent_id),
-                "tournament_id": str(tournament.id),
-                "last_updated": agent_state.updated_at.isoformat()
-            })
+            recovery_tasks.append(
+                {
+                    "task_id": task.id,
+                    "agent_id": str(agent_state.agent_id),
+                    "tournament_id": str(tournament.id),
+                    "last_updated": agent_state.updated_at.isoformat(),
+                }
+            )
 
         return {
             "stale_agents_found": len(stale_agents),
             "recovery_tasks_launched": len(recovery_tasks),
             "tasks": recovery_tasks,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 
-@celery_app.task(base=AgentTask, bind=True, name="recover_agent_state")
-def recover_agent_state(
-    self,
-    agent_uuid: str,
-    tournament_uuid: str
-) -> Dict[str, Any]:
+@celery_app.task(base=AgentTask, bind=True, name="app.agents.scheduler.recover_agent_state")
+def recover_agent_state(self, agent_uuid: str, tournament_uuid: str) -> Dict[str, Any]:
     """
     Recover a specific agent's state from database and resume operation.
 
@@ -467,14 +463,16 @@ def recover_agent_state(
     Returns:
         Dict with recovery result
     """
-    logger.info(f"Recovering agent state: agent={agent_uuid}, tournament={tournament_uuid}")
+    logger.info(
+        f"Recovering agent state: agent={agent_uuid}, tournament={tournament_uuid}"
+    )
 
     try:
         # Run the agent decision with recovery enabled
         return run_agent_decision(
             agent_uuid=agent_uuid,
             tournament_uuid=tournament_uuid,
-            recover_from_crash=True
+            recover_from_crash=True,
         )
     except Exception as e:
         logger.error(f"Agent recovery failed: {e}")
@@ -485,7 +483,8 @@ def recover_agent_state(
 # UTILITY TASKS
 # ============================================================================
 
-@celery_app.task(base=AgentTask, name="cleanup_old_results")
+
+@celery_app.task(base=AgentTask, name="app.agents.scheduler.cleanup_old_results")
 def cleanup_old_results() -> Dict[str, Any]:
     """
     Clean up old Celery task results (runs daily at midnight).
@@ -498,16 +497,12 @@ def cleanup_old_results() -> Dict[str, Any]:
     # Celery handles this automatically based on result_expires config
     # This task exists for logging/monitoring purposes
 
-    return {
-        "status": "completed",
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }
+    return {"status": "completed", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
-@celery_app.task(base=AgentTask, name="initialize_tournament_agents")
+@celery_app.task(base=AgentTask, name="app.agents.scheduler.initialize_tournament_agents")
 def initialize_tournament_agents(
-    tournament_uuid: str,
-    agent_uuids: List[str]
+    tournament_uuid: str, agent_uuids: List[str]
 ) -> Dict[str, Any]:
     """
     Initialize agent states for a new tournament.
@@ -524,8 +519,7 @@ def initialize_tournament_agents(
     try:
         return asyncio.run(
             _initialize_tournament_agents_async(
-                UUID(tournament_uuid),
-                [UUID(uuid) for uuid in agent_uuids]
+                UUID(tournament_uuid), [UUID(uuid) for uuid in agent_uuids]
             )
         )
     except Exception as e:
@@ -534,8 +528,7 @@ def initialize_tournament_agents(
 
 
 async def _initialize_tournament_agents_async(
-    tournament_uuid: UUID,
-    agent_uuids: List[UUID]
+    tournament_uuid: UUID, agent_uuids: List[UUID]
 ) -> Dict[str, Any]:
     """
     Async implementation of agent initialization.
@@ -562,7 +555,7 @@ async def _initialize_tournament_agents_async(
                 cash=500.0,
                 holdings={},
                 starting_val=500.0,
-                total_value=500.0
+                total_value=500.0,
             )
 
             # Save initial state
@@ -571,7 +564,7 @@ async def _initialize_tournament_agents_async(
                 tournament_uuid=tournament_uuid,
                 portfolio=portfolio,
                 rank=0,
-                last_decision="Tournament initialized"
+                last_decision="Tournament initialized",
             )
 
             initialized.append(str(agent_uuid))
@@ -581,5 +574,5 @@ async def _initialize_tournament_agents_async(
             "tournament_id": str(tournament_uuid),
             "agents_initialized": len(initialized),
             "agent_ids": initialized,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }

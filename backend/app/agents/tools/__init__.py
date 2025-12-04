@@ -16,10 +16,12 @@ from .market_data_tool import MarketDataTool
 from .trade_tool import TradeTool
 from .portfolio_tool import PortfolioTool
 from .tweet_post_tool import TweetPostTool
+from .database_tool import DatabaseTool
 
 __all__ = [
     "MarketDataTool",
     "TradeTool",
     "PortfolioTool",
     "TweetPostTool",
+    "DatabaseTool",
 ]
