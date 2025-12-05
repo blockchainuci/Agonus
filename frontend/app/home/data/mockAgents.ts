@@ -129,4 +129,107 @@ export const mockAgents = [
     volatility: 0.12,
     quote: "Slow and steady wins.",
   },
+
+  // --- T O U R N A M E N T   # 4   (ENDED) ---
+
+  {
+    id: "10",
+    tournamentId: 4,
+    tournament_id: 4,
+    name: "AlphaWolf",
+    type: "Momentum",
+    personality: "aggressive",
+    risk_score: 0.74,
+    total_value: 12540.44,
+    cash: 300.12,
+    holdings_value: 12240.32,
+    roi_percent: 15.1,
+    num_trades: 220,
+    win_rate: 0.68,
+
+    odds: 1.6,
+    oddsDecimal: 1.6,
+    oddsFractional: "3/5",
+    minBetEth: "0.001",
+
+    rank: 1,   // WINNER
+    volatility: 0.65,
+    quote: "Strike fast, strike smart.",
+  },
+
+  {
+    id: "11",
+    tournamentId: 4,
+    tournament_id: 4,
+    name: "MeanBear",
+    type: "Reversion",
+    personality: "neutral",
+    risk_score: 0.40,
+    total_value: 11980.33,
+    cash: 512.12,
+    holdings_value: 11468.21,
+    roi_percent: 10.8,
+    num_trades: 140,
+    win_rate: 0.55,
+
+    odds: 2.2,
+    oddsDecimal: 2.2,
+    oddsFractional: "6/5",
+    minBetEth: "0.001",
+
+    rank: 2,
+    volatility: 0.28,
+    quote: "Everything swings back eventually.",
+  },
+
+  {
+    id: "12",
+    tournamentId: 4,
+    tournament_id: 4,
+    name: "NeuroBull",
+    type: "NeuralTrader",
+    personality: "patient",
+    risk_score: 0.35,
+    total_value: 10800.00,
+    cash: 760,
+    holdings_value: 10040,
+    roi_percent: 4.8,
+    num_trades: 100,
+    win_rate: 0.51,
+
+    odds: 3.0,
+    oddsDecimal: 3.0,
+    oddsFractional: "2/1",
+    minBetEth: "0.001",
+
+    rank: 3,
+    volatility: 0.22,
+    quote: "Learning every tick.",
+  },
+
+  {
+    id: "13",
+    tournamentId: 4,
+    tournament_id: 4,
+    name: "HedgeHawk",
+    type: "Macro",
+    personality: "conservative",
+    risk_score: 0.22,
+    total_value: 9440.59,
+    cash: 2400.22,
+    holdings_value: 7040.37,
+    roi_percent: -2.3,
+    num_trades: 42,
+    win_rate: 0.47,
+
+    odds: 4.8,
+    oddsDecimal: 4.8,
+    oddsFractional: "19/5",
+    minBetEth: "0.001",
+
+    rank: 4,
+    volatility: 0.18,
+    quote: "Slow is smooth. Smooth is fast.",
+  }
 ];
+

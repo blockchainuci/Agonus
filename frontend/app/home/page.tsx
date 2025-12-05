@@ -1,13 +1,12 @@
 'use client';
 
 import UserProfileCard from './components/UserInfo';
-import TournamentContainer from './components/TournamentStatusBar';
+import TournamentContainer from './components/TournamentContainer';
 import CandleChart from './components/CandleChart';
 import RecentTrades from './components/RecentTrades';
 import AgentListSection from './dashboard/AgentListSection';
 import BetModal from '../../src/betting/BetModal'; 
 import { useTournamentStore } from '@/src/store/useTournamentStore';
-import { NetworkGuard } from "@/src/components/wallet/NetworkGuard";
 
 export default function HomePage() {
   const selectedTournamentId = useTournamentStore((s) => s.selectedTournamentId);
@@ -58,10 +57,8 @@ export default function HomePage() {
           <RecentTrades tournamentId={selectedTournamentId} />
         </div>
       </div>
-      <NetworkGuard>
       {/* ⭐ ADD BET MODAL HERE — always mounted, Zustand controls visibility */}
       <BetModal />
-      </NetworkGuard>
     </div>
 
   );

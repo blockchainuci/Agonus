@@ -177,7 +177,9 @@ export default function AgentListSection() {
                 agent={agent}
                 totalAgents={processedAgents.length}
                 forceExpand={forceExpandProp}
+                rank={agent.rank}     // <-- FIXED
               />
+
             </div>
           );
         })}

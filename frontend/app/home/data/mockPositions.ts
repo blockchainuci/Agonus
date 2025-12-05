@@ -41,4 +41,57 @@ export const mockPositions = [
     current_value_usd: 1800,
     tournament_id: "5",
   },
+  { 
+    agent_id: "10",
+    token: "ETH", 
+    amount: 2.1, 
+    current_value_usd: 6300, 
+    tournament_id: "4" 
+  },
+
+  { 
+    agent_id: "10", 
+    token: "BTC", 
+    amount: 0.15, 
+    current_value_usd: 7800, 
+    tournament_id: "4" 
+  },
+
+  { 
+    agent_id: "11", 
+    token: "SOL", 
+    amount: 55, 
+    current_value_usd: 4400, 
+    tournament_id: "4" 
+  },
+  { 
+    agent_id: "11", 
+    token: "ETH", 
+    amount: 0.9, 
+    current_value_usd: 2160, 
+    tournament_id: "4" 
+  },
+
+  { 
+    agent_id: "12", 
+    token: "AVAX", 
+    amount: 40, 
+    current_value_usd: 1440, 
+    tournament_id: "4" 
+  },
+  { 
+    agent_id: "12", 
+    token: "ETH", 
+    amount: 0.6, 
+    current_value_usd: 1440, 
+    tournament_id: "4" 
+  },
+  
+  { 
+    agent_id: "13", 
+    token: "ARB", 
+    amount: 900, 
+    current_value_usd: 1350, 
+    tournament_id: "4" 
+  },
 ];

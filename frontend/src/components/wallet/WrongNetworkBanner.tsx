@@ -1,32 +1,30 @@
 'use client';
 
-import { useAccount, useChainId, useSwitchChain } from 'wagmi';
+import { useAccount } from 'wagmi';
+import { useState } from 'react';
 
 export function WrongNetworkBanner() {
-  const chainId = useChainId();
-  const { chainId: connectedChain, isConnected } = useAccount();
-  const { switchChain, isPending } = useSwitchChain();
-
-  // Base Sepolia chain ID
+  const { chainId, isConnected } = useAccount();
   const TARGET_CHAIN = 84532;
 
-  const isWrong = isConnected && connectedChain !== TARGET_CHAIN;
+  const [dismissed, setDismissed] = useState(false);
 
-  if (!isWrong) return null;
+  const wrong = isConnected && chainId !== TARGET_CHAIN;
+
+  if (!wrong || dismissed) return null;
 
   return (
-    <div className="w-full bg-red-600/20 text-red-300 py-3 px-4 text-sm flex items-center justify-between">
+    <div className="w-full bg-yellow-600/20 text-yellow-300 py-2 px-4 text-sm flex items-center justify-between">
       <span>
-        ⚠️ You are connected to <strong>{connectedChain}</strong>.  
-        Please switch to <strong>Base Sepolia</strong>.
+        ⚠️ You are connected to <strong>{chainId}</strong>.  
+        Please switch to <strong>Base Sepolia (84532)</strong> to place bets.
       </span>
 
       <button
-        onClick={() => switchChain({ chainId: TARGET_CHAIN })}
-        disabled={isPending}
-        className="px-3 py-1 rounded-md bg-red-500 text-white text-xs hover:bg-red-400 transition disabled:opacity-50"
+        onClick={() => setDismissed(true)}
+        className="ml-3 px-3 py-1 rounded bg-yellow-500 text-black hover:bg-yellow-400 transition"
       >
-        {isPending ? 'Switching...' : 'Switch Network'}
+        Dismiss
       </button>
     </div>
   );

@@ -2,17 +2,15 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, TrendingUp, TrendingDown, XCircle, Clock, Zap } from "lucide-react";
+import { Trophy, TrendingUp, TrendingDown, XCircle, Clock, Zap, Hourglass } from "lucide-react";
 
 import { mockBets } from "@/app/home/data/mockBets";
+import { mockTournaments } from "@/app/home/data/mockTournament";
+import { ClaimWinnings } from "@/src/betting/ClaimWinnings";
 
-interface ActiveBetsProps {
-  tournamentId: number;
-}
-
-// ------------------------------
-// BACKEND FORMAT — DO NOT MODIFY
-// ------------------------------
+// ---------------------------------------
+// Backend Bet Format (Do Not Modify)
+// ---------------------------------------
 export interface Bet {
   id: string;
   tournament_id: string;
@@ -25,9 +23,13 @@ export interface Bet {
   created_at: string;
 }
 
-// ------------------------------
-// UI-only enrichment
-// ------------------------------
+interface ActiveBetsProps {
+  tournamentId: number;
+}
+
+// ---------------------------------------
+// UI - Enriched Bet
+// ---------------------------------------
 interface EnrichedBet extends Bet {
   status: "active" | "won" | "lost";
 }
@@ -48,9 +50,16 @@ const getAgentColor = (id: string) =>
 export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
   const [filter, setFilter] = useState<"active" | "past">("active");
 
-  // ------------------------------
-  // Enrich backend data for UI use
-  // ------------------------------
+  // ---------------------------------------
+  // Tournament Status
+  // ---------------------------------------
+  const tournament = mockTournaments.find((t) => t.id === tournamentId);
+  const isLive = tournament?.status === "LIVE";
+  const isEnded = tournament?.status === "ENDED";
+
+  // ---------------------------------------
+  // Enrich Backend Bets
+  // ---------------------------------------
   const enriched: EnrichedBet[] = mockBets.map((b) => ({
     ...b,
     status: getBetStatus(b),
@@ -66,10 +75,19 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
 
   const displayed = filter === "active" ? active : past;
 
+  // ---------------------------------------
+  // Mock Claim Function (replace with Web3)
+  // ---------------------------------------
+  const handleClaim = async (bet: EnrichedBet): Promise<void> => {
+    console.log("Claim clicked:", bet);
+    await new Promise<void>((resolve) => setTimeout(resolve, 1200));
+    console.log("Claim complete!");
+  };
+
   return (
     <div className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 p-6">
 
-      {/* Header */}
+      {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center">
@@ -88,7 +106,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* FILTER TABS */}
       <div className="flex gap-2 mb-4 bg-white/5 p-1 rounded-lg">
         <button
           onClick={() => setFilter("active")}
@@ -113,7 +131,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
         </button>
       </div>
 
-      {/* Bets List */}
+      {/* BETS LIST */}
       <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
         <AnimatePresence>
           {displayed.map((bet, index) => (
@@ -125,10 +143,10 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
               transition={{ delay: index * 0.05 }}
               className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10"
             >
+
               {/* TOP ROW */}
               <div className="flex items-center justify-between mb-3">
-                
-                {/* Agent pill */}
+                {/* Agent bubble */}
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-10 h-10 rounded-full bg-gradient-to-br ${getAgentColor(
@@ -154,7 +172,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
                   </div>
                 </div>
 
-                {/* Status badge */}
+                {/* Status Badge */}
                 {bet.status === "active" && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-cyan-500/20 border border-cyan-500/30 rounded-full">
                     <Clock className="w-3 h-3 text-cyan-400" />
@@ -189,12 +207,34 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
                 <p className="font-bold text-white text-lg mb-1">
                   {bet.amount} ETH
                 </p>
-
                 <p className="text-[10px] text-gray-500">
                   Placed: {new Date(bet.created_at).toLocaleString()}
                 </p>
               </div>
 
+              {/* CLAIM LOGIC */}
+              {filter === "past" && bet.status === "won" && bet.payout && bet.payout > 0 && (
+                <div className="mt-4">
+
+                  {/* 🔵 If tournament LIVE → show pending */}
+                  {isLive && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 px-3 py-2 rounded-lg flex items-center gap-2">
+                      <Hourglass className="w-4 h-4" />
+                      <p className="text-sm font-medium">Pending settlement — tournament still live</p>
+                    </div>
+                  )}
+
+                  {/* 🟢 If tournament ENDED → allow claim */}
+                  {isEnded && (
+                    <ClaimWinnings
+                      payoutAmountEth={bet.payout.toString()}
+                      tournamentId={Number(bet.tournament_id)}
+                      alreadyClaimed={false}
+                      onClaim={() => handleClaim(bet)}
+                    />
+                  )}
+                </div>
+              )}
             </motion.div>
           ))}
         </AnimatePresence>

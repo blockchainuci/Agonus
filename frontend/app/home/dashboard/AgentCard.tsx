@@ -35,12 +35,14 @@ function normalizeAgent(agent: Agent): AgentBet {
 ------------------------------------------------------- */
 interface AgentCardProps {
   agent: Agent;
+  rank: number;           // <-- NEW: pass rank from parent list
   totalAgents: number;
   forceExpand?: boolean;
 }
 
 export default function AgentCard({
   agent,
+  rank,
   totalAgents,
   forceExpand,
 }: AgentCardProps) {
@@ -63,20 +65,39 @@ export default function AgentCard({
       onClick={() => setExpanded(!expanded)}
     >
       {/* ---------- HEADER ---------- */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
+
+        {/* LEFT SIDE: Rank / Name / Portfolio */}
         <div>
+          {/* Rank Badge */}
+          <div className="mb-1">
+            <span className="px-2 py-0.5 text-xs rounded-full bg-blue-600/40 text-blue-200 font-semibold">
+              Rank #{rank}
+            </span>
+          </div>
+
           <p className="text-lg font-semibold text-blue-300">{agent.name}</p>
-          <p className="text-gray-400 text-sm">Win rate: {winRatePct}%</p>
+
           <p className="text-gray-400 text-sm">
             Portfolio: ${modalAgent.portfolioValue.toLocaleString()}
           </p>
+
+          <p className="text-gray-400 text-sm">
+            Win rate: {winRatePct}%
+          </p>
         </div>
 
+        {/* RIGHT SIDE: Odds / Bet Button / Expand */}
         <div className="flex flex-col items-end">
           {/* Odds */}
-          <span className="text-yellow-400 text-lg font-bold">
-            {modalAgent.odds}x
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-yellow-400 text-lg font-bold">
+              {modalAgent.odds}x
+            </span>
+            <Tooltip content={<p>Payout multiplier if this agent wins.</p>}>
+              <span className="cursor-help text-gray-400">ⓘ</span>
+            </Tooltip>
+          </div>
 
           {/* Bet Button */}
           <button
@@ -89,7 +110,7 @@ export default function AgentCard({
             Bet on Agent
           </button>
 
-          {/* Expand Button */}
+          {/* Expand / Collapse */}
           <button
             className="text-gray-300 mt-2 flex items-center"
             onClick={(e) => {
@@ -154,6 +175,24 @@ export default function AgentCard({
               <span className="font-semibold text-white">Volatility:</span>{" "}
               {modalAgent.volatility.toFixed(1)}%
               <Tooltip content={<p>Higher volatility means larger swings.</p>}>
+                <span className="cursor-help text-gray-400">ⓘ</span>
+              </Tooltip>
+            </div>
+
+            {/* NEW: Win Rate in expanded grid for consistency */}
+            <div className="flex items-center gap-1">
+              <span className="font-semibold text-white">Win Rate:</span>{" "}
+              {winRatePct}%
+              <Tooltip content={<p>Percentage of profitable trades.</p>}>
+                <span className="cursor-help text-gray-400">ⓘ</span>
+              </Tooltip>
+            </div>
+
+            {/* NEW: Odds inside expanded grid also (optional duplicate display) */}
+            <div className="flex items-center gap-1">
+              <span className="font-semibold text-white">Odds:</span>{" "}
+              {modalAgent.odds}x
+              <Tooltip content={<p>Payout multiplier if this agent wins.</p>}>
                 <span className="cursor-help text-gray-400">ⓘ</span>
               </Tooltip>
             </div>
