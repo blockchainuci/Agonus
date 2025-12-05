@@ -11,6 +11,7 @@
     "prettier": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\""
   },
   "dependencies": {
+    "@metamask/sdk": "^0.34.0",
     "@radix-ui/react-slot": "^1.2.3",
     "@tanstack/react-query": "^5.90.10",
     "@tanstack/react-query-devtools": "^5.90.2",
@@ -20,7 +21,7 @@
     "lightweight-charts": "^5.0.9",
     "lucide-react": "^0.552.0",
     "motion": "^12.23.24",
-    "next": "16.0.0",
+    "next": "^16.0.7",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",

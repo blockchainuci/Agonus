@@ -32,14 +32,14 @@ export default function AgentCard({
 
   return (
     <motion.div
-      className={`rounded-xl p-5 text-white shadow-lg border transition-all duration-300 ease-out relative overflow-hidden group
+      className={`rounded-xl p-5 text-white shadow-lg border transition-all duration-300 ease-out relative overflow-hidden group/card
       ${expanded ? 'bg-gradient-to-br from-[#0a1628] to-[#050b18] border-blue-400/60 shadow-blue-500/20' : 'bg-gradient-to-br from-[#0f172a] to-[#0a1220] border-[#1e293b] hover:border-blue-500/30'}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       whileHover={{ scale: 1.01 }}
       transition={{ duration: 0.2 }}
     >
-    <div className={`absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`} />
+    <div className={`absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 pointer-events-none`} />
       {/* MAIN ROW */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
@@ -77,55 +77,57 @@ export default function AgentCard({
         </div>
         </div>
 
-        <div className="flex flex-col items-end">
-        <div className="flex flex-col items-end">
-          <span className="text-xs text-gray-400 uppercase tracking-wide">Odds</span>
-          <span className="text-3xl font-bold text-yellow-400 leading-none">
-            {agent.odds}x
-          </span>
-        </div>
+        <div className="flex flex-col items-end justify-center gap-3">
+          <div className="flex flex-col items-end">
+            <span className="text-xs text-gray-400 uppercase tracking-wide mb-1">Odds</span>
+            <span className="text-3xl font-bold text-yellow-400 leading-none">
+              {agent.odds}x
+            </span>
+          </div>
+    
 
-        <motion.button
-          className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-black font-bold rounded-lg shadow-lg hover:shadow-yellow-500/50 transition-all relative overflow-hidden"
-          onClick={(e) => {
-            e.stopPropagation();
-            openBetModal(agent);
-          }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <span className="relative z-10">Bet on Agent</span>
-          {/* Shimmer effect */}
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-            initial={{ x: '-100%' }}
-            animate={{ x: isHovered ? '200%' : '-100%' }}
-            transition={{ duration: 0.6 }}
-          />
-        </motion.button>
-          
-
-          <button
-            className="text-gray-300 mt-2 flex items-center"
+          <motion.button
+            className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-black font-bold rounded-lg shadow-lg hover:shadow-yellow-500/50 transition-all relative overflow-hidden"
             onClick={(e) => {
               e.stopPropagation();
-              setExpanded(!expanded);
+              openBetModal(agent);
             }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
-            {expanded ? (
-              <>
-                <span>Less Info</span>
-                <ChevronUp className="w-4 h-4" />
-              </>
-            ) : (
-              <>
-                <span>More Info</span>
-                <ChevronDown className="w-4 h-4" />
-              </>
-            )}
-          </button>
+            <span className="relative z-10">Bet on Agent</span>
+            {/* Shimmer effect */}
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+              initial={{ x: '-100%' }}
+              animate={{ x: isHovered ? '200%' : '-100%' }}
+              transition={{ duration: 0.6 }}
+            />
+          </motion.button>
+            
+
+            <button
+              className="text-gray-300 mt-2 flex items-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(!expanded);
+              }}
+            >
+              {expanded ? (
+                <>
+                  <span>Less Info</span>
+                  <ChevronUp className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  <span>More Info</span>
+                  <ChevronDown className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+
 
      {/* EXPANDED CONTENT */}
      <motion.div
@@ -136,7 +138,7 @@ export default function AgentCard({
           marginTop: expanded ? '1rem' : 0,
         }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className="overflow-hidden"
+        className={expanded ? "overflow-visible" : "overflow-hidden"}
       >
         <div className="border-t border-gray-700/50 pt-4 space-y-4 relative z-10">
           {/* Personality */}
@@ -155,24 +157,27 @@ export default function AgentCard({
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 pt-20">
             {/* Rank */}
             {agent.rank !== undefined && (
-              <div className="bg-white/5 rounded-lg p-3 border border-white/10 relative group">
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="text-xs text-gray-400 uppercase">Rank</span>
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+              <div className="flex items-center gap-1 mb-1">
+                <span className="text-xs text-gray-400 uppercase">Rank</span>
+                <div className="relative group/rank">
                   <Info className="h-3 w-3 text-gray-500 cursor-pointer" />
-                </div>
-                <span className="text-lg font-bold text-white">
-                  #{agent.rank}
-                </span>
-                <span className="text-xs text-gray-400"> of {totalAgents}</span>
-                
-                {/* Tooltip */}
-                <div className="absolute z-50 hidden group-hover:block w-48 rounded-lg bg-black/90 p-2 text-xs text-gray-200 shadow-lg -top-16 left-0">
+                  {/* Tooltip */}
+                  <div className="absolute z-50 hidden group-hover/rank:block w-48 rounded-lg bg-black/90 p-2 text-xs text-gray-200 shadow-lg left-full ml-2 top-0">
                   Rank shows this agent's current position in the tournament leaderboard.
+                  <div className="absolute right-full top-3 border-4 border-transparent border-r-black/90"></div>
+                </div>
                 </div>
               </div>
+              <span className="text-lg font-bold text-white">
+                #{agent.rank}
+              </span>
+              <span className="text-xs text-gray-400"> of {totalAgents}</span>
+            </div>
+              
             )}
 
             {/* P&L */}
@@ -185,27 +190,29 @@ export default function AgentCard({
 
             {/* Volatility */}
             {agent.volatility !== undefined && (
-              <div className="bg-white/5 rounded-lg p-3 border border-white/10 relative group col-span-2">
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="text-xs text-gray-400 uppercase">Volatility</span>
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10 col-span-2">
+              <div className="flex items-center gap-1 mb-1">
+                <span className="text-xs text-gray-400 uppercase">Volatility</span>
+                <div className="relative group/volatility">
                   <Info className="h-3 w-3 text-gray-500 cursor-pointer" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold text-white">{agent.volatility}</span>
-                  {/* Visual indicator */}
-                  <div className="flex-1 bg-white/10 rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-green-500 to-red-500"
-                      style={{ width: `${Math.min(agent.volatility, 100)}%` }}
-                    />
+                  {/* Tooltip */}
+                  <div className="absolute z-50 hidden group-hover/volatility:block w-52 rounded-lg bg-black/90 p-2 text-xs text-gray-200 shadow-lg left-full ml-2 top-0">
+                    Volatility measures how much this agent's portfolio value swings over time.
+                    <div className="absolute right-full top-3 border-4 border-transparent border-r-black/90"></div>
                   </div>
                 </div>
-                
-                {/* Tooltip */}
-                <div className="absolute z-50 hidden group-hover:block w-52 rounded-lg bg-black/90 p-2 text-xs text-gray-200 shadow-lg -top-16 left-0">
-                  Volatility measures how much this agent's portfolio value swings over time.
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-white">{agent.volatility}</span>
+                {/* Visual indicator */}
+                <div className="flex-1 bg-white/10 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-green-500 to-red-500"
+                    style={{ width: `${Math.min(agent.volatility, 100)}%` }}
+                  />
                 </div>
               </div>
+            </div>
             )}
           </div>
         </div>
