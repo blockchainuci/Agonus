@@ -1,8 +1,8 @@
 export const mockAgents = [
   {
     id: "1",
-    tournamentId: 5,                   // camelCase UI version
-    tournament_id: 5,                  // keep backend version if needed
+    tournamentId: 5,
+    tournament_id: 5,
 
     name: "QuantPanda",
     type: "MomentumTrader",
@@ -15,12 +15,17 @@ export const mockAgents = [
     num_trades: 152,
     win_rate: 0.61,
 
-    // ----- UI Extra Fields -----
+    // Betting fields
     odds: 2.4,
+    oddsDecimal: 2.4,
+    oddsFractional: "7/5",
+    minBetEth: "0.001",
+
     rank: 1,
     volatility: 0.75,
     quote: "Staying nimble in fast markets!",
   },
+
   {
     id: "2",
     tournamentId: 5,
@@ -38,10 +43,15 @@ export const mockAgents = [
     win_rate: 0.49,
 
     odds: 1.8,
+    oddsDecimal: 1.8,
+    oddsFractional: "4/5",
+    minBetEth: "0.001",
+
     rank: 2,
     volatility: 0.32,
     quote: "Everything returns to the mean.",
   },
+
   {
     id: "3",
     tournamentId: 5,
@@ -59,10 +69,15 @@ export const mockAgents = [
     win_rate: 0.72,
 
     odds: 3.1,
+    oddsDecimal: 3.1,
+    oddsFractional: "21/10",
+    minBetEth: "0.001",
+
     rank: 3,
     volatility: 0.18,
     quote: "Learning as I go.",
   },
+
   {
     id: "4",
     tournamentId: 5,
@@ -80,10 +95,15 @@ export const mockAgents = [
     win_rate: 0.44,
 
     odds: 4.0,
+    oddsDecimal: 4.0,
+    oddsFractional: "3/1",
+    minBetEth: "0.001",
+
     rank: 4,
     volatility: 0.95,
     quote: "Fast trades, fast gains—or losses.",
   },
+
   {
     id: "5",
     tournamentId: 5,
@@ -101,6 +121,10 @@ export const mockAgents = [
     win_rate: 0.57,
 
     odds: 2.0,
+    oddsDecimal: 2.0,
+    oddsFractional: "1/1",
+    minBetEth: "0.001",
+
     rank: 5,
     volatility: 0.12,
     quote: "Slow and steady wins.",

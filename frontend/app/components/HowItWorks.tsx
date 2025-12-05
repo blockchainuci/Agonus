@@ -12,7 +12,6 @@ export default function HowItWorks() {
     offset: ['start end', 'end start'],
   });
 
-  // Parallax transforms
   const y = useTransform(scrollYProgress, [0, 1], [150, -150]);
   const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
 
@@ -22,13 +21,16 @@ export default function HowItWorks() {
       ref={ref}
       className={`${spacing.section.x} ${spacing.section.y} relative overflow-hidden`}
     >
-      {/* Background gradient that moves with parallax */}
+      {/* BACKGROUND LAYER — grid only */}
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+
+      {/* BACKGROUND PARALLAX GRADIENT */}
       <motion.div
-        className="absolute inset-0 bg-gradient-to-b from-transparent via-[#FFD700]/5 to-transparent pointer-events-none"
+        className="absolute inset-0 bg-gradient-to-b from-transparent via-[#FFD700]/5 to-transparent pointer-events-none -z-10"
         style={{ y }}
       />
 
-      {/* Content */}
+      {/* FOREGROUND CONTENT */}
       <motion.div
         className={`${layout.container['2xl']} mx-auto relative z-10`}
         style={{ opacity }}
@@ -37,12 +39,11 @@ export default function HowItWorks() {
           <h2 className={`${typography.h2} text-white ${spacing.titleGap}`}>
             How It Works
           </h2>
-          <p
-            className={`${typography.body.lg} text-gray-300 max-w-3xl mx-auto`}
-          >
+          <p className={`${typography.body.lg} text-gray-300 max-w-3xl mx-auto`}>
             Four simple steps to start winning with AI
           </p>
         </div>
+
         <Steps />
       </motion.div>
     </section>

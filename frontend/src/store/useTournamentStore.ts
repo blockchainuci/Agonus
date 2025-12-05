@@ -1,27 +1,71 @@
 import { create } from 'zustand';
-import type { AgentBet } from '@/lib/types/AgentBet';
+import type { AgentBet } from '@/src/types/AgentBet';
+
+type TxStatus = 'idle' | 'confirming' | 'pending' | 'success' | 'error';
 
 interface TournamentStore {
+  // Tournament selection
   selectedTournamentId: number;
   setTournamentId: (id: number) => void;
 
+  // Betting Modal state
   isBetModalOpen: boolean;
   selectedAgent: AgentBet | null;
   openBetModal: (agent: AgentBet) => void;
   closeBetModal: () => void;
+
+  // Web3 transaction status (for BetModal)
+  txStatus: TxStatus;
+  txHash: string | null;
+  txError: string | null;
+
+  setTxStatus: (s: TxStatus) => void;
+  setTxHash: (hash: string | null) => void;
+  setTxError: (msg: string | null) => void;
+  resetTxState: () => void;
 }
 
 export const useTournamentStore = create<TournamentStore>((set) => ({
+  // Tournament state
   selectedTournamentId: 5,
 
-  setTournamentId: (id) => set({ selectedTournamentId: Number(id) }),
+  setTournamentId: (id) => set({ selectedTournamentId: id }),
 
+  // Betting modal state
   isBetModalOpen: false,
   selectedAgent: null,
 
   openBetModal: (agent) =>
-    set({ selectedAgent: agent, isBetModalOpen: true }),
+    set({
+      selectedAgent: agent,
+      isBetModalOpen: true,
+      txStatus: 'idle',   // reset tx state when modal opens
+      txHash: null,
+      txError: null,
+    }),
 
   closeBetModal: () =>
-    set({ selectedAgent: null, isBetModalOpen: false }),
+    set({
+      selectedAgent: null,
+      isBetModalOpen: false,
+      txStatus: 'idle',
+      txHash: null,
+      txError: null,
+    }),
+
+  // Web3 tx state
+  txStatus: 'idle',
+  txHash: null,
+  txError: null,
+
+  setTxStatus: (txStatus) => set({ txStatus }),
+  setTxHash: (txHash) => set({ txHash }),
+  setTxError: (txError) => set({ txError }),
+
+  resetTxState: () =>
+    set({
+      txStatus: 'idle',
+      txHash: null,
+      txError: null,
+    }),
 }));

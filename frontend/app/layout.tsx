@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Providers } from "./providers";
+import { Toaster } from "react-hot-toast"; 
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,19 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <Providers>
+          {/* 🟧 Global Toast Renderer */}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: "#0A2540",
+                color: "white",
+                border: "1px solid rgba(255,255,255,0.1)",
+              },
+            }}
+          />
+
           <Navbar />
           <main className="min-h-screen">{children}</main>
           <Footer />

@@ -9,7 +9,7 @@ export interface AgentBet {
   personality: string;
 
   // Values required for betting UI
-  odds: number;            // computed in frontend
+  odds: number;            // can be same as decimal odds for now
   winRate: number;         // agent.win_rate * 100
   portfolioValue: number;  // agent.total_value
   pnl: number;             // computed: portfolioValue - 10000
@@ -18,4 +18,9 @@ export interface AgentBet {
   // Optional fields (BetModal will ignore if not needed)
   rank?: number;
   avatar_url?: string;
+
+  // 🆕 Web3 betting UI fields (all OPTIONAL so nothing breaks)
+  oddsDecimal?: number;        // ex: 1.75
+  oddsFractional?: string;     // ex: "3/2"
+  minBetEth?: string;          // ex: "0.001"
 }
