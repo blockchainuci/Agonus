@@ -1,4 +1,4 @@
-# Agonus Backend - API Server Only
+# Agonus Backend - API Server for Railway
 FROM python:3.11-slim
 
 # Install system dependencies
@@ -19,18 +19,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY app ./app
 
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser && \
-    chown -R appuser:appuser /app
+# Railway uses PORT environment variable, default to 8000
+ENV PORT=8000
+# Disable ngrok for production deployment
+ENV DISABLE_NGROK=true
 
-USER appuser
+# Expose the port (Railway will override this with $PORT)
+EXPOSE $PORT
 
-# Expose port for FastAPI
-EXPOSE 8000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/', timeout=5)"
-
-# Run FastAPI server
-CMD ["python", "-m", "app.api.main"]
+# Run FastAPI server with uvicorn on Railway's PORT
+# Railway expects the app to bind to 0.0.0.0:$PORT
+CMD ["sh", "-c", "uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT}"]
