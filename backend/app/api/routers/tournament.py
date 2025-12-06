@@ -15,21 +15,19 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...celery_config import celery_app
-from ...db.database import AsyncSessionLocal
+from ...db.database import AsyncSessionLocal, get_db
 from ...db.models import Tournament, Agent, AgentState, StatusEnum
 from ...agents.executor import TradingAgent
 from ...agents.tools import DatabaseTool
 
-from backend.app.db.database import get_db
-from backend.app.db.models import Tournament, AgentState, Agent
-from backend.app.schemas.tournament import (
+from ...schemas.tournament import (
     TournamentCreate,
     TournamentUpdate,
     TournamentResponse,
 )
-from backend.app.schemas.agent_state import AgentStateResponse
-from backend.app.api.deps import require_admin
-from backend.app.agents.scheduler import (
+from ...schemas.agent_state import AgentStateResponse
+from ..deps import require_admin
+from ...agents.scheduler import (
     run_agent_decision,
     initialize_tournament_agents,
 )

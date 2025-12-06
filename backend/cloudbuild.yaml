@@ -1,0 +1,55 @@
+# Google Cloud Build configuration for building and deploying to Cloud Run
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/agonus-backend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/agonus-backend:latest'
+      - '.'
+    id: 'build-image'
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/agonus-backend:$COMMIT_SHA'
+    id: 'push-image-sha'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/agonus-backend:latest'
+    id: 'push-image-latest'
+
+  # Deploy to Cloud Run - API Service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'agonus-api'
+      - '--image=gcr.io/$PROJECT_ID/agonus-backend:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8000'
+      - '--memory=2Gi'
+      - '--cpu=2'
+      - '--max-instances=10'
+      - '--min-instances=1'
+      - '--set-env-vars=USE_NULL_POOL=True'
+      - '--set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,CDP_KEY_ID=CDP_KEY_ID:latest,CDP_SECRET=CDP_SECRET:latest,AGENT_1_ADDRESS=AGENT_1_ADDRESS:latest,AGENT_1_PRIVATE_KEY=AGENT_1_PRIVATE_KEY:latest,COINGECKO_API_KEY=COINGECKO_API_KEY:latest,RPC_URL=RPC_URL:latest'
+    id: 'deploy-api'
+
+images:
+  - 'gcr.io/$PROJECT_ID/agonus-backend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/agonus-backend:latest'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1200s

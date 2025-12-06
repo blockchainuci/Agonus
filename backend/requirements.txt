@@ -17,7 +17,6 @@ billiard==4.2.3
 bitarray==3.8.0
 blinker==1.9.0
 cachetools==6.2.2
-cdp-sdk==1.33.3
 celery==5.5.3
 certifi==2025.11.12
 cffi==1.17.1
@@ -27,7 +26,6 @@ click==8.3.1
 click-didyoumean==0.3.1
 click-plugins==1.1.1.2
 click-repl==0.3.0
-coinbase-agentkit==0.7.4
 construct==2.10.70
 construct-typing==0.7.0
 cryptography==46.0.0
@@ -158,7 +156,6 @@ types-requests==2.32.4.20250913
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.2
-uniswap-python==0.7.1
 uritemplate==4.2.0
 urllib3==2.3.0
 uvicorn==0.38.0
