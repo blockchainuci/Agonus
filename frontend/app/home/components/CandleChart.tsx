@@ -26,7 +26,7 @@ export interface OhlcCandle {
 }
 
 interface CandleChartProps {
-  tournamentId: number;
+  tournamentId: string;
 }
 
 /* --------------------- Local aggregation utils ------------------ */

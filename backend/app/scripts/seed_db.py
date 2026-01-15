@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlmodel import Session
 
-from backend.app.db.database import engine
-from backend.app.db.models import Tournament, Agent, Trade, Bet, StatusEnum, ActionEnum
+from ..db.database import engine
+from ..db.models import Tournament, Agent, Trade, Bet, StatusEnum, ActionEnum
 
 
 def seed_database():

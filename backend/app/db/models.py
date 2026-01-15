@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional, Any
 import enum
 
-from sqlalchemy import String, Numeric, Integer, Enum as SQLEnum, Index
+from sqlalchemy import String, Numeric, Integer, Enum as SQLEnum, Index, DateTime
 from sqlalchemy import ForeignKey, JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -36,15 +36,16 @@ class Tournament(Base):
         Index("ix_tournament_status", "status"),
         Index("ix_tournament_dates", "start_date", "end_date"),
     )
-
+    contract_tournament_id: Mapped[Optional[int]] = mapped_column(index=True, default=None)
+    agent_contract_mapping: Mapped[dict] = mapped_column(JSON, default=dict)  # {"uuid": 1, "uuid2": 2}
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String, index=True)
-    status: Mapped[StatusEnum] = mapped_column(SQLEnum(StatusEnum, native_enum=False))
-    start_date: Mapped[datetime] = mapped_column()
-    end_date: Mapped[datetime] = mapped_column()
+    status: Mapped[StatusEnum] = mapped_column(SQLEnum(StatusEnum, native_enum=False), default=StatusEnum.upcoming)
+    start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    end_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     prize_pool: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=2))
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     winner_agent_id: Mapped[Optional[UUID]] = mapped_column(
         ForeignKey("agent.id"), index=True, default=None
@@ -66,7 +67,7 @@ class Agent(Base):
     stats: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     memory: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     trades: Mapped[list["Trade"]] = relationship(back_populates="agent")
@@ -85,7 +86,7 @@ class AgentState(Base):
     rank: Mapped[int] = mapped_column(Integer)
     trades_count: Mapped[int] = mapped_column(Integer, default=0)
     last_decision: Mapped[str] = mapped_column(String)
-    updated_at: Mapped[datetime] = mapped_column()
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class Trade(Base):
@@ -104,7 +105,7 @@ class Trade(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=8))
     price: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=8))
     timestamp: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     tournament: Mapped["Tournament"] = relationship(back_populates="trades")
@@ -126,7 +127,7 @@ class Bet(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=2))
     odds: Mapped[Decimal] = mapped_column(Numeric(precision=10, scale=2))
     placed_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     settled: Mapped[bool] = mapped_column(default=False)
     payout: Mapped[Optional[Decimal]] = mapped_column(

@@ -1,0 +1,48 @@
+
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment
+.env
+.env.local
+*.secret
+
+# Build outputs
+.next/
+dist/
+build/
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Smart contracts
+contracts/artifacts/
+contracts/cache/
+contracts/node_modules/
+
+# Keys (NEVER COMMIT)
+*.pem
+*.key
+wallets/
+secrets/
+
+**/.history/
+#Table Deployment
+backend/app/db/deploy_tables.py

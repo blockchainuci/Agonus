@@ -3,10 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
-from backend.app.db.database import get_db
-from backend.app.db.models import Agent
-from backend.app.schemas.agent import AgentCreate, AgentUpdate, AgentResponse
-from backend.app.api.deps import require_admin
+from ...db.database import get_db
+from ...db.models import Agent
+from ...schemas.agent import AgentCreate, AgentUpdate, AgentResponse
+from ..deps import require_admin
 
 router = APIRouter()
 
