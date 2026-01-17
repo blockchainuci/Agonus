@@ -3,11 +3,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
-from backend.app.db.database import get_db
-from backend.app.db.models import Trade
-from backend.app.schemas.trade import TradeCreate, TradeResponse
+from ...db.database import get_db
+from ...db.models import Trade
+from ...schemas.trade import TradeCreate, TradeResponse
 
 router = APIRouter()
+
+
+@router.get("/recent", response_model=list[TradeResponse])
+async def get_recent_trades(
+    limit: int = Query(20, ge=1, le=100, description="Number of recent trades to return"),
+    session: AsyncSession = Depends(get_db),
+):
+    """GET route for recent trades across all tournaments - for live feed"""
+    statement = select(Trade).order_by(Trade.timestamp.desc()).limit(limit)
+    result = await session.execute(statement)
+    trades = result.scalars().all()
+    return trades
 
 
 @router.get("/", response_model=list[TradeResponse])

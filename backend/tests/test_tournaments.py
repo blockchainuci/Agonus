@@ -81,10 +81,10 @@ async def test_create_tournament(client):
     now = datetime.now(timezone.utc)
     body = {
         "name": "Winter Cup",
-        "status": "upcoming",
         "start_date": (now + timedelta(days=30)).isoformat(),
         "end_date": (now + timedelta(days=37)).isoformat(),
         "prize_pool": 20000.00,
+        "agent_ids": [],  # Required field for tournament creation
     }
     r = await client.post("/tournaments/", json=body)
     assert r.status_code == 201, r.text

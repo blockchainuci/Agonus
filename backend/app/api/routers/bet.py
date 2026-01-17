@@ -3,10 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
-from backend.app.db.database import get_db
-from backend.app.db.models import Bet
-from backend.app.schemas.bet import BetCreate, BetUpdate, BetResponse
-from backend.app.api.deps import get_current_user
+from ...db.database import get_db
+from ...db.models import Bet
+from ...schemas.bet import BetCreate, BetUpdate, BetResponse
+from ..deps import get_current_user
 
 router = APIRouter()
 

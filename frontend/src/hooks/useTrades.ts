@@ -1,55 +1,45 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { API_URL, getAuthHeaders } from './api'
-import { Trade , ID, CreateTradeData, ApiError} from '../types'
+import { useQuery } from "@tanstack/react-query";
+import { API_URL } from "./api";
+import { Trade, ID } from "../types";
 
-// Public GET - can optionally filter by tournament - no auth
-export function useTrades(tournamentId?: ID) {
+// Public - Get global recent trades (for the ticker tape)
+// We use refetchInterval to make it "live"
+export function useRecentTrades(limit: number = 20) {
   return useQuery<Trade[]>({
-    queryKey: ['trades', tournamentId],
+    queryKey: ["trades", "recent", limit],
     queryFn: async () => {
-      const url = tournamentId 
-        ? `${API_URL}/trades?tournament_id=${tournamentId}`
-        : `${API_URL}/trades`
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('Failed to fetch trades')
-      return res.json()
-    }
-  })
+      const res = await fetch(`${API_URL}/trades/recent?limit=${limit}`);
+      if (!res.ok) throw new Error("Failed to fetch recent trades");
+      return res.json();
+    },
+    refetchInterval: 5000, // Poll every 5 seconds
+  });
 }
 
-//  Public GET - get trades for specific agent - no auth
+// Public - Get trades for a specific tournament
+export function useTournamentTrades(tournamentId: ID) {
+  return useQuery<Trade[]>({
+    queryKey: ["trades", "tournament", tournamentId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_URL}/trades/?tournament_id=${tournamentId}`,
+      );
+      if (!res.ok) throw new Error("Failed to fetch tournament trades");
+      return res.json();
+    },
+    enabled: !!tournamentId,
+  });
+}
+
+// Public - Get trades for a specific agent
 export function useAgentTrades(agentId: ID) {
   return useQuery<Trade[]>({
-    queryKey: ['trades', 'agent', agentId],
+    queryKey: ["trades", "agent", agentId],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/trades/agent/${agentId}`)
-      if (!res.ok) throw new Error('Failed to fetch agent trades')
-      return res.json()
+      const res = await fetch(`${API_URL}/trades/agent/${agentId}`);
+      if (!res.ok) throw new Error("Failed to fetch agent trades");
+      return res.json();
     },
-    enabled: !!agentId
-  })
-}
-
-
-//  POST - needs auth
-export function useCreateTrade() {
-  const queryClient = useQueryClient()
-  
-  return useMutation<Trade, ApiError, CreateTradeData>({
-    mutationFn: async (tradeData) => {
-      const res = await fetch(`${API_URL}/trades`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...getAuthHeaders()
-        },
-        body: JSON.stringify(tradeData)
-      })
-      if (!res.ok) throw new Error('Failed to create trade')
-      return res.json()
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trades'] })
-    }
-  })
+    enabled: !!agentId,
+  });
 }

@@ -5,13 +5,29 @@ import * as dotenv from 'dotenv'
 
 dotenv.config()
 
-// Base Mainnet Chain ID
-const CHAIN_ID = 8453
+// Chain ID from environment variable (Base Sepolia = 84532, Base Mainnet = 8453)
+const CHAIN_ID = parseInt(process.env.CHAIN_ID || '84532')
+
+// Determine if we're on testnet or mainnet
+const IS_TESTNET = CHAIN_ID === 84532
+
+// Token addresses - different for testnet vs mainnet
+const TOKEN_ADDRESSES = IS_TESTNET ? {
+  // Base Sepolia (testnet) addresses
+  WETH: '0x4200000000000000000000000000000000000006', // WETH is same on both
+  USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // Base Sepolia USDC
+  CBBTC: '0x627825ef01eff9b4cf94595ce5727598cb3c7292', // Tokenized BTC on Base Sepolia
+} : {
+  // Base Mainnet addresses
+  WETH: '0x4200000000000000000000000000000000000006',
+  USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  CBBTC: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf',
+}
 
 // Token definitions
 export const WETH_TOKEN = new Token(
   CHAIN_ID,
-  '0x4200000000000000000000000000000000000006',
+  TOKEN_ADDRESSES.WETH,
   18,
   'WETH',
   'Wrapped Ether'
@@ -19,7 +35,7 @@ export const WETH_TOKEN = new Token(
 
 export const USDC_TOKEN = new Token(
   CHAIN_ID,
-  '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  TOKEN_ADDRESSES.USDC,
   6,
   'USDC',
   'USD Coin'
@@ -27,24 +43,24 @@ export const USDC_TOKEN = new Token(
 
 export const cbBTC_TOKEN = new Token(
   CHAIN_ID,
-  '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf',
+  TOKEN_ADDRESSES.CBBTC,
   8,
   'cbBTC',
-  'Coinbase Wrapped BTC'
+  IS_TESTNET ? 'Tokenized BTC' : 'Coinbase Wrapped BTC'
 )
 
-// Pool fees (found from actual pools on Base)
+// Pool fees (Base Sepolia may have different fees - typically 0.3% on testnets)
 export const POOL_FEES = {
-  WETH_USDC: 500,    // 0.05%
-  cbBTC_USDC: 500,   // 0.05% - may need to verify
+  WETH_USDC: IS_TESTNET ? 3000 : 500,    // 0.3% on testnet, 0.05% on mainnet  
+  cbBTC_USDC: IS_TESTNET ? 3000 : 500,   // 0.3% on testnet, 0.05% on mainnet
 }
 
 // Main config - follows Uniswap docs structure
 export const CurrentConfig: ExampleConfig = {
-  env: Environment.LOCAL,
+  env: IS_TESTNET ? Environment.MAINNET : Environment.LOCAL, // Use MAINNET env for testnet RPC
   rpc: {
     local: process.env.RPC_LOCAL || 'http://localhost:8545',
-    mainnet: process.env.RPC_MAINNET || '',
+    mainnet: process.env.RPC_URL || 'https://base-sepolia.g.alchemy.com/v2/YOUR_KEY',
   },
   wallet: {
     address: process.env.AGENT_1_ADDRESS || '',
@@ -54,6 +70,6 @@ export const CurrentConfig: ExampleConfig = {
     in: USDC_TOKEN,
     amountIn: 100, // 100 USDC
     out: WETH_TOKEN,
-    poolFee: FeeAmount.LOW, // 0.05% - matches the actual pool
+    poolFee: IS_TESTNET ? FeeAmount.MEDIUM : FeeAmount.LOW, // 0.3% on testnet, 0.05% on mainnet
   },
 }
