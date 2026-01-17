@@ -1,203 +1,225 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useReadContract } from 'wagmi';
+import { useReadContract, useReadContracts } from 'wagmi';
 import { formatEther } from 'viem';
-import { BETTING_CONTRACT_ADDRESS, bettingAbi } from './useBettingContracts';
+import { BETTING_CONTRACT_ADDRESS, bettingAbi } from './useBettingContract';
 
-const BP_DIVISOR = BigInt(10000); // Basis points divisor
-const MAX_AGENTS = 10; // Maximum number of agents to fetch
+// ============ Constants ============
+const BP_DIVISOR = 10000;
 
 // ============ Types ============
 
-export interface TournamentData {
+export interface Tournament {
   isActive: boolean;
   isSettled: boolean;
   totalPool: bigint;
-  winningAgentId: bigint;
-  agentCount: bigint;
+  totalPoolEth: string;
+  winningAgentId: number;
+  agentCount: number;
 }
 
-export interface AgentPool {
+export interface AgentData {
   agentId: number;
   pool: bigint;
   poolEth: string;
-  odds: bigint; // In basis points
-  oddsDecimal: number;
-  oddsFractional: string;
-  oddsAmerican: string;
+  odds: number; // Decimal odds (e.g., 2.5)
+  oddsFractional: string; // e.g., "3/2"
+  oddsAmerican: string; // e.g., "+150"
 }
 
-export interface TournamentQueryResult {
-  tournament: TournamentData | null;
-  agentPools: AgentPool[];
-  totalPoolEth: string;
-  isLoading: boolean;
-  isError: boolean;
-  error: Error | null;
+// ============ Odds Conversion Utilities ============
+
+function bpToDecimal(bp: bigint): number {
+  return bp === BigInt(0) ? 0 : Number(bp) / BP_DIVISOR;
 }
 
-// ============ Utility Functions ============
-
-/**
- * Convert basis points to decimal odds
- * BP = 10000 means 1:1 odds = 2.0 decimal
- */
-function basisPointsToDecimal(bp: bigint): number {
-  if (bp === BigInt(0)) return 0;
-  return Number(bp) / 10000;
-}
-
-/**
- * Convert basis points to fractional odds (e.g., "3/2")
- */
-function basisPointsToFractional(bp: bigint): string {
+function bpToFractional(bp: bigint): string {
   if (bp === BigInt(0)) return '0/1';
-  const decimal = basisPointsToDecimal(bp);
+  const decimal = bpToDecimal(bp);
   if (decimal <= 1) return '1/1';
   
-  // Convert to fractional (simplified)
-  const numerator = decimal - 1;
-  const denominator = 1;
-  
-  // Find common factors (simplified - you might want a better algorithm)
-  if (numerator % 0.5 === 0) {
-    return `${numerator * 2}/${denominator * 2}`;
+  const profit = decimal - 1;
+  // Simple fractional representation
+  if (profit % 0.5 === 0) {
+    return `${profit * 2}/2`;
   }
-  
-  return `${numerator.toFixed(2)}/1`;
+  return `${profit.toFixed(2)}/1`;
 }
 
-/**
- * Convert basis points to American odds (e.g., "+150", "-200")
- */
-function basisPointsToAmerican(bp: bigint): string {
+function bpToAmerican(bp: bigint): string {
   if (bp === BigInt(0)) return '+0';
-  const decimal = basisPointsToDecimal(bp);
+  const decimal = bpToDecimal(bp);
   
   if (decimal >= 2) {
-    // Positive odds
-    const american = (decimal - 1) * 100;
-    return `+${Math.round(american)}`;
-  } else {
-    // Negative odds
-    const american = -100 / (decimal - 1);
-    return Math.round(american).toString();
+    return `+${Math.round((decimal - 1) * 100)}`;
   }
+  return `${Math.round(-100 / (decimal - 1))}`;
 }
 
-// ============ Hooks ============
+// ============ Main Hook ============
 
 /**
- * Hook to fetch and watch tournament data from the smart contract
- * Similar pattern to useBets() and useAgents() - read-only query hook
- * 
- * @param tournamentId - The tournament ID to fetch data for
- * @returns Tournament data including status, pools, agent pools, and odds
+ * Optimized hook to fetch tournament data with batched contract calls
+ * Uses useReadContracts for efficient multicall batching
  */
-export function useTournament(tournamentId: bigint | number | undefined): TournamentQueryResult {
-  const tournamentIdBigInt = useMemo(
-    () => (tournamentId !== undefined ? BigInt(tournamentId) : undefined),
-    [tournamentId]
-  );
+export function useTournament(tournamentId: number) {
+  const tournamentIdBigInt = BigInt(tournamentId);
 
-  // Fetch tournament data with real-time updates (poll every 5 seconds)
-  const { data: tournamentData, isLoading: isLoadingTournament, isError: isErrorTournament, error: tournamentError } = useReadContract({
+  // Step 1: Fetch tournament base data first to get agentCount
+  const { 
+    data: tournamentData, 
+    isLoading: loadingTournament,
+    refetch: refetchTournament 
+  } = useReadContract({
     address: BETTING_CONTRACT_ADDRESS,
     abi: bettingAbi,
     functionName: 'tournaments',
-    args: tournamentIdBigInt !== undefined ? [tournamentIdBigInt] : undefined,
+    args: [tournamentIdBigInt],
     query: {
-      enabled: tournamentIdBigInt !== undefined,
-      refetchInterval: 5000, // Poll every 5 seconds for real-time updates
+      refetchInterval: 5000, // Real-time updates
     },
   });
 
   // Parse tournament data
-  const tournament: TournamentData | null = useMemo(() => {
+  const tournament: Tournament | null = useMemo(() => {
     if (!tournamentData || !Array.isArray(tournamentData)) return null;
     
     return {
       isActive: tournamentData[0] as boolean,
       isSettled: tournamentData[1] as boolean,
       totalPool: tournamentData[2] as bigint,
-      winningAgentId: tournamentData[3] as bigint,
-      agentCount: tournamentData[4] as bigint,
+      totalPoolEth: formatEther(tournamentData[2] as bigint),
+      winningAgentId: Number(tournamentData[3]),
+      agentCount: Number(tournamentData[4]),
     };
   }, [tournamentData]);
 
-  const agentCount = tournament?.agentCount ? Number(tournament.agentCount) : 0;
+  const agentCount = tournament?.agentCount || 0;
 
-  // Fetch agent pools and odds for all agents
-  // Hooks must be called unconditionally, so we fetch for a fixed range
-  const agentPoolsQueries = Array.from({ length: MAX_AGENTS }, (_, i) => {
-    const agentId = i + 1;
-    const isEnabled = tournamentIdBigInt !== undefined && agentId <= agentCount;
-    
-    return {
-      agentId,
-      pool: useReadContract({
+  // Step 2: Build multicall contract array for all agents
+  // This batches all agent pool + odds calls into a SINGLE RPC request
+  const agentContracts = useMemo(() => {
+    if (agentCount === 0) return [];
+
+    const contracts = [];
+    for (let i = 1; i <= agentCount; i++) {
+      const agentIdBigInt = BigInt(i);
+      
+      // Add pool query
+      contracts.push({
         address: BETTING_CONTRACT_ADDRESS,
         abi: bettingAbi,
         functionName: 'agentPools',
-        args: tournamentIdBigInt !== undefined ? [tournamentIdBigInt, BigInt(agentId)] : undefined,
-        query: {
-          enabled: isEnabled,
-          refetchInterval: 5000, // Poll every 5 seconds
-        },
-      }),
-      odds: useReadContract({
+        args: [tournamentIdBigInt, agentIdBigInt],
+      });
+      
+      // Add odds query
+      contracts.push({
         address: BETTING_CONTRACT_ADDRESS,
         abi: bettingAbi,
         functionName: 'getAgentOdds',
-        args: tournamentIdBigInt !== undefined ? [tournamentIdBigInt, BigInt(agentId)] : undefined,
-        query: {
-          enabled: isEnabled,
-          refetchInterval: 5000, // Poll every 5 seconds
-        },
-      }),
-    };
+        args: [tournamentIdBigInt, agentIdBigInt],
+      });
+    }
+    
+    return contracts;
+  }, [tournamentIdBigInt, agentCount]);
+
+  // Execute multicall - this is MUCH more efficient than individual calls
+  const { data: agentResults, isLoading: loadingAgents } = useReadContracts({
+    contracts: agentContracts,
+    query: {
+      enabled: agentCount > 0,
+      refetchInterval: 5000,
+    },
   });
 
-  // Process agent pools and odds
-  const agentPools: AgentPool[] = useMemo(() => {
-    if (!tournament) return [];
+  // Step 3: Process batched results into agent data
+  const agents: AgentData[] = useMemo(() => {
+    if (!agentResults || agentCount === 0) return [];
 
-    return agentPoolsQueries
-      .filter((_, i) => i < agentCount)
-      .map(({ agentId, pool, odds }) => {
-        const poolValue = (pool.data as bigint) || BigInt(0);
-        const oddsValue = (odds.data as bigint) || BigInt(0);
+    const processedAgents: AgentData[] = [];
+    
+    // Results come back as [pool1, odds1, pool2, odds2, ...]
+    for (let i = 0; i < agentCount; i++) {
+      const poolIndex = i * 2;
+      const oddsIndex = i * 2 + 1;
+      
+      const pool = (agentResults[poolIndex]?.result as bigint) || BigInt(0);
+      const oddsBp = (agentResults[oddsIndex]?.result as bigint) || BigInt(0);
 
-        return {
-          agentId,
-          pool: poolValue,
-          poolEth: formatEther(poolValue),
-          odds: oddsValue,
-          oddsDecimal: basisPointsToDecimal(oddsValue),
-          oddsFractional: basisPointsToFractional(oddsValue),
-          oddsAmerican: basisPointsToAmerican(oddsValue),
-        };
+      processedAgents.push({
+        agentId: i + 1,
+        pool,
+        poolEth: formatEther(pool),
+        odds: bpToDecimal(oddsBp),
+        oddsFractional: bpToFractional(oddsBp),
+        oddsAmerican: bpToAmerican(oddsBp),
       });
-  }, [tournament, agentPoolsQueries, agentCount]);
+    }
 
-  const totalPoolEth = useMemo(
-    () => (tournament?.totalPool ? formatEther(tournament.totalPool) : '0'),
-    [tournament]
-  );
-
-  // Aggregate loading and error states
-  const isLoading = isLoadingTournament || agentPoolsQueries.some((q) => q.pool.isLoading || q.odds.isLoading);
-  const isError = isErrorTournament || agentPoolsQueries.some((q) => q.pool.isError || q.odds.isError);
-  const error = tournamentError || agentPoolsQueries.find((q) => q.pool.error || q.odds.error)?.pool.error || agentPoolsQueries.find((q) => q.odds.error)?.odds.error || null;
+    return processedAgents;
+  }, [agentResults, agentCount]);
 
   return {
     tournament,
-    agentPools,
-    totalPoolEth,
-    isLoading,
-    isError,
-    error: error as Error | null,
+    agents,
+    loading: loadingTournament || loadingAgents,
+    refetch: refetchTournament,
   };
 }
 
+// ============ Helper Hook for Single Agent ============
+
+/**
+ * Lightweight hook for fetching a single agent's odds
+ * Useful in bet placement forms where you only need one agent
+ */
+export function useAgentOdds(tournamentId: number, agentId: number) {
+  const { data: oddsBp, isLoading } = useReadContract({
+    address: BETTING_CONTRACT_ADDRESS,
+    abi: bettingAbi,
+    functionName: 'getAgentOdds',
+    args: [BigInt(tournamentId), BigInt(agentId)],
+    query: {
+      refetchInterval: 5000,
+    },
+  });
+
+  const odds = useMemo(() => {
+    const bp = (oddsBp as bigint) || BigInt(0);
+    return {
+      decimal: bpToDecimal(bp),
+      fractional: bpToFractional(bp),
+      american: bpToAmerican(bp),
+      bp,
+    };
+  }, [oddsBp]);
+
+  return { odds, loading: isLoading };
+}
+
+// ============ Helper Hook for Agent Pool ============
+
+/**
+ * Get just the pool amount for a specific agent
+ * Useful for displaying pool distribution
+ */
+export function useAgentPool(tournamentId: number, agentId: number) {
+  const { data: pool, isLoading } = useReadContract({
+    address: BETTING_CONTRACT_ADDRESS,
+    abi: bettingAbi,
+    functionName: 'agentPools',
+    args: [BigInt(tournamentId), BigInt(agentId)],
+    query: {
+      refetchInterval: 5000,
+    },
+  });
+
+  return {
+    pool: (pool as bigint) || BigInt(0),
+    poolEth: formatEther((pool as bigint) || BigInt(0)),
+    loading: isLoading,
+  };
+}
