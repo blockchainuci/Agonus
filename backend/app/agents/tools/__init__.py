@@ -13,15 +13,21 @@ logging.basicConfig(
 )
 
 from .market_data_tool import MarketDataTool
-from .trade_tool import TradeTool
-from .portfolio_tool import PortfolioTool
+from .make_trade_tool import MakeTradeTool
 from .tweet_post_tool import TweetPostTool
 from .database_tool import DatabaseTool
 
+# Deprecated: These tools are kept for backwards compatibility
+# Use MakeTradeTool instead for simulated trading
+from .trade_tool import TradeTool  # Deprecated: on-chain execution
+from .portfolio_tool import PortfolioTool  # Deprecated: use MakeTradeTool
+
 __all__ = [
     "MarketDataTool",
-    "TradeTool",
-    "PortfolioTool",
+    "MakeTradeTool",
     "TweetPostTool",
     "DatabaseTool",
+    # Deprecated
+    "TradeTool",
+    "PortfolioTool",
 ]

@@ -57,10 +57,11 @@ celery_app.conf.update(
 
 # Periodic task schedule (Celery Beat)
 celery_app.conf.beat_schedule = {
-    # Run agent decisions every 5 minutes for live tournaments
+    # Run agent decisions every 1 minute for live tournaments
+    # (Change back to 300.0 for production - 5 minutes)
     "run-agent-decisions-every-5min": {
         "task": "app.agents.scheduler.run_all_live_tournament_agents",
-        "schedule": 300.0,  # 5 minutes in seconds
+        "schedule": 300.0,  # 1 minute for testing (use 300.0 for production)
     },
     # Check for tournament status changes every minute
     "check-tournament-status": {
@@ -82,6 +83,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.agents.scheduler.cleanup_old_results",
         "schedule": crontab(hour=0, minute=0),  # Midnight daily
     },
+    # Health check every minute (for monitoring)
+    "health-check": {
+        "task": "app.agents.scheduler.health_check",
+        "schedule": 60.0,  # 1 minute
+    },
 }
 
 # Task routing (optional - for scaling specific task types)
@@ -102,6 +108,7 @@ def worker_init_hook(self):
     This prevents "another operation is in progress" errors with asyncpg.
     """
     from app.db.database import engine
+
     # Dispose of any connections inherited from parent process
     engine.sync_engine.dispose()
 
@@ -117,5 +124,6 @@ def init_worker_process(**kwargs):
     This is crucial for multiprocessing pools with async SQLAlchemy.
     """
     from app.db.database import engine
+
     # Dispose engine to force new connections in this process
     engine.sync_engine.dispose()

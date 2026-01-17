@@ -46,3 +46,4 @@ secrets/
 **/.history/
 #Table Deployment
 backend/app/db/deploy_tables.py
+celerybeat-schedule

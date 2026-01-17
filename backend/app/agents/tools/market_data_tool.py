@@ -38,56 +38,77 @@ class MarketDataTool:
             "BTC": "bitcoin",
             "CBBTC": "bitcoin",  # Coinbase Wrapped BTC uses same price as BTC
             "TBTC": "bitcoin",  # Tokenized BTC uses same price as BTC
-            "BNB": "binance",  # binancecoin id for coingecko
+            "BNB": "binancecoin",
             "DOGE": "dogecoin",
             "XRP": "ripple",
+            "AVAX": "avalanche-2",
+            "TRX": "tron",
+            "SUI": "sui",
+            "LINK": "chainlink",
         }
         logger.info("MarketDataTool initialized")
 
-    def _convert_prices_to_dict(self, days: int, prices: Dict[str, List[int | float]]) -> List[Dict[str, float]]:
+    def _convert_prices_to_dict(
+        self, days: int, prices: Dict[str, List[int | float]]
+    ) -> List[Dict[str, float]]:
         prices_list = []
         # days < 1 returns minute granularity, have to convert it to hours dict
         if days <= 1:
             start_index = 0
             total_len = len(prices["prices"])
             while start_index < total_len:
-                prices_list.append({"timestamp": str(prices["prices"][start_index][0]),
-                                    "price": prices["prices"][start_index][1]})
+                prices_list.append(
+                    {
+                        "timestamp": str(prices["prices"][start_index][0]),
+                        "price": prices["prices"][start_index][1],
+                    }
+                )
                 start_index += 12
         else:
             for list_pair in prices["prices"]:
-                prices_list.append({"timestamp": str(list_pair[0]), "price": list_pair[1]})
+                prices_list.append(
+                    {"timestamp": str(list_pair[0]), "price": list_pair[1]}
+                )
         return prices_list
 
     def get_price(self, token: str) -> float:
-        if token.upper() not in self.supported_tokens:
+        token_upper = token.upper()
+        if token_upper not in self.supported_tokens:
             logger.error(f"Unsupported token: {token}")
-            raise MarketDataError("Unsupported token provided")
+            raise MarketDataError(f"Unsupported token: {token}")
+
+        # Get CoinGecko token ID (e.g., "ethereum" for "ETH")
+        token_id = self.supported_tokens[token_upper]
         url = self.api_base_url + "simple/price"
-        params = {"symbols": token.lower(), "vs_currencies": "usd"}
-        logger.debug(f"Fetching price for {token}")
+        params = {"ids": token_id, "vs_currencies": "usd"}
+        logger.debug(f"Fetching price for {token} (id={token_id})")
         try:
             response = requests.get(url, headers=self.headers, params=params)
             if response.status_code == 200:
                 data = response.json()
-                # Extract price from response dict: {"eth": {"usd": 3850.23}}
-                token_key = token.lower()
-                if token_key in data and "usd" in data[token_key]:
-                    price = float(data[token_key]["usd"])
+                # Extract price from response dict: {"ethereum": {"usd": 3850.23}}
+                if token_id in data and "usd" in data[token_id]:
+                    price = float(data[token_id]["usd"])
                     logger.debug(f"Price fetched successfully for {token}: ${price}")
                     return price
                 else:
                     logger.error(f"Unexpected API response format: {data}")
                     return 0.0
             else:
-                logger.error(f"Failed to fetch price: {response.status_code} {response.text}")
+                logger.error(
+                    f"Failed to fetch price: {response.status_code} {response.text}"
+                )
                 return 0.0
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
             raise MarketDataError(f"Request failed: {e}")
 
     def get_price_history(self, token: str, hours: int = 24) -> List[Dict[str, float]]:
-        token_id = self.supported_tokens[token.upper()] if token.upper() != "BNB" else "binancecoin"
+        token_id = (
+            self.supported_tokens[token.upper()]
+            if token.upper() != "BNB"
+            else "binancecoin"
+        )
         url = self.api_base_url + f"coins/{token_id}/market_chart"
         days_away = math.ceil(hours / 24)
         params = {"vs_currency": "usd", "days": days_away}
@@ -102,14 +123,20 @@ class MarketDataTool:
                 logger.debug(f"Price history fetched successfully for {token}")
                 return self._convert_prices_to_dict(days_away, response.json())
             else:
-                logger.error(f"Failed to fetch price history: {response.status_code} {response.text}")
+                logger.error(
+                    f"Failed to fetch price history: {response.status_code} {response.text}"
+                )
                 return None
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
             raise MarketDataError(f"Request failed: {e}")
 
     def get_volume(self, token: str) -> float:
-        token_id = self.supported_tokens[token.upper()] if token.upper() != "BNB" else "binancecoin"
+        token_id = (
+            self.supported_tokens[token.upper()]
+            if token.upper() != "BNB"
+            else "binancecoin"
+        )
         url = self.api_base_url + f"coins/{token_id}/history"
         today = datetime.today()
         today_str = today.strftime("%d-%m-%Y")
@@ -125,7 +152,9 @@ class MarketDataTool:
                 logger.debug(f"Volume fetched for {token}: {volume}")
                 return volume
             else:
-                logger.error(f"Failed to fetch volume: {response.status_code} {response.text}")
+                logger.error(
+                    f"Failed to fetch volume: {response.status_code} {response.text}"
+                )
                 return None
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
@@ -133,12 +162,16 @@ class MarketDataTool:
 
     def get_market_sentiment(self) -> str:
         url = self.api_base_url + "simple/price"
-        params = {"symbols": "btc", "vs_currencies": "usd", "include_24hr_change": "true"}
+        params = {
+            "ids": "bitcoin",
+            "vs_currencies": "usd",
+            "include_24hr_change": "true",
+        }
         logger.debug("Fetching market sentiment")
         try:
             response = requests.get(url, headers=self.headers, params=params)
             if response.status_code == 200:
-                percent_change = response.json()["btc"]["usd_24h_change"]
+                percent_change = response.json()["bitcoin"]["usd_24h_change"]
                 if percent_change > 2:
                     sentiment = "bullish"
                 elif percent_change < -2:
@@ -147,17 +180,25 @@ class MarketDataTool:
                     sentiment = "unknown"
                 else:
                     sentiment = "neutral"
-                logger.info(f"Market sentiment: {sentiment} (24h change: {percent_change:.2f}%)")
+                logger.info(
+                    f"Market sentiment: {sentiment} (24h change: {percent_change:.2f}%)"
+                )
                 return sentiment
             else:
-                logger.error(f"Failed to fetch sentiment: {response.status_code} {response.text}")
+                logger.error(
+                    f"Failed to fetch sentiment: {response.status_code} {response.text}"
+                )
                 return None
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
             raise MarketDataError(f"Request failed: {e}")
 
     def _get_moving_average(self, token: str, days: int) -> float:
-        token_id = self.supported_tokens[token.upper()] if token.upper() != "BNB" else "binancecoin"
+        token_id = (
+            self.supported_tokens[token.upper()]
+            if token.upper() != "BNB"
+            else "binancecoin"
+        )
         url = self.api_base_url + f"coins/{token_id}/market_chart"
         params = {"vs_currency": "usd", "days": days}
         if token.upper() not in self.supported_tokens:
@@ -185,7 +226,9 @@ class MarketDataTool:
                     logger.debug(f"{days}-day MA for {token}: {moving_avg}")
                     return moving_avg
             else:
-                logger.error(f"Failed to fetch moving average: {response.status_code} {response.text}")
+                logger.error(
+                    f"Failed to fetch moving average: {response.status_code} {response.text}"
+                )
                 return None
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
@@ -204,31 +247,50 @@ class MarketDataTool:
             ma_200 = None
             timestamp = datetime.now(timezone.utc)
             base_info_url = self.api_base_url + "simple/price"
-            params = {"symbols": token_key.lower(), "vs_currencies": "usd", "include_market_cap": "true",
-                      "include_24hr_vol": "true"}
+            params = {
+                "symbols": token_key.lower(),
+                "vs_currencies": "usd",
+                "include_market_cap": "true",
+                "include_24hr_vol": "true",
+            }
             try:
                 logger.debug(f"Fetching market data for {token_key}")
-                response = requests.get(base_info_url, headers=self.headers, params=params)
+                response = requests.get(
+                    base_info_url, headers=self.headers, params=params
+                )
                 if response.status_code == 200:
                     price = response.json()[token_key.lower()]["usd"]
                     market_cap = response.json()[token_key.lower()]["usd_market_cap"]
                     volume_24h = response.json()[token_key.lower()]["usd_24h_vol"]
-                    logger.debug(f"{token_key}: price={price}, market_cap={market_cap}, volume={volume_24h}")
+                    logger.debug(
+                        f"{token_key}: price={price}, market_cap={market_cap}, volume={volume_24h}"
+                    )
                 else:
-                    logger.error(f"Failed to fetch data for {token_key}: {response.status_code} {response.text}")
+                    logger.error(
+                        f"Failed to fetch data for {token_key}: {response.status_code} {response.text}"
+                    )
             except requests.RequestException as e:
                 logger.error(f"Request failed for {token_key}: {e}")
                 raise MarketDataError(f"Request failed: {e}")
             ma_50 = self._get_moving_average(token_key, 50)
             ma_200 = self._get_moving_average(token_key, 200)
-            current_market_object = MarketData(token_key, price, market_cap, volume_24h, rsi_14, ma_50, ma_200, timestamp)
+            current_market_object = MarketData(
+                token_key,
+                price,
+                market_cap,
+                volume_24h,
+                rsi_14,
+                ma_50,
+                ma_200,
+                timestamp,
+            )
             market_data_dict[token_key] = current_market_object
         logger.info(f"Market snapshot completed for {len(market_data_dict)} tokens")
         return market_data_dict
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test = MarketDataTool()
     for key, obj in test.get_market_snapshot().items():
-        print(f'Token: {key}')
-        print(f'Obj: {obj}')
+        print(f"Token: {key}")
+        print(f"Obj: {obj}")

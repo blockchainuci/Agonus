@@ -2,34 +2,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
-    from .routers import tournament, agent, trade, bet, auth, market_data
+    from .routers import tournament, agent, agent_state, trade, bet, auth, market_data
 except ImportError:
-    from routers import tournament, agent, trade, bet, auth, market_data
+    from routers import tournament, agent, agent_state, trade, bet, auth, market_data
 from os import getenv
-import ngrok
 import uvicorn
 from contextlib import asynccontextmanager
 
 
-NGROK_AUTH_TOKEN = "36RZTrmTHzEg95DzRPfQCB61dsC_21K9EdYRFrZLSMJQvfQyq"
-
 APPLICATION_PORT = 8000
 
 
-# hello
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    listener = ngrok.forward(
-        addr=APPLICATION_PORT,
-        authtoken=NGROK_AUTH_TOKEN,
-    )
-    print(f"\n{'='*60}")
-    print(f"{'='*60}\n")
-    yield
-    ngrok.disconnect()
-
-
-app = FastAPI(title="Agonus API", lifespan=lifespan)
+app = FastAPI(
+    title="Agonus API",
+)
 
 # Configure CORS
 app.add_middleware(
@@ -43,6 +29,7 @@ app.add_middleware(
 # Register routers
 app.include_router(tournament.router, prefix="/tournaments", tags=["Tournaments"])
 app.include_router(agent.router, prefix="/agents", tags=["Agents"])
+app.include_router(agent_state.router, prefix="/agent-states", tags=["Agent States"])
 app.include_router(trade.router, prefix="/trades", tags=["Trades"])
 app.include_router(bet.router, prefix="/bets", tags=["Bets"])
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])

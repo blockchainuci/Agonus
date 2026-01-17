@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app ./app
-
+COPY .env .env
 # Railway uses PORT environment variable, default to 8000
 ENV PORT=8000
 # Disable ngrok for production deployment

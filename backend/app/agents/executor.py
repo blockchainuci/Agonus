@@ -2,15 +2,16 @@
 TradingAgent executor using LangChain ReAct pattern.
 
 This module implements a complete trading agent that extends BaseAgent and uses
-LangChain's AgentExecutor with tools for market data, portfolio management, and trading.
+LangChain's AgentExecutor with tools for market data, portfolio management, and
+simulated trading.
 """
 
 import logging
+import asyncio
 from typing import Any, Dict, List, Tuple, Optional
 from datetime import datetime, timezone
 from uuid import UUID
 
-import os
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_openai import ChatOpenAI
 from langchain.tools import Tool
@@ -19,8 +20,7 @@ from langchain.prompts import PromptTemplate
 from .base import BaseAgent
 from .data_classes import Trade, Portfolio, MarketData
 from .tools.market_data_tool import MarketDataTool
-from .tools.portfolio_tool import PortfolioTool
-from .tools.trade_tool import TradeTool
+from .tools.make_trade_tool import MakeTradeTool
 from .tools.database_tool import DatabaseTool
 from .memory import AgentMemory
 
@@ -34,9 +34,9 @@ class TradingAgent(BaseAgent):
     This agent can:
     - Fetch and analyze market data
     - Manage a portfolio with cash and crypto holdings
-    - Execute on-chain trades via TradeTool
+    - Execute simulated trades via MakeTradeTool
     - Make decisions based on market conditions and personality
-    - Track performance and memory
+    - Persist all state to database (no local memory)
     """
 
     def __init__(
@@ -84,10 +84,20 @@ class TradingAgent(BaseAgent):
             total_value=starting_cash,
         )
 
-        # Initialize tools
+        # Initialize market data tool
         self.market_tool = MarketDataTool()
-        self.portfolio_tool = PortfolioTool(self.portfolio)
-        self.trade_tool = TradeTool(agent_id=agent_id)
+
+        # Initialize simulated trade tool
+        self.make_trade_tool = MakeTradeTool(
+            agent_id=agent_id,
+            portfolio=self.portfolio,
+            market_tool=self.market_tool,
+            database_tool=database_tool,
+            agent_uuid=agent_uuid,
+            tournament_uuid=tournament_uuid,
+        )
+
+        # Initialize database-backed memory
         self.agent_memory = AgentMemory(
             agent_id=agent_id,
             agent_uuid=agent_uuid,
@@ -95,10 +105,9 @@ class TradingAgent(BaseAgent):
             database_tool=database_tool,
         )
 
-        # Attempt crash recovery if requested
+        # Track if we need to recover state
         if recover_from_crash and database_tool and agent_uuid and tournament_uuid:
             logger.info(f"Attempting crash recovery for agent={agent_id}")
-            # Note: This will be implemented as an async method
             self._needs_recovery = True
         else:
             self._needs_recovery = False
@@ -120,7 +129,7 @@ class TradingAgent(BaseAgent):
             Tool(
                 name="get_market_price",
                 func=lambda token: self.market_tool.get_price(token),
-                description="Get current price for a crypto token. Input: token symbol (ETH, BTC, SOL, etc.)",
+                description="Get current price for a crypto token. Input: token symbol (ETH, BTC, WETH, CBBTC)",
             ),
             Tool(
                 name="get_market_sentiment",
@@ -129,22 +138,16 @@ class TradingAgent(BaseAgent):
             ),
             Tool(
                 name="get_portfolio_status",
-                func=lambda _: {
-                    "cash": self.portfolio.cash,
-                    "holdings": self.portfolio.holdings,
-                    "total_value": self.portfolio.total_value,
-                    "roi": self.portfolio.roi,
-                    "num_trades": self.portfolio.num_trades,
-                },
+                func=lambda _: self.make_trade_tool.get_portfolio_status(),
                 description="Get current portfolio status including cash, holdings, and performance. Input: empty string",
             ),
             Tool(
                 name="execute_trade",
                 func=self._execute_trade_wrapper,
                 description=(
-                    "Execute a trade. Format: 'ACTION TOKEN AMOUNT CONFIDENCE SUMMARY' "
-                    "Example: 'BUY ETH 10 0.8 Bullish momentum detected'. "
-                    "ACTION must be BUY or SELL. TOKEN must be ETH or BTC. "
+                    "Execute a simulated trade. Format: 'ACTION TOKEN AMOUNT CONFIDENCE SUMMARY' "
+                    "Example: 'BUY ETH 50 0.8 Bullish momentum detected'. "
+                    "ACTION must be BUY or SELL. TOKEN must be ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK"
                     "AMOUNT is USDC for BUY, token quantity for SELL. "
                     "CONFIDENCE is 0.0-1.0. SUMMARY is brief explanation."
                 ),
@@ -172,13 +175,14 @@ Market Context:
 Your goal is to maximize returns while respecting your risk tolerance.
 
 Guidelines:
-- For BUY trades: amount is USDC to spend
+- For BUY trades: amount is USDC to spend (e.g., BUY ETH 50 means spend $50 USDC to buy ETH)
 - For SELL trades: amount is quantity of token to sell
-- Only trade ETH and BTC (use token symbols: ETH, BTC)
+- Only trade with these tokens: (use token symbols: ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK)
 - Check portfolio before trading
 - Conservative agents should trade less frequently
 - Aggressive agents can take larger positions
 - Always provide reasoning in your summary
+- This is a simulation - trades are not executed on-chain
 
 TOOLS:
 ------
@@ -222,8 +226,8 @@ Thought:{agent_scratchpad}"""
             tools=tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=15,  # Allow more iterations for complex decisions
-            max_execution_time=60,  # 60 second timeout
+            max_iterations=15,
+            max_execution_time=60,
         )
 
     def _execute_trade_wrapper(self, trade_input: str) -> str:
@@ -247,38 +251,23 @@ Thought:{agent_scratchpad}"""
             confidence = float(parts[3])
             summary = parts[4]
 
-            # Get current market price for the trade
-            price = self.market_tool.get_price(token)
-            if not price or price == 0:
-                return f"Error: Could not fetch price for {token}"
-
-            # Validate trade
-            is_valid, reason = self.validate_trade(action, token, amount, price)
-            if not is_valid:
-                return f"Trade validation failed: {reason}"
-
-            # Execute trade
-            trade = self.trade_tool.execute_trade(
-                action=action,
-                token=token,
-                qty=amount,
-                price=price,
-                confidence=confidence,
-                summary=summary,
+            # Execute trade - handle async properly
+            trade = self._run_async(
+                self.make_trade_tool.execute_trade(
+                    action=action,
+                    token=token,
+                    amount=amount,
+                    confidence=confidence,
+                    summary=summary,
+                    risk_score=self.risk_score,
+                )
             )
-
-            # Update portfolio
-            self.portfolio_tool.update_after_trade(trade)
-
-            # Update memory
-            self.agent_memory.add_trade(trade)
 
             logger.info(f"Trade executed successfully: {trade}")
 
             return (
                 f"Trade executed successfully! "
                 f"{action} {trade.qty:.6f} {token} at ${trade.price:.2f}. "
-                f"TX: {trade.tx_hash}. "
                 f"New cash: ${self.portfolio.cash:.2f}, "
                 f"Total value: ${self.portfolio.total_value:.2f}"
             )
@@ -287,6 +276,24 @@ Thought:{agent_scratchpad}"""
             error_msg = f"Trade execution error: {str(e)}"
             logger.error(error_msg)
             return error_msg
+
+    def _run_async(self, coro):
+        """Run an async coroutine from sync code, handling event loop properly."""
+        try:
+            # Try to get existing loop
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop - create new one
+            loop = None
+
+        if loop is not None:
+            # Already in async context - use nest_asyncio
+            import nest_asyncio
+            nest_asyncio.apply()
+            return loop.run_until_complete(coro)
+        else:
+            # No loop - use asyncio.run()
+            return asyncio.run(coro)
 
     def validate_trade(
         self, action: str, token: str, amount: float, price: float
@@ -303,41 +310,9 @@ Thought:{agent_scratchpad}"""
         Returns:
             (is_valid, reason)
         """
-        if action not in ["BUY", "SELL"]:
-            return False, f"Invalid action: {action}"
-
-        if token not in ["WETH", "CBBTC"]:
-            return False, f"Unsupported token: {token}. Only WETH and CBBTC allowed"
-
-        if amount <= 0:
-            return False, f"Invalid amount: {amount}. Must be positive"
-
-        if action == "BUY":
-            # For BUY, amount is USDC to spend
-            if amount > self.portfolio.cash:
-                return (
-                    False,
-                    f"Insufficient cash: have ${self.portfolio.cash:.2f}, need ${amount:.2f}",
-                )
-
-            # Risk check: don't spend more than risk_score % of portfolio in one trade
-            max_trade_size = self.portfolio.total_value * self.risk_score
-            if amount > max_trade_size:
-                return (
-                    False,
-                    f"Trade size ${amount:.2f} exceeds risk limit ${max_trade_size:.2f}",
-                )
-
-        elif action == "SELL":
-            # For SELL, amount is quantity of token
-            current_holdings = self.portfolio.holdings.get(token, 0.0)
-            if amount > current_holdings:
-                return (
-                    False,
-                    f"Insufficient {token}: have {current_holdings:.6f}, trying to sell {amount:.6f}",
-                )
-
-        return True, "Trade validated"
+        return self.make_trade_tool.validate_trade(
+            action, token, amount, self.risk_score
+        )
 
     # Implement BaseAgent abstract methods
 
@@ -352,41 +327,38 @@ Thought:{agent_scratchpad}"""
 
     def get_portfolio_status(self) -> Dict[str, Any]:
         """Get current portfolio snapshot."""
-        return self.portfolio_tool.get_portfolio_snapshot().to_dict()
+        return self.make_trade_tool.get_portfolio_status()
 
     def get_tournament_info(self) -> Dict[str, Any]:
         """Get tournament context."""
         return {"tournament_id": self.tournament_id, "agent_id": self.agent_id}
 
     def get_short_term_memory(self, n: int = 10) -> List[Trade]:
-        """Get recent trades from short-term memory."""
-        return self.agent_memory.get_short_term_memory(n)
+        """Get recent trades from database."""
+        return self._run_async(self.agent_memory.get_recent_trades(n))
 
     def get_long_term_memory(self, limit: int = 100) -> List[Trade]:
-        """Get historical trades from long-term memory."""
-        return self.agent_memory.load_long_term_history(limit)
+        """Get historical trades from database."""
+        return self._run_async(self.agent_memory.get_trade_history(limit))
 
     def update_memory(self, trade: Trade) -> None:
-        """Update memory after a trade."""
-        self.agent_memory.add_trade(trade)
+        """Save trade to database (no-op since MakeTradeTool handles this)."""
+        pass  # MakeTradeTool saves trades directly to database
 
     def reset_tournament_memory(self) -> None:
-        """Reset short-term memory for new tournament."""
-        self.agent_memory.reset_short_term_memory()
+        """Reset for new tournament (no-op for database-backed memory)."""
+        pass  # Database memory persists across sessions
 
     def find_similar_market_context(self, description: str) -> List[Dict[str, Any]]:
         """Find similar past market situations (placeholder)."""
-        # TODO: Implement vector search
         return []
 
     def create_vector_embedding(self, description: str) -> List[float]:
         """Create embedding from description (placeholder)."""
-        # TODO: Implement embedding
         return []
 
     def query_vector_db(self) -> List[Dict[str, Any]]:
         """Query vector database (placeholder)."""
-        # TODO: Implement vector query
         return []
 
     def calculate_position_size(
@@ -403,13 +375,11 @@ Thought:{agent_scratchpad}"""
         Returns:
             Position size in USDC
         """
-        # Use fraction of portfolio based on risk score and confidence
         total_value = self.portfolio.total_value
         allocation_pct = self.risk_score * confidence
 
         # Cap at 50% of portfolio
         allocation_pct = min(allocation_pct, 0.5)
-
         position_size = total_value * allocation_pct
 
         logger.debug(
@@ -420,7 +390,7 @@ Thought:{agent_scratchpad}"""
 
         return position_size
 
-    def execute_trade(
+    async def execute_trade(
         self,
         action: str,
         token: str,
@@ -429,34 +399,20 @@ Thought:{agent_scratchpad}"""
         confidence: float,
         summary: str,
     ) -> Trade:
-        """Execute a trade and update portfolio."""
-        # Validate
-        is_valid, reason = self.validate_trade(action, token, qty, price)
-        if not is_valid:
-            raise ValueError(f"Trade validation failed: {reason}")
-
-        # Execute via trade tool
-        trade = self.trade_tool.execute_trade(
+        """Execute a simulated trade and update portfolio."""
+        return await self.make_trade_tool.execute_trade(
             action=action,
             token=token,
-            qty=qty,
-            price=price,
+            amount=qty,
             confidence=confidence,
             summary=summary,
+            risk_score=self.risk_score,
         )
-
-        # Update portfolio
-        self.portfolio_tool.update_after_trade(trade)
-
-        # Update memory
-        self.update_memory(trade)
-
-        return trade
 
     def get_personality_response(self, trade: Trade) -> str:
         """Generate personality-driven response for a trade."""
         if self.personality.lower() == "aggressive":
-            return f"🚀 Just executed a {trade.action} on {trade.token}! Going big or going home!"
+            return f"Just executed a {trade.action} on {trade.token}! Going big or going home!"
         elif self.personality.lower() == "conservative":
             return f"Carefully executed a {trade.action} on {trade.token}. Slow and steady wins the race."
         else:
@@ -478,6 +434,9 @@ Thought:{agent_scratchpad}"""
                 "Decide if any trades should be executed based on your personality and risk tolerance. "
                 "If you decide to trade, execute it. If not, explain why."
             )
+
+        # Update portfolio values before making decision
+        self.make_trade_tool.recalculate_holdings_value()
 
         # Get market context
         sentiment = self.market_tool.get_market_sentiment()
@@ -507,6 +466,8 @@ Thought:{agent_scratchpad}"""
 
     def evaluate_performance(self) -> Dict[str, Any]:
         """Compute performance metrics."""
+        # Update portfolio values
+        self.make_trade_tool.recalculate_holdings_value()
         portfolio = self.portfolio
 
         return {
@@ -535,28 +496,14 @@ Thought:{agent_scratchpad}"""
         """
         Save current agent state to database.
 
-        This enables crash recovery and real-time data streaming to frontend.
-
         Args:
             last_decision: Last decision made by agent
         """
-        if not self.database_tool or not self.agent_uuid or not self.tournament_uuid:
-            logger.debug("Database not configured, skipping state save")
-            return
-
-        try:
-            await self.database_tool.save_agent_state(
-                agent_uuid=self.agent_uuid,
-                tournament_uuid=self.tournament_uuid,
-                portfolio=self.portfolio,
-                rank=0,  # Rank will be calculated by scheduler
-                last_decision=last_decision,
-            )
-            logger.info(f"Agent state saved to database: {self.agent_id}")
-
-        except Exception as e:
-            logger.error(f"Failed to save agent state: {e}")
-            # Don't crash - just log the error
+        await self.agent_memory.save_state(
+            portfolio=self.portfolio,
+            rank=0,  # Rank will be calculated by scheduler
+            last_decision=last_decision,
+        )
 
     async def recover_state(self) -> bool:
         """
@@ -565,20 +512,13 @@ Thought:{agent_scratchpad}"""
         Returns:
             True if recovery successful, False otherwise
         """
-        if not self.database_tool or not self.agent_uuid or not self.tournament_uuid:
-            logger.warning("Database not configured, cannot recover state")
+        state = await self.agent_memory.load_state()
+
+        if not state:
+            logger.info("No previous state found in database")
             return False
 
         try:
-            # Load agent state
-            state = await self.database_tool.load_agent_state(
-                agent_uuid=self.agent_uuid, tournament_uuid=self.tournament_uuid
-            )
-
-            if not state:
-                logger.info("No previous state found in database")
-                return False
-
             # Restore portfolio
             portfolio_data = state["portfolio"]
             self.portfolio.cash = portfolio_data["cash"]
@@ -593,12 +533,15 @@ Thought:{agent_scratchpad}"""
             self.portfolio.num_losing_trades = portfolio_data["num_losing_trades"]
             self.portfolio.win_rate = portfolio_data["win_rate"]
 
-            # Update portfolio tool
-            self.portfolio_tool = PortfolioTool(self.portfolio)
-
-            # Load trade history into short-term memory
-            trades = await self.agent_memory.load_long_term_history(limit=100)
-            self.agent_memory.short_term = trades
+            # Recreate make_trade_tool with restored portfolio
+            self.make_trade_tool = MakeTradeTool(
+                agent_id=self.agent_id,
+                portfolio=self.portfolio,
+                market_tool=self.market_tool,
+                database_tool=self.database_tool,
+                agent_uuid=self.agent_uuid,
+                tournament_uuid=self.tournament_uuid,
+            )
 
             logger.info(
                 f"State recovered successfully: "
@@ -621,14 +564,4 @@ Thought:{agent_scratchpad}"""
         Args:
             trade: Trade object to save
         """
-        if not self.database_tool or not self.agent_uuid or not self.tournament_uuid:
-            logger.debug("Database not configured, skipping trade save")
-            return
-
-        try:
-            await self.agent_memory.save_to_long_term(trade)
-            logger.info(f"Trade saved to database: {trade.action} {trade.token}")
-
-        except Exception as e:
-            logger.error(f"Failed to save trade to database: {e}")
-            # Don't crash - just log the error
+        await self.agent_memory.save_trade(trade)

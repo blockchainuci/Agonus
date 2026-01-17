@@ -1,3 +1,4 @@
+# DEPECRATED: This module is deprecated and will be removed in future versions.
 import time
 import logging
 from datetime import datetime, timezone
