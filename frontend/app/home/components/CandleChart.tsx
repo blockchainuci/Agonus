@@ -4,11 +4,13 @@ import { useMemo, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
-import type {
-  CandlestickData,
-  HistogramData,
-  LineData,
-  Time,
+import {
+  createChart,
+  type CandlestickData,
+  type HistogramData,
+  type LineData,
+  type Time,
+  type IChartApi,
 } from 'lightweight-charts';
 
 import {
@@ -25,7 +27,7 @@ type Timeframe = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
 type IndicatorKey = 'volume' | 'sma' | 'ema' | 'vwap';
 
 interface CandleChartProps {
-  tournamentId: number;
+  tournamentId: string;
 }
 
 /* ----------------------------------------
@@ -122,8 +124,9 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
   const storeTournamentId = useTournamentStore(s => s.selectedTournamentId);
   const finalTournamentId = tournamentId ?? storeTournamentId;
 
-
-  const baseData = mockOhlcv[finalTournamentId] ?? mockOhlcv[1];
+  // Convert string ID to number for mock data lookup
+  const tournamentIdNum = parseInt(finalTournamentId, 10);
+  const baseData = mockOhlcv[tournamentIdNum] ?? mockOhlcv[1];
 
   const ohlcv = useMemo(() => computeOhlcv(baseData, timeframe), [
     baseData,
@@ -140,9 +143,9 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
     container.innerHTML = '';
 
     (async () => {
-      const LWC = await import('lightweight-charts');
+      const { createChart } = await import('lightweight-charts');
 
-      const chart = LWC.createChart(container, {
+      const chart = createChart(container, {
         width: container.clientWidth,
         height: fullscreen ? window.innerHeight - 100 : 420,
         layout: {
@@ -156,7 +159,7 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
         timeScale: { timeVisible: true },
       });
 
-      const candleSeries = chart.addCandlestickSeries({
+      const candleSeries = (chart as any).addCandlestickSeries({
         upColor: '#22c55e',
         downColor: '#ef4444',
         wickUpColor: '#22c55e',
@@ -168,7 +171,7 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
 
       /* ---------------- Volume ---------------- */
       if (toggles.volume) {
-        const vol = chart.addHistogramSeries({
+        const vol = (chart as any).addHistogramSeries({
           priceScaleId: 'volume',
           priceFormat: { type: 'volume' },
         });
@@ -188,19 +191,19 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
 
       /* ---------------- Indicators ---------------- */
       if (toggles.sma) {
-        chart.addLineSeries({ color: '#60a5fa', lineWidth: 2 }).setData(
+        (chart as any).addLineSeries({ color: '#60a5fa', lineWidth: 2 }).setData(
           calculateSMA(ohlcv)
         );
       }
 
       if (toggles.ema) {
-        chart.addLineSeries({ color: '#fbbf24', lineWidth: 2 }).setData(
+        (chart as any).addLineSeries({ color: '#fbbf24', lineWidth: 2 }).setData(
           calculateEMA(ohlcv)
         );
       }
 
       if (toggles.vwap) {
-        chart.addLineSeries({ color: '#a855f7', lineWidth: 2 }).setData(
+        (chart as any).addLineSeries({ color: '#a855f7', lineWidth: 2 }).setData(
           calculateVWAP(ohlcv)
         );
       }

@@ -18,7 +18,7 @@ export function TournamentStatusBar() {
   const setTournamentId = useTournamentStore((s) => s.setTournamentId);
 
   const tournament =
-    mockTournaments.find((t) => t.id === selectedTournamentId) ||
+    mockTournaments.find((t) => t.id === parseInt(selectedTournamentId, 10)) ||
     mockTournaments[0];
 
   const formattedEndTime = new Date(tournament.end_time).toLocaleDateString(
@@ -64,7 +64,7 @@ export function TournamentStatusBar() {
                   <button
                     key={t.id}
                     onClick={() => {
-                      setTournamentId(t.id);
+                      setTournamentId(String(t.id));
                       setIsDropdownOpen(false);
                     }}
                     className={`w-full text-left px-4 py-3 hover:bg-slate-700 transition-colors ${

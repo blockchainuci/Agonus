@@ -5,8 +5,8 @@ type TxStatus = 'idle' | 'confirming' | 'pending' | 'success' | 'error';
 
 interface TournamentStore {
   // Tournament selection
-  selectedTournamentId: number;
-  setTournamentId: (id: number) => void;
+  selectedTournamentId: string;
+  setTournamentId: (id: string) => void;
 
   // Betting Modal state
   isBetModalOpen: boolean;
@@ -27,7 +27,7 @@ interface TournamentStore {
 
 export const useTournamentStore = create<TournamentStore>((set) => ({
   // Tournament state
-  selectedTournamentId: 5,
+  selectedTournamentId: '5', // Default tournament ID as string
 
   setTournamentId: (id) => set({ selectedTournamentId: id }),
 

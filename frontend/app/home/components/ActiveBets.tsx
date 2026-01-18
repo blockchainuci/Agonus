@@ -24,7 +24,7 @@ export interface Bet {
 }
 
 interface ActiveBetsProps {
-  tournamentId: number;
+  tournamentId: string;
 }
 
 // ---------------------------------------
@@ -53,7 +53,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
   // ---------------------------------------
   // Tournament Status
   // ---------------------------------------
-  const tournament = mockTournaments.find((t) => t.id === tournamentId);
+  const tournament = mockTournaments.find((t) => t.id === parseInt(tournamentId, 10));
   const isLive = tournament?.status === "LIVE";
   const isEnded = tournament?.status === "ENDED";
 
