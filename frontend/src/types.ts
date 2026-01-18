@@ -20,11 +20,26 @@ export interface Agent {
   created_at: ISODate;
 }
 
+// Portfolio structure from backend
+export interface Portfolio {
+  cash: number; // Cash balance not invested
+  holdings: Record<string, number>; // Crypto holdings (e.g., {"BTC": 0.5})
+  holdings_val: number; // Total USD value of holdings
+  total_value: number; // Cash + holdings value
+  realized_pnl: number; // Profit/Loss from completed trades
+  unrealized_pnl: number; // Potential gain/loss on open positions
+  roi: number; // Return on Investment percentage
+  num_trades: number; // Total number of trades
+  num_winning_trades: number; // Trades that made money
+  num_losing_trades: number; // Trades that lost money
+  win_rate: number; // Percentage of winning trades
+}
+
 // ** NEW ** - Required for Leaderboard & Live state
 export interface AgentState {
   agent_id: ID;
   tournament_id: ID;
-  portfolio: Record<string, number>; // Asset -> Quantity
+  portfolio: Portfolio; // Detailed portfolio structure
   portfolio_value_usd: DecimalString;
   rank: number;
   trades_count: number;

@@ -110,6 +110,7 @@ function calculateVWAP(data: OhlcCandle[]): LineData<Time>[] {
 export default function CandleChart({ tournamentId }: CandleChartProps) {
   const chartRef = useRef<HTMLDivElement | null>(null);
 
+<<<<<<< Updated upstream
   const [timeframe, setTimeframe] = useState<Timeframe>('1h');
   const [fullscreen, setFullscreen] = useState(false);
   const [toggles, setToggles] = useState<Record<IndicatorKey, boolean>>({
@@ -118,6 +119,12 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
     ema: true,
     vwap: true,
   });
+=======
+  // raw mock data typed
+  const rawData = getOhlcvByTournament(parseInt(tournamentId, 10)) as OhlcCandle[];
+  const groupSize = timeframeMap[timeframe] ?? 1;
+  const ohlcv = aggregateOhlc(rawData, groupSize);
+>>>>>>> Stashed changes
 
   const storeTournamentId = useTournamentStore(s => s.selectedTournamentId);
   const finalTournamentId = tournamentId ?? storeTournamentId;

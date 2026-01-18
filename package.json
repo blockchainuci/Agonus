@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "candlestick-chart": "^0.1.0"
+    "candlestick-chart": "^0.1.0",
+    "lightweight-charts": "^5.1.0"
   }
 }

@@ -131,6 +131,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
         </button>
       </div>
 
+<<<<<<< Updated upstream
       {/* BETS LIST */}
       <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
         <AnimatePresence>
@@ -143,6 +144,31 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
               transition={{ delay: index * 0.05 }}
               className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10"
             >
+=======
+      {/* Bets Display - Card Grid */}
+      <div className="relative z-10">
+        {displayedBets.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Zap className="w-8 h-8 text-gray-500" />
+            </div>
+            <p className="text-gray-400 text-sm">No {filter} bets</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2 relative z-10 scrollbar-golden">
+            <AnimatePresence mode="wait">
+              {displayedBets.map((bet, index) => (
+                <motion.div
+                  key={bet.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10 transition-all group relative overflow-hidden"
+                >
+                  {/* Hover glow effect */}
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+>>>>>>> Stashed changes
 
               {/* TOP ROW */}
               <div className="flex items-center justify-between mb-3">

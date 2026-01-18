@@ -75,6 +75,7 @@ MarkupSafe==3.0.3
 mdurl==0.1.2
 multidict==6.7.0
 nest-asyncio==1.6.0
+ngrok==1.4.0
 nilql==0.0.0a13
 numpy==1.26.4
 openai==1.109.1
@@ -136,7 +137,12 @@ typing_extensions==4.15.0
 uniswap-python==0.7.1
 urllib3==2.3.0
 uvicorn==0.38.0
+<<<<<<< Updated upstream
 uvloop==0.22.1
+=======
+# uvloop==0.22.1  # Linux/macOS only - not compatible with Windows
+vine==5.1.0
+>>>>>>> Stashed changes
 watchfiles==1.1.1
 web3==7.10.0
 websockets==15.0.1

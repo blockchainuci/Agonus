@@ -323,6 +323,7 @@ body {
   }
 }
 
+<<<<<<< Updated upstream
 /* Premium Tooltip Styling */
 @layer components {
   .tooltip-box {
@@ -357,3 +358,79 @@ body {
     transform: translateY(0);
   }
 }
+=======
+/* ================================================
+   AGONUS UI ENHANCEMENTS - Sprint 2
+   Golden scrollbar + shimmer effects for home page
+   ================================================ */
+
+/* Golden Scrollbar for specific containers */
+.scrollbar-golden::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-golden::-webkit-scrollbar-track {
+  background: rgba(255, 215, 0, 0.05);
+  border-radius: 10px;
+}
+
+.scrollbar-golden::-webkit-scrollbar-thumb {
+  background: rgba(255, 215, 0, 0.3);
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+
+.scrollbar-golden::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 215, 0, 0.5);
+}
+
+/* Cyan Scrollbar variant */
+.scrollbar-cyan::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-cyan::-webkit-scrollbar-track {
+  background: rgba(6, 182, 212, 0.05);
+  border-radius: 10px;
+}
+
+.scrollbar-cyan::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.3);
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+
+.scrollbar-cyan::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.5);
+}
+
+/* Progress bar shimmer effect */
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-progress-shimmer {
+  animation: progress-shimmer 2s ease-in-out infinite;
+}
+
+/* Pulse glow effect for live indicators */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px currentColor;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 20px currentColor;
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+>>>>>>> Stashed changes
