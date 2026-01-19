@@ -1,13 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { API_URL, getAuthHeaders } from './api'
-import { Agent, ID, CreateAgentData, UpdateAgentData, ApiError } from '../types'
+import { Agent } from '../types'
 
 // Public GET - no auth
 export function useAgents() {
   return useQuery<Agent[]>({
     queryKey: ['agents'],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/agents`)
+      const res = await fetch(`${API_URL}/agents/`)
       if (!res.ok) throw new Error('Failed to fetch agents')
       return res.json()
     }
@@ -19,7 +19,7 @@ export function useAgent(agentId: string) {
   return useQuery<Agent>({
     queryKey: ['agents', agentId],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/agents/${agentId}`)
+      const res = await fetch(`${API_URL}/agents/${agentId}/`)
       if (!res.ok) throw new Error('Agent not found')
       return res.json()
     },

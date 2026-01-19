@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { useTournamentStore } from '@/src/store/useTournamentStore';
 
 interface BetButtonProps {
-  agent: any;
+  agent: { name: string; id: string };
   className?: string;
 }
 

@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ConnectWallet } from '@/src/components/wallet/ConnectWallet';
+import { ConnectWallet } from '@/src/components/ConnectWallet';
 
 export default function Navbar() {
   const pathname = usePathname();

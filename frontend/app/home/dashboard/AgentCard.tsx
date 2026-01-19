@@ -43,14 +43,13 @@ interface AgentCardProps {
 export default function AgentCard({
   agent,
   rank,
-  totalAgents,
   forceExpand,
 }: AgentCardProps) {
   const [expanded, setExpanded] = useState(false);
   const openBetModal = useTournamentStore((s) => s.openBetModal);
 
   useEffect(() => {
-    if (forceExpand !== undefined) setExpanded(forceExpand);
+    if (forceExpand !== undefined) setExpanded(forceExpand); // eslint-disable-line react-hooks/set-state-in-effect
   }, [forceExpand]);
 
   const modalAgent = normalizeAgent(agent);

@@ -130,7 +130,7 @@ export default function AgentListSection() {
           {/* Sort Mode */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as 'rank' | 'winRate' | 'odds')}
             className="px-3 py-2 text-sm bg-slate-800 text-white rounded-lg"
           >
             <option value="rank">Sort: Rank</option>
@@ -141,7 +141,7 @@ export default function AgentListSection() {
           {/* Sort Direction */}
           <select
             value={sortDirection}
-            onChange={(e) => setSortDirection(e.target.value as any)}
+            onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
             className="px-3 py-2 text-sm bg-slate-800 text-white rounded-lg"
           >
             <option value="asc">Asc ↑</option>
@@ -162,7 +162,7 @@ export default function AgentListSection() {
       {/* Agent List */}
       <div className="space-y-4 overflow-y-auto max-h-[540px] pr-2">
         {processedAgents.map((agent) => {
-          let forceExpandProp: boolean | undefined =
+          const forceExpandProp: boolean | undefined =
             forceExpandAll !== undefined
               ? forceExpandAll
               : openId === agent.id;

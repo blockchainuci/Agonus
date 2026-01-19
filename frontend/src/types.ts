@@ -15,31 +15,16 @@ export interface Agent {
   personality: string;
   strategy_type: string;
   avatar_url?: string;
-  stats: Record<string, any>; // Flexible JSON field
-  memory: Record<string, any>; // Flexible JSON field
+  stats: Record<string, unknown>; // Flexible JSON field
+  memory: Record<string, unknown>; // Flexible JSON field
   created_at: ISODate;
-}
-
-// Portfolio structure from backend
-export interface Portfolio {
-  cash: number; // Cash balance not invested
-  holdings: Record<string, number>; // Crypto holdings (e.g., {"BTC": 0.5})
-  holdings_val: number; // Total USD value of holdings
-  total_value: number; // Cash + holdings value
-  realized_pnl: number; // Profit/Loss from completed trades
-  unrealized_pnl: number; // Potential gain/loss on open positions
-  roi: number; // Return on Investment percentage
-  num_trades: number; // Total number of trades
-  num_winning_trades: number; // Trades that made money
-  num_losing_trades: number; // Trades that lost money
-  win_rate: number; // Percentage of winning trades
 }
 
 // ** NEW ** - Required for Leaderboard & Live state
 export interface AgentState {
   agent_id: ID;
   tournament_id: ID;
-  portfolio: Portfolio; // Detailed portfolio structure
+  portfolio: Record<string, number>; // Asset -> Quantity
   portfolio_value_usd: DecimalString;
   rank: number;
   trades_count: number;
@@ -93,7 +78,7 @@ export interface Bet {
 // --- API ERROR ---
 export interface ApiError {
   message: string;
-  detail?: string | any[]; // FastApi validation errors are arrays
+  detail?: string | unknown[]; // FastApi validation errors are arrays
   status?: number;
 }
 
@@ -107,7 +92,7 @@ export interface CreateAgentData {
 }
 
 export interface UpdateAgentData extends Partial<CreateAgentData> {
-  stats?: Record<string, any>;
+  stats?: Record<string, unknown>;
 }
 
 export interface CreateTournamentData {

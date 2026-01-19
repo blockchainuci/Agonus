@@ -26,7 +26,6 @@ export function ClaimWinnings({
     txError,
     setTxStatus,
     setTxError,
-    setTxHash,
     resetTxState,
   } = useTournamentStore();
 
@@ -55,13 +54,10 @@ export function ClaimWinnings({
 
       // 🔥 Call the real Web3 function
       // Should return a transaction hash or receipt
-      const tx = await onClaim();
+      await onClaim();
 
       setTxStatus('pending');
       txToast.pending("Claiming winnings on Base Sepolia…");
-
-      // If Tucker/Ali return a hash:
-      // setTxHash(tx);
 
       // Simulate network delay (remove when real hook implemented)
       setTimeout(() => {
@@ -69,10 +65,10 @@ export function ClaimWinnings({
         txToast.success("Winnings claimed successfully!");
       }, 1200);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setTxStatus('error');
-      setTxError(err?.message || "Transaction failed");
+      setTxError((err as Error)?.message || "Transaction failed");
       txToast.error("Claim failed");
     }
   }

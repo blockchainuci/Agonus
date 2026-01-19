@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
 import ParabolicReveal from './ui/ParabolicReveal';
-import { ConnectWallet } from '@/src/components/wallet/ConnectWallet';
+import { ConnectWallet } from '@/src/components/ConnectWallet';
 
 export default function Hero() {
   const ref = useRef(null);

@@ -9,16 +9,43 @@ import {
   EyeOff,
   Maximize2,
   Minimize2,
-  Clock,
   Filter,
   X,
-  Check,
+  Brain,
+  DollarSign,
+  Target,
+  TrendingDown,
+  Activity,
+  Coins,
+  Info,
 } from 'lucide-react';
 import type { UTCTimestamp, ISeriesApi, IChartApi } from 'lightweight-charts';
-import { LineSeries } from 'lightweight-charts';
 import { useTournamentAgentStates } from '@/src/hooks/useAgentStates';
 import { useAgents } from '@/src/hooks/useAgents';
-import { useAgentTrades } from '@/src/hooks/useTrades';
+import { AgentState } from '@/src/types';
+
+// Tooltip component for explaining terms
+function InfoTooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+
+  return (
+    <div className="relative inline-block">
+      <Info
+        className="w-3.5 h-3.5 text-gray-500 hover:text-blue-400 cursor-help transition-colors inline-block ml-1"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+      />
+      {show && (
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-xl border border-gray-700 w-48 pointer-events-none">
+          {text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
+            <div className="border-4 border-transparent border-t-gray-900"></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface AgentPerformanceChartProps {
   tournamentId: string;
@@ -49,25 +76,16 @@ const AGENT_COLORS = [
   '#f97316', // orange
 ];
 
-// Timeframe options
-type TimeframeKey = '1H' | '4H' | '24H' | '7D';
-const TIMEFRAMES: { key: TimeframeKey; label: string; minutes: number }[] = [
-  { key: '1H', label: '1H', minutes: 60 },
-  { key: '4H', label: '4H', minutes: 240 },
-  { key: '24H', label: '24H', minutes: 1440 },
-  { key: '7D', label: '7D', minutes: 10080 },
-];
-
 export default function AgentPerformanceChart({
   tournamentId,
 }: AgentPerformanceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const seriesMapRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [visibleAgents, setVisibleAgents] = useState<Set<string>>(new Set());
-  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeKey>('24H');
-  const [showAgentFilter, setShowAgentFilter] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<AgentState | null>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesMapRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
 
   // Fetch data from backend
   const { data: agentStates, isLoading: statesLoading } =
@@ -82,12 +100,6 @@ export default function AgentPerformanceChart({
   useEffect(() => {
     if (!agentStates || !agents) return;
 
-    // Get timeframe config
-    const timeframeConfig = TIMEFRAMES.find((t) => t.key === selectedTimeframe) || TIMEFRAMES[2];
-    const totalMinutes = timeframeConfig.minutes;
-    const dataPoints = 50;
-    const intervalSeconds = (totalMinutes * 60) / dataPoints;
-
     // Create performance lines for each agent
     const lines: AgentPerformanceLine[] = agentStates.map((state, index) => {
       const agent = agents.find((a) => a.id === state.agent_id);
@@ -100,16 +112,17 @@ export default function AgentPerformanceChart({
 
       // Generate sample historical data (this should come from actual trade history)
       const data: TimeSeriesPoint[] = [];
-      const startTime = currentTime - totalMinutes * 60;
+      const dataPoints = 50;
+      const startTime = currentTime - dataPoints * 300; // 5 min intervals
 
       for (let i = 0; i < dataPoints; i++) {
-        const time = (startTime + i * intervalSeconds) as UTCTimestamp;
+        const time = (startTime + i * 300) as UTCTimestamp;
         // Simulate growth trend towards current value
         const progress = i / dataPoints;
         const startValue = portfolioValue * 0.8; // Start at 80% of current
         const value = startValue + (portfolioValue - startValue) * progress;
-        // Add some randomness - use index as seed for consistency
-        const noise = (Math.sin(i * 0.5 + index) * 0.5) * portfolioValue * 0.05;
+        // Add some randomness
+        const noise = (Math.random() - 0.5) * portfolioValue * 0.05;
         data.push({
           time,
           value: value + noise,
@@ -135,7 +148,7 @@ export default function AgentPerformanceChart({
 
     // Initialize all agents as visible
     setVisibleAgents(new Set(lines.map((line) => line.agentId)));
-  }, [agentStates, agents, selectedTimeframe]);
+  }, [agentStates, agents]);
 
   // Toggle agent visibility
   const toggleAgent = (agentId: string) => {
@@ -150,20 +163,6 @@ export default function AgentPerformanceChart({
     });
   };
 
-  // Select all agents
-  const selectAllAgents = () => {
-    setVisibleAgents(new Set(performanceLines.map((line) => line.agentId)));
-  };
-
-  // Deselect all agents
-  const deselectAllAgents = () => {
-    setVisibleAgents(new Set());
-  };
-
-  // Check if all agents are visible
-  const allAgentsVisible = performanceLines.length > 0 && visibleAgents.size === performanceLines.length;
-  const someAgentsHidden = visibleAgents.size < performanceLines.length && visibleAgents.size > 0;
-
   // ESC exits fullscreen
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -177,6 +176,8 @@ export default function AgentPerformanceChart({
   useEffect(() => {
     const container = chartContainerRef.current;
     if (!container || performanceLines.length === 0) return;
+
+    let cleanup: (() => void) | undefined;
 
     import('lightweight-charts').then((LightweightCharts) => {
       if (!chartContainerRef.current) return;
@@ -210,11 +211,11 @@ export default function AgentPerformanceChart({
       chartRef.current = chart;
       seriesMapRef.current.clear();
 
-      // Add a line series for each agent (only visible ones)
+      // Add a line series for each agent
       performanceLines.forEach((line) => {
         if (!chart) return;
 
-        const series = chart.addSeries(LineSeries, {
+        const series = chart.addSeries(LightweightCharts.LineSeries, {
           color: line.color,
           lineWidth: 2,
           visible: visibleAgents.has(line.agentId),
@@ -227,8 +228,8 @@ export default function AgentPerformanceChart({
       chart.timeScale().fitContent();
 
       const handleResize = () => {
-        if (!chartRef.current || !chartContainerRef.current) return;
-        chartRef.current.applyOptions({
+        if (!chart || !chartContainerRef.current) return;
+        chart.applyOptions({
           width: chartContainerRef.current.clientWidth,
           height: isFullscreen ? window.innerHeight - 100 : 450,
         });
@@ -236,27 +237,32 @@ export default function AgentPerformanceChart({
 
       window.addEventListener('resize', handleResize);
 
-      return () => {
+      cleanup = () => {
         window.removeEventListener('resize', handleResize);
+        chart?.remove();
+        chartRef.current = null;
       };
     });
 
     return () => {
-      chartRef.current?.remove();
-      chartRef.current = null;
-      seriesMapRef.current.clear();
+      if (cleanup) cleanup();
       if (container) container.innerHTML = '';
     };
-  }, [performanceLines, isFullscreen]);
+  }, [performanceLines, isFullscreen, visibleAgents]);
 
-  // Update series visibility when toggled
+  // Update visibility when visibleAgents changes
   useEffect(() => {
-    seriesMapRef.current.forEach((series, agentId) => {
-      series.applyOptions({
-        visible: visibleAgents.has(agentId),
-      });
+    if (!seriesMapRef.current || seriesMapRef.current.size === 0) return;
+
+    performanceLines.forEach((line) => {
+      const series = seriesMapRef.current.get(line.agentId);
+      if (series) {
+        series.applyOptions({
+          visible: visibleAgents.has(line.agentId),
+        });
+      }
     });
-  }, [visibleAgents]);
+  }, [visibleAgents, performanceLines]);
 
   if (statesLoading || agentsLoading) {
     return (
@@ -303,126 +309,104 @@ export default function AgentPerformanceChart({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Timeframe selector */}
-            <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10">
-              <Clock className="w-4 h-4 text-gray-400 ml-2" />
-              {TIMEFRAMES.map((tf) => (
-                <button
-                  key={tf.key}
-                  onClick={() => setSelectedTimeframe(tf.key)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    selectedTimeframe === tf.key
-                      ? 'bg-[#FFD700]/20 text-[#FFD700] border border-[#FFD700]/30'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {tf.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Agent Filter Button */}
+          <div className="flex items-center gap-3">
+            {/* Agent Filter Dropdown */}
             <div className="relative">
-              <motion.button
+              <button
                 className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-colors ${
-                  someAgentsHidden
-                    ? 'bg-[#FFD700]/20 border-[#FFD700]/30 text-[#FFD700]'
+                  visibleAgents.size < performanceLines.length
+                    ? 'bg-purple-500/20 border-purple-500/30 text-purple-400'
                     : 'bg-white/5 hover:bg-white/10 border-white/10 text-gray-400'
                 }`}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowAgentFilter(!showAgentFilter)}
+                onClick={() => setShowFilterMenu(!showFilterMenu)}
               >
                 <Filter className="w-4 h-4" />
-                {someAgentsHidden && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#FFD700] rounded-full text-[8px] text-[#001D3D] flex items-center justify-center font-bold">
-                    {performanceLines.length - visibleAgents.size}
+                {visibleAgents.size < performanceLines.length && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full text-[8px] text-white flex items-center justify-center">
+                    !
                   </span>
                 )}
-              </motion.button>
+              </button>
 
-              {/* Agent Filter Dropdown */}
-              {showAgentFilter && (
-                <div className="absolute right-0 top-12 w-72 bg-[#001D3D] border border-white/20 rounded-xl shadow-2xl p-4 z-50">
+              {/* Filter dropdown menu */}
+              {showFilterMenu && (
+                <div className="absolute right-0 top-12 w-72 bg-[#001D3D] border border-white/20 rounded-xl shadow-2xl p-4 z-[100] max-h-96 overflow-y-auto">
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-sm font-semibold text-white">Show Agents</h4>
+                    <h4 className="text-lg font-semibold text-white">Agent Visibility</h4>
                     <button
-                      onClick={() => setShowAgentFilter(false)}
-                      className="text-gray-400 hover:text-white"
+                      onClick={() => setShowFilterMenu(false)}
+                      className="text-gray-400 hover:text-white transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
 
                   {/* Select All / Deselect All */}
-                  <div className="flex gap-2 mb-3">
+                  <div className="flex gap-2 mb-4">
                     <button
-                      onClick={selectAllAgents}
-                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                        allAgentsVisible
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                          : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                      }`}
+                      onClick={() => setVisibleAgents(new Set(performanceLines.map(l => l.agentId)))}
+                      className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
                     >
-                      Show All
+                      Select All
                     </button>
                     <button
-                      onClick={deselectAllAgents}
-                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                        visibleAgents.size === 0
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                      }`}
+                      onClick={() => setVisibleAgents(new Set())}
+                      className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
                     >
-                      Hide All
+                      Deselect All
                     </button>
                   </div>
 
-                  {/* Agent list with checkboxes */}
-                  <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-golden">
-                    {performanceLines.map((line) => (
-                      <button
-                        key={line.agentId}
-                        onClick={() => toggleAgent(line.agentId)}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
-                          visibleAgents.has(line.agentId)
-                            ? 'bg-white/10 border border-white/20'
-                            : 'bg-white/5 border border-white/10 opacity-60 hover:opacity-100'
-                        }`}
-                      >
-                        {/* Color indicator */}
+                  {/* Agent list */}
+                  <div className="space-y-2">
+                    {performanceLines.map((line) => {
+                      const agentState = agentStates?.find(s => s.agent_id === line.agentId);
+                      return (
                         <div
-                          className="w-4 h-4 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: line.color }}
-                        />
-
-                        {/* Agent name */}
-                        <span className="text-white flex-grow text-left truncate">
-                          {line.agentName}
-                        </span>
-
-                        {/* Visibility icon */}
-                        {visibleAgents.has(line.agentId) ? (
-                          <Eye className="w-4 h-4 text-green-400 flex-shrink-0" />
-                        ) : (
-                          <EyeOff className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Visible count */}
-                  <div className="mt-3 pt-3 border-t border-white/10 text-center">
-                    <span className="text-xs text-gray-400">
-                      Showing {visibleAgents.size} of {performanceLines.length} agents
-                    </span>
+                          key={line.agentId}
+                          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-all border ${
+                            visibleAgents.has(line.agentId)
+                              ? 'bg-white/10 border-white/20'
+                              : 'bg-white/5 border-white/10 opacity-60'
+                          }`}
+                        >
+                          <button
+                            onClick={() => toggleAgent(line.agentId)}
+                            className="flex items-center gap-3 flex-1"
+                          >
+                            <div
+                              className="w-4 h-4 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: line.color }}
+                            />
+                            <span className="text-white flex-grow text-left">{line.agentName}</span>
+                            <div className="flex-shrink-0">
+                              {visibleAgents.has(line.agentId) ? (
+                                <Eye className="w-4 h-4 text-green-400" />
+                              ) : (
+                                <EyeOff className="w-4 h-4 text-gray-500" />
+                              )}
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (agentState) {
+                                setSelectedAgent(agentState);
+                                setShowFilterMenu(false);
+                              }
+                            }}
+                            className="p-1.5 hover:bg-white/10 rounded transition-colors"
+                            title="View agent details"
+                          >
+                            <Info className="w-4 h-4 text-blue-400" />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Fullscreen button */}
             <button
               onClick={() => setIsFullscreen((v) => !v)}
               className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10
@@ -446,26 +430,6 @@ export default function AgentPerformanceChart({
           }`}
         />
 
-        {/* Legend - Visible Agents */}
-        {visibleAgents.size > 0 && (
-          <div className="px-6 py-3 border-t border-white/10 bg-white/5">
-            <div className="flex items-center gap-4 flex-wrap">
-              <span className="text-xs text-gray-400 uppercase">Legend:</span>
-              {performanceLines
-                .filter((line) => visibleAgents.has(line.agentId))
-                .map((line) => (
-                  <div key={line.agentId} className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: line.color }}
-                    />
-                    <span className="text-xs text-white">{line.agentName}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-
         {/* Footer - Stats */}
         <div className="px-6 py-4 border-t border-white/10">
           <div className="flex items-center justify-between flex-wrap gap-6">
@@ -488,10 +452,10 @@ export default function AgentPerformanceChart({
 
               <div>
                 <p className="text-xs text-gray-400 uppercase">
-                  Visible Agents
+                  Active Agents
                 </p>
                 <p className="text-lg font-bold text-white">
-                  {visibleAgents.size} / {performanceLines.length}
+                  {performanceLines.length}
                 </p>
               </div>
             </div>
@@ -505,6 +469,151 @@ export default function AgentPerformanceChart({
           </div>
         </div>
       </motion.div>
+
+      {/* Agent Detail Modal */}
+      {selectedAgent && (() => {
+        const agent = agents?.find((a) => a.id === selectedAgent.agent_id);
+        const initialValue = 10000; // Placeholder - should come from backend
+        const portfolioValue = parseFloat(selectedAgent.portfolio_value_usd);
+        const pnl = portfolioValue - initialValue;
+        const roi = (pnl / initialValue) * 100;
+        const isPositive = pnl >= 0;
+
+        return (
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
+            onClick={() => setSelectedAgent(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gray-900/95 backdrop-blur-xl border border-white/20 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setSelectedAgent(null)}
+                className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+
+              {/* Agent Header */}
+              <div className="flex items-start gap-4 mb-6 pb-6 border-b border-white/10">
+                {agent?.avatar_url ? (
+                  <img
+                    src={agent.avatar_url}
+                    alt={agent.name}
+                    className="w-20 h-20 rounded-full border-2 border-purple-500/30"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center border-2 border-purple-500/30">
+                    <Brain className="w-10 h-10 text-purple-400" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h2 className="text-2xl font-bold text-white">{agent?.name || 'Unknown Agent'}</h2>
+                    <div className="flex items-center gap-1 px-3 py-1 bg-purple-500/20 rounded-lg">
+                      <Trophy className="w-4 h-4 text-purple-400" />
+                      <span className="text-sm font-bold text-purple-300">Rank #{selectedAgent.rank}</span>
+                    </div>
+                  </div>
+                  <p className="text-gray-400 mb-2">{agent?.strategy_type || 'Strategy N/A'}</p>
+                  <p className="text-sm text-gray-500">{agent?.personality || 'No personality defined'}</p>
+                </div>
+              </div>
+
+              {/* Performance Metrics */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <DollarSign className="w-5 h-5 text-blue-400" />
+                    <span className="text-sm text-gray-400">Portfolio Value</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    ${portfolioValue.toLocaleString()}
+                  </p>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="w-5 h-5 text-purple-400" />
+                    <span className="text-sm text-gray-400">
+                      ROI
+                      <InfoTooltip text="Return on Investment - percentage gain/loss from initial capital" />
+                    </span>
+                  </div>
+                  <p className={`text-2xl font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                    {isPositive ? '+' : ''}{roi.toFixed(2)}%
+                  </p>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    {isPositive ? (
+                      <TrendingUp className="w-5 h-5 text-green-400" />
+                    ) : (
+                      <TrendingDown className="w-5 h-5 text-red-400" />
+                    )}
+                    <span className="text-sm text-gray-400">
+                      Profit & Loss
+                      <InfoTooltip text="Profit and Loss - absolute dollar gain/loss from initial capital" />
+                    </span>
+                  </div>
+                  <p className={`text-2xl font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                    {isPositive ? '+' : ''}${Math.abs(pnl).toLocaleString()}
+                  </p>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Activity className="w-5 h-5 text-cyan-400" />
+                    <span className="text-sm text-gray-400">Total Trades</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{selectedAgent.trades_count}</p>
+                </div>
+              </div>
+
+              {/* Portfolio Holdings */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <Coins className="w-5 h-5 text-yellow-400" />
+                  Portfolio Holdings
+                </h3>
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  {Object.keys(selectedAgent.portfolio).length > 0 ? (
+                    <div className="space-y-2">
+                      {Object.entries(selectedAgent.portfolio).map(([asset, quantity]) => (
+                        <div key={asset} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+                          <span className="text-gray-300 font-medium">{asset}</span>
+                          <span className="text-white font-semibold">{quantity.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-2">No assets in portfolio</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Last Decision */}
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-purple-400" />
+                  Latest Decision
+                </h3>
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <p className="text-gray-300">{selectedAgent.last_decision || 'No decision recorded yet'}</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Updated: {new Date(selectedAgent.updated_at).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

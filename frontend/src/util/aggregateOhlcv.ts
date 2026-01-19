@@ -9,20 +9,32 @@ export interface OhlcCandle {
   volume: number;
 }
 
-export function computeOhlcv(trades: any[], intervalMs = 5 * 60 * 1000): OhlcCandle[] {
+interface TradeInput {
+  price: string | number;
+  amount: string | number;
+  timestamp: string | Date;
+}
+
+interface NormalizedTrade {
+  price: number;
+  amount: number;
+  ts: number;
+}
+
+export function computeOhlcv(trades: TradeInput[], intervalMs = 5 * 60 * 1000): OhlcCandle[] {
   if (!trades || trades.length === 0) return [];
 
   // 1. Convert trades → numeric + unix time
-  const normalized = trades.map((t) => ({
-    price: parseFloat(t.price),
-    amount: parseFloat(t.amount),
+  const normalized: NormalizedTrade[] = trades.map((t) => ({
+    price: parseFloat(String(t.price)),
+    amount: parseFloat(String(t.amount)),
     ts: new Date(t.timestamp).getTime(),
   }));
 
   // 2. Sort by time
   normalized.sort((a, b) => a.ts - b.ts);
 
-  const buckets = new Map<number, any[]>();
+  const buckets = new Map<number, NormalizedTrade[]>();
 
   for (const t of normalized) {
     const bucketStart = Math.floor(t.ts / intervalMs) * intervalMs;

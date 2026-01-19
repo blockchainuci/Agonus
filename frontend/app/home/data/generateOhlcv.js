@@ -1,5 +1,6 @@
 // generateOhlcv.js
 // Run with: node generateOhlcv.js
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 const fs = require("fs");
 

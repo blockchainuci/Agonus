@@ -71,9 +71,9 @@ export default function BetModal() {
         txToast.success("Bet placed successfully!");
       }, 1500);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       setTxStatus('error');
-      setTxError(err?.message || 'Transaction failed');
+      setTxError((err as Error)?.message || 'Transaction failed');
       txToast.error("Bet failed");
     }
   }

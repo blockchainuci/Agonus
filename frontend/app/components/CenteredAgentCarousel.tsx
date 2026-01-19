@@ -21,6 +21,7 @@ export default function CenteredAgentCarousel({
 
   const frameRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
+  const animateRef = useRef<((now: number) => void) | null>(null);
 
   // -------------------------
   // Navigation Handlers
@@ -48,8 +49,8 @@ export default function CenteredAgentCarousel({
   // Autorotation Animation
   // -------------------------
 
-  const animate = useCallback(
-    (now: number) => {
+  useEffect(() => {
+    const animate = (now: number) => {
       const elapsed = now - startRef.current;
       const pct = Math.min(elapsed / autoRotateMs, 1);
 
@@ -60,11 +61,9 @@ export default function CenteredAgentCarousel({
       } else {
         goNext();
       }
-    },
-    [autoRotateMs, goNext]
-  );
+    };
 
-  useEffect(() => {
+    animateRef.current = animate;
     startRef.current = performance.now();
     frameRef.current = requestAnimationFrame(animate);
 
@@ -74,13 +73,13 @@ export default function CenteredAgentCarousel({
         cancelAnimationFrame(frameRef.current);
       }
     };
-  }, [active, animate]);
+  }, [active, autoRotateMs, goNext]);
 
   // -------------------------
   // Swipe Gesture Navigation
   // -------------------------
 
-  const onSwipeEnd = (_: any, info: PanInfo) => {
+  const onSwipeEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.x > 80 || info.velocity.x > 300) {
       goPrev();
     } else if (info.offset.x < -80 || info.velocity.x < -300) {

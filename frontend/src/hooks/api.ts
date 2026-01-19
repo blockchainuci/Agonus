@@ -1,7 +1,7 @@
-//stored shared API logic 
+//stored shared API logic
 
-export const API_URL = 
-    process.env.REACT_APP_API_URL || 'http://localhost:8000';
+export const API_URL =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('token');
