@@ -62,7 +62,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
   };
 
   return (
-    <div className="relative bg-gradient-to-br from-blue-800 to-blue-950 rounded-3xl p-8 shadow-xl max-w-sm w-full min-h-[600px] antialiased">
+    <div className="relative glass-card rounded-2xl p-8 max-w-sm w-full min-h-[600px] antialiased">
       <div
         className={`
           absolute inset-0 p-8 overflow-y-auto
@@ -70,7 +70,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
           ${isEditing ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
         `}
       >
-        <h2 className="text-2xl font-bold text-yellow-400 mb-6">
+        <h2 className="text-2xl font-bold text-[#FFD700] mb-6 font-heading">
           Edit Profile
         </h2>
 
@@ -266,7 +266,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
           </div>
         </div>
 
-        <h2 className="text-4xl font-bold text-yellow-400 mb-1 leading-tight">
+        <h2 className="text-4xl font-bold text-gradient-gold mb-1 leading-tight font-heading">
           {currentUser.name}
         </h2>
 

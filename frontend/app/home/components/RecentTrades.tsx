@@ -122,15 +122,12 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
 
   return (
     <motion.div
-      className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-6 relative overflow-hidden"
+      className="glass-card rounded-2xl p-6 relative overflow-hidden"
       key={tournamentId} // Re-animate when tournament changes
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.3 }}
     >
-      {/*background glow */}
-      <div className="absolute top-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-
       {/* header */}
       <div className="flex items-center justify-between mb-6 relative z-20">
         <div className="flex items-center gap-3">
@@ -138,7 +135,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
             <Activity className="w-5 h-5 text-purple-300" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">Recent Trades</h3>
+            <h3 className="text-lg font-bold text-white font-heading">Recent Trades</h3>
             <p className="text-xs text-gray-400">Tournament #{tournamentId}</p>
           </div>
         </div>

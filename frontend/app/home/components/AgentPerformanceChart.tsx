@@ -115,14 +115,21 @@ export default function AgentPerformanceChart({
       const dataPoints = 50;
       const startTime = currentTime - dataPoints * 300; // 5 min intervals
 
+      // Use seeded random based on agent_id for consistent data across renders
+      const seed = state.agent_id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const seededRandom = (i: number) => {
+        const x = Math.sin(seed + i) * 10000;
+        return x - Math.floor(x);
+      };
+
       for (let i = 0; i < dataPoints; i++) {
         const time = (startTime + i * 300) as UTCTimestamp;
         // Simulate growth trend towards current value
         const progress = i / dataPoints;
         const startValue = portfolioValue * 0.8; // Start at 80% of current
         const value = startValue + (portfolioValue - startValue) * progress;
-        // Add some randomness
-        const noise = (Math.random() - 0.5) * portfolioValue * 0.05;
+        // Use seeded randomness for consistent results
+        const noise = (seededRandom(i) - 0.5) * portfolioValue * 0.05;
         data.push({
           time,
           value: value + noise,
@@ -266,7 +273,7 @@ export default function AgentPerformanceChart({
 
   if (statesLoading || agentsLoading) {
     return (
-      <div className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl p-6">
+      <div className="glass-card rounded-2xl p-6">
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-400">Loading agent performance data...</div>
         </div>
@@ -286,21 +293,19 @@ export default function AgentPerformanceChart({
       }
     >
       <motion.div
-        className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40
-          backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl
-          w-full max-w-7xl overflow-hidden"
+        className="glass-card rounded-2xl w-full max-w-7xl overflow-hidden"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        transition={{ duration: 0.3 }}
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FFC300] flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FFC300] flex items-center justify-center glow-gold">
               <Trophy className="w-6 h-6 text-[#001D3D]" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white">
+              <h3 className="text-xl font-bold text-white font-heading">
                 Agent Performance
               </h3>
               <p className="text-xs text-gray-400">

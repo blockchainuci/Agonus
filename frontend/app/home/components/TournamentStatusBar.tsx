@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import AgentPositions from './AgentPositions';
 import ActiveBets from './ActiveBets';
 import { useTournaments, useTournament } from '@/src/hooks/useTournaments';
@@ -55,9 +55,9 @@ function TournamentStatusBar({
   };
 
   return (
-    <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-2 border-b border-white/10 bg-gradient-to-r from-blue-900/20 to-transparent relative">
+    <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-2 border-b border-white/10 relative">
       <div className="flex items-center gap-3">
-        <div className="text-yellow-400 font-bold text-2xl">TOURNAMENT</div>
+        <div className="text-gradient-gold font-bold text-2xl font-heading">TOURNAMENT</div>
 
         {/* Dropdown Button with Triangle */}
         <div className="relative">
@@ -76,7 +76,7 @@ function TournamentStatusBar({
 
           {/* Dropdown Menu */}
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 mt-2 w-64 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-50">
+            <div className="absolute top-full left-0 mt-2 w-64 glass-strong rounded-xl shadow-2xl z-50">
               <div className="py-1">
                 {allTournaments.map((t) => (
                   <button
@@ -148,7 +148,7 @@ export default function TournamentContainer({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-0 w-full bg-black/20 backdrop-blur rounded-2xl border border-white/10 overflow-hidden">
+      <div className="flex flex-col gap-0 w-full glass-card rounded-2xl overflow-hidden">
         <div className="p-6 flex items-center justify-center">
           <p className="text-gray-400">Loading tournaments...</p>
         </div>
@@ -157,7 +157,7 @@ export default function TournamentContainer({
   }
 
   return (
-    <div className="flex flex-col gap-0 w-full bg-black/20 backdrop-blur rounded-2xl border border-white/10 overflow-hidden">
+    <div className="flex flex-col gap-0 w-full glass-card rounded-2xl overflow-hidden">
       {/* Tournament Status Bar - Header */}
       <TournamentStatusBar
         tournament={selectedTournament}
