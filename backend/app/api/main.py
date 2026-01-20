@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # ✅ NEW runtime agents router (live AI trading agents)
 from app.api.routers.runtime_agents import router as runtime_agents_router
@@ -13,6 +14,15 @@ from app.api.routers import market_data
 
 
 app = FastAPI(title="Agonus API")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ------------------------------
 # Register Routers
