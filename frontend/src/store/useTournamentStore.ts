@@ -3,6 +3,9 @@ import type { AgentBet } from '@/src/types/AgentBet';
 
 type TxStatus = 'idle' | 'confirming' | 'pending' | 'success' | 'error';
 
+// Minimal agent info required to open bet modal (for simple BetButton usage)
+type MinimalAgent = { id: string; name: string };
+
 interface TournamentStore {
   // Tournament selection
   selectedTournamentId: string;
@@ -11,7 +14,7 @@ interface TournamentStore {
   // Betting Modal state
   isBetModalOpen: boolean;
   selectedAgent: AgentBet | null;
-  openBetModal: (agent: AgentBet) => void;
+  openBetModal: (agent: MinimalAgent | AgentBet) => void;
   closeBetModal: () => void;
 
   // Web3 transaction status (for BetModal)
@@ -37,7 +40,19 @@ export const useTournamentStore = create<TournamentStore>((set) => ({
 
   openBetModal: (agent) =>
     set({
-      selectedAgent: agent,
+      // Convert minimal agent to AgentBet with defaults if needed
+      selectedAgent: 'tournamentId' in agent
+        ? agent
+        : {
+            ...agent,
+            tournamentId: '',
+            personality: '',
+            odds: 0,
+            winRate: 0,
+            portfolioValue: 0,
+            pnl: 0,
+            volatility: 0,
+          },
       isBetModalOpen: true,
       txStatus: 'idle',   // reset tx state when modal opens
       txHash: null,

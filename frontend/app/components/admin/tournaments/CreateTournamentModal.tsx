@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { X, Calendar, DollarSign, Trophy, Users } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -20,19 +20,29 @@ export interface TournamentFormData {
   description?: string;
 }
 
+// Helper to get default end date (7 days from now)
+function getDefaultEndDate(): Date {
+  const date = new Date();
+  date.setDate(date.getDate() + 7);
+  return date;
+}
+
 export default function CreateTournamentModal({
   isOpen,
   onClose,
   onSubmit,
 }: CreateTournamentModalProps) {
-  const [formData, setFormData] = useState<TournamentFormData>({
+  // Use useMemo to compute initial values only once
+  const initialFormData = useMemo(() => ({
     name: "",
     start_date: new Date(),
-    end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+    end_date: getDefaultEndDate(),
     prize_pool: "",
     max_agents: 10,
     description: "",
-  });
+  }), []);
+
+  const [formData, setFormData] = useState<TournamentFormData>(initialFormData);
 
   const [errors, setErrors] = useState<Partial<Record<keyof TournamentFormData, string>>>({});
 
@@ -151,7 +161,7 @@ export default function CreateTournamentModal({
                       </label>
                       <DatePicker
                         selected={formData.start_date}
-                        onChange={(date: Date) => setFormData({ ...formData, start_date: date })}
+                        onChange={(date: Date | null) => date && setFormData({ ...formData, start_date: date })}
                         selectsStart
                         startDate={formData.start_date}
                         endDate={formData.end_date}
@@ -173,7 +183,7 @@ export default function CreateTournamentModal({
                       </label>
                       <DatePicker
                         selected={formData.end_date}
-                        onChange={(date: Date) => setFormData({ ...formData, end_date: date })}
+                        onChange={(date: Date | null) => date && setFormData({ ...formData, end_date: date })}
                         selectsEnd
                         startDate={formData.start_date}
                         endDate={formData.end_date}

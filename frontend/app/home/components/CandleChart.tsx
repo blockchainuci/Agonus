@@ -14,6 +14,7 @@ import {
 } from 'lightweight-charts';
 
 import {
+  mockOhlcvById,
   mockOhlcv,
   type OhlcCandle,
 } from '@/app/home/data/mockOhlcv';
@@ -64,7 +65,7 @@ function computeOhlcv(data: OhlcCandle[], timeframe: Timeframe): OhlcCandle[] {
       high: Math.max(...arr.map((x) => x.high)),
       low: Math.min(...arr.map((x) => x.low)),
       close: arr[arr.length - 1].close,
-      volume: arr.reduce((s, x) => s + x.volume, 0),
+      volume: arr.reduce((s, x) => s + (x.volume || 0), 0),
     }))
     .sort((a, b) => Number(a.time) - Number(b.time));
 }
@@ -99,8 +100,9 @@ function calculateVWAP(data: OhlcCandle[]): LineData<Time>[] {
 
   return data.map((c) => {
     const typical = (c.high + c.low + c.close) / 3;
-    cumulativePV += typical * c.volume;
-    cumulativeVol += c.volume || 1;
+    const vol = c.volume || 1;
+    cumulativePV += typical * vol;
+    cumulativeVol += vol;
     return { time: c.time, value: cumulativePV / cumulativeVol };
   });
 }
@@ -126,7 +128,7 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
 
   // Convert string ID to number for mock data lookup
   const tournamentIdNum = parseInt(finalTournamentId, 10);
-  const baseData = mockOhlcv[tournamentIdNum] ?? mockOhlcv[1];
+  const baseData = mockOhlcvById[tournamentIdNum] ?? mockOhlcv;
 
   const ohlcv = useMemo(() => computeOhlcv(baseData, timeframe), [
     baseData,

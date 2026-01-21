@@ -62,7 +62,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
   };
 
   return (
-    <div className="relative glass-card rounded-2xl p-8 max-w-sm w-full min-h-[600px] antialiased">
+    <div className="relative glass-card-gold rounded-2xl p-8 max-w-sm w-full min-h-[600px] antialiased">
       <div
         className={`
           absolute inset-0 p-8 overflow-y-auto

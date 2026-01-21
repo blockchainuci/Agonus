@@ -97,6 +97,34 @@ body {
 
 }
 
+/* Glass Card - Glassmorphism card styling */
+.glass-card {
+  background: linear-gradient(135deg, rgba(0, 29, 61, 0.8) 0%, rgba(0, 53, 102, 0.6) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Glass Card with Gold accent - for User Profile */
+.glass-card-gold {
+  background: linear-gradient(135deg, rgba(0, 29, 61, 0.9) 0%, rgba(0, 53, 102, 0.7) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 2px solid rgba(255, 215, 0, 0.3);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(255, 215, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Gold Glow effect */
+.glow-gold {
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), 0 0 40px rgba(255, 215, 0, 0.2);
+}
+
 /* --- Intro overlay keyframes --- */
 @keyframes introOut {
   50% {

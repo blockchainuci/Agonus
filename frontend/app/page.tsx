@@ -1,4 +1,4 @@
-import Hero from './components/Hero';
+import Hero from './components/hero/Hero';
 import HowItWorks from './components/HowItWorks';
 import FeaturedAgents from './components/FeaturedAgents';
 import Tournaments from './components/Tournaments';

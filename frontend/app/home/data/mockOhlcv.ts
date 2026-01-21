@@ -1,4 +1,14 @@
-import { UTCTimestamp } from "lightweight-charts";
+import { UTCTimestamp, Time } from "lightweight-charts";
+
+// Type for OHLC candle data
+export interface OhlcCandle {
+  time: UTCTimestamp | Time;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+}
 
 // Tournament 5 - LIVE (higher prices, trending up)
 export const mockOhlcv5 = [
@@ -88,3 +98,11 @@ export function getOhlcvByTournament(tournamentId: number) {
 
 // Default export for backwards compatibility
 export const mockOhlcv = mockOhlcv5;
+
+// Indexed object for ID-based lookup
+export const mockOhlcvById: Record<number, OhlcCandle[]> = {
+  1: mockOhlcv5,
+  4: mockOhlcv4,
+  5: mockOhlcv5,
+  6: mockOhlcv6,
+};

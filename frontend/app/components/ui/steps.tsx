@@ -1,11 +1,10 @@
 'use client';
 
-import { motion, useScroll, useTransform, useInView, useMotionValueEvent, MotionValue } from 'framer-motion';
+import { motion, useScroll, useTransform, useInView, MotionValue } from 'framer-motion';
 import { useRef, useState, useEffect } from 'react';
 import { Trophy } from 'lucide-react';
 import {
   spacing,
-  components,
   typography,
   effects,
 } from '../../design-tokens';
@@ -364,9 +363,8 @@ function AnimatedMoneyIcon({ activated, hasPlayedBurst, onBurstComplete }: {
       {/* MONEY BURST - only plays once on activation */}
       {showBurst && (
         <>
-          {[...Array(8)].map((_, i) => {
+          {[55, 65, 70, 60, 58, 72, 62, 68].map((distance, i) => {
             const angle = (i / 8) * Math.PI * 2;
-            const distance = 50 + Math.random() * 30;
             return (
               <motion.div
                 key={i}
@@ -387,9 +385,8 @@ function AnimatedMoneyIcon({ activated, hasPlayedBurst, onBurstComplete }: {
             );
           })}
           {/* Coins */}
-          {[...Array(6)].map((_, i) => {
+          {[45, 52, 48, 55, 42, 50].map((distance, i) => {
             const angle = (i / 6) * Math.PI * 2 + 0.3;
-            const distance = 40 + Math.random() * 20;
             return (
               <motion.div
                 key={`coin-${i}`}
