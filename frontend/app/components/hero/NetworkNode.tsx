@@ -4,15 +4,15 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 
 interface NetworkNodeProps {
-  id: number;
-  icon: React.ReactNode;
-  label: string;
-  tooltip: string;
-  position: { x: number; y: number };
-  delay: number;
-  isVisible: boolean;
-  onHover: (id: number | null) => void;
-  isHighlighted: boolean;
+  id: number;//unique node id for hover/highlight logic
+  icon: React.ReactNode;//icon graphic rendered inside bubble
+  label: string;//text under bubble
+  tooltip: string; //tooltip text shown on hover
+  position: { x: number; y: number }; //where to place on hero (%based)
+  delay: number; //stagger animation timing across nodes
+  isVisible: boolean; //trigger entrance (scale 0 -> 1)
+  onHover: (id: number | null) => void;//tells parents which node is hovered
+  isHighlighted: boolean;//active or not
 }
 
 export default function NetworkNode({
@@ -29,11 +29,13 @@ export default function NetworkNode({
   const [showTooltip, setShowTooltip] = useState(false);
 
   const handleMouseEnter = () => {
+    // Highlight node and show tooltip on hover.
     setShowTooltip(true);
     onHover(id);
   };
 
   const handleMouseLeave = () => {
+    // Reset highlight on leave.
     setShowTooltip(false);
     onHover(null);
   };
@@ -69,9 +71,11 @@ export default function NetworkNode({
   };
 
   return (
+    //outer wrapping absolute positioning in hero
     <motion.div
       className="absolute cursor-pointer"
       style={{
+        // Places node within the hero grid.
         left: `${position.x}%`,
         top: `${position.y}%`,
         transform: 'translate(-50%, -50%)',
@@ -82,6 +86,7 @@ export default function NetworkNode({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
+      {/* Pulsing rings create ambient activity. */}
       {/* Outer pulse rings */}
       <motion.div
         className="absolute inset-0 rounded-full bg-[#FFD700]/20"
@@ -97,6 +102,7 @@ export default function NetworkNode({
         transition={{ delay: 0.5 }}
       />
 
+      {/* Main node bubble with icon. */}
       {/* Main node container */}
       <motion.div
         className={`
@@ -121,6 +127,7 @@ export default function NetworkNode({
           {icon}
         </div>
 
+        {/* Active dot reinforces "live" status. */}
         {/* Active indicator dot */}
         <motion.div
           className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#FFD700]"
@@ -136,6 +143,7 @@ export default function NetworkNode({
         />
       </motion.div>
 
+      {/* Label anchors the node's meaning. */}
       {/* Label */}
       <motion.span
         className="absolute top-full mt-2 left-1/2 -translate-x-1/2 text-xs text-white/70 whitespace-nowrap font-medium"
@@ -146,6 +154,7 @@ export default function NetworkNode({
         {label}
       </motion.span>
 
+      {/* Tooltip explains the node on hover. */}
       {/* Tooltip */}
       <motion.div
         className={`

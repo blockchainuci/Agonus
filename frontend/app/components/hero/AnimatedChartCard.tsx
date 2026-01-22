@@ -1,17 +1,19 @@
 'use client';
 
+// Floating glass card used in the hero background.
 import { motion, useAnimation } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
+// Props from the hero section to position and highlight the card.
 interface AnimatedChartCardProps {
-  type: 'line' | 'bar';
-  title: string;
-  position: 'left' | 'right';
-  delay: number;
-  isVisible: boolean;
-  isHighlighted: boolean;
-  onHover: (isHovered: boolean) => void;
-  connectedRouteIndex: number;
+  type: 'line' | 'bar'; // Chart type to render.
+  title: string; // Header label.
+  position: 'left' | 'right'; // Screen side placement.
+  delay: number; // Staggered entrance timing.
+  isVisible: boolean; // Triggers entrance animation.
+  isHighlighted: boolean; // External highlight state.
+  onHover: (isHovered: boolean) => void; // Notify parent for route highlight.
+  connectedRouteIndex: number; // Connected route index (used by parent).
 }
 
 export default function AnimatedChartCard({
@@ -26,12 +28,14 @@ export default function AnimatedChartCard({
   const controls = useAnimation();
   const [isHovered, setIsHovered] = useState(false);
 
+  // Start entrance when the hero section becomes visible.
   useEffect(() => {
     if (isVisible) {
       controls.start('visible');
     }
   }, [isVisible, controls]);
 
+  // Slide/fade in from the side with a slight 3D turn.
   const cardVariants = {
     hidden: {
       x: position === 'left' ? -100 : 100,
@@ -51,11 +55,13 @@ export default function AnimatedChartCard({
   };
 
   const handleMouseEnter = () => {
+    // Highlight card and connected route.
     setIsHovered(true);
     onHover(true);
   };
 
   const handleMouseLeave = () => {
+    // Remove highlight on exit.
     setIsHovered(false);
     onHover(false);
   };
@@ -65,7 +71,7 @@ export default function AnimatedChartCard({
       className={`
         absolute
         ${position === 'left' ? 'left-[5%]' : 'right-[5%]'}
-        ${position === 'left' ? 'top-[25%]' : 'top-[35%]'}
+        ${position === 'left' ? 'top-[25%]' : 'top-[60%]'}
         w-48 h-32 perspective-1000
       `}
       initial="hidden"
@@ -86,35 +92,28 @@ export default function AnimatedChartCard({
             : 'border-white/10 shadow-xl'
           }
         `}
+        // Subtle 3D tilt for depth on hover.
         whileHover={{
           rotateX: 5,
           rotateY: position === 'left' ? 10 : -10,
           scale: 1.05,
         }}
-        style={{
-          transformStyle: 'preserve-3d',
-        }}
+        style={{ transformStyle: 'preserve-3d' }}
         transition={{ duration: 0.3 }}
       >
-        {/* Card header */}
+        {/* Header bar with live indicator dot. */}
         <div className="px-3 py-2 border-b border-white/10">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-white/70">{title}</span>
             <motion.div
               className="w-2 h-2 rounded-full bg-green-400"
-              animate={{
-                scale: [1, 1.3, 1],
-                opacity: [1, 0.7, 1],
-              }}
-              transition={{
-                duration: 1,
-                repeat: Infinity,
-              }}
+              animate={{ scale: [1, 2.4, 1], opacity: [1, 0.6, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
             />
           </div>
         </div>
 
-        {/* Chart area */}
+        {/* Chart body: line or bars. */}
         <div className="p-3 h-[calc(100%-2rem)]">
           {type === 'line' ? (
             <LineChart isActive={isHighlighted || isHovered} />
@@ -123,7 +122,7 @@ export default function AnimatedChartCard({
           )}
         </div>
 
-        {/* Shine effect on hover */}
+        {/* Shine sweep to emphasize hover. */}
         <motion.div
           className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
           initial={{ x: '-100%' }}
@@ -135,9 +134,10 @@ export default function AnimatedChartCard({
   );
 }
 
+// SVG line chart used inside the card.
 function LineChart({ isActive }: { isActive: boolean }) {
   const points = [
-    { x: 0, y: 60 },
+    { x: 10, y: 60 },
     { x: 20, y: 45 },
     { x: 40, y: 55 },
     { x: 60, y: 30 },
@@ -147,15 +147,16 @@ function LineChart({ isActive }: { isActive: boolean }) {
     { x: 140, y: 15 },
   ];
 
+  // Path for the line and its filled area.
   const pathD = points
     .map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`))
     .join(' ');
-
   const areaD = `${pathD} L 140 70 L 0 70 Z`;
 
   return (
     <svg className="w-full h-full" viewBox="0 0 150 75" preserveAspectRatio="none">
       <defs>
+        {/* Gold gradients match brand accent. */}
         <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#FFD700" stopOpacity="0.8" />
           <stop offset="100%" stopColor="#FFD700" stopOpacity="1" />
@@ -166,7 +167,7 @@ function LineChart({ isActive }: { isActive: boolean }) {
         </linearGradient>
       </defs>
 
-      {/* Grid lines */}
+      {/* Grid adds depth and scale. */}
       {[0, 25, 50].map((y) => (
         <line
           key={y}
@@ -179,7 +180,7 @@ function LineChart({ isActive }: { isActive: boolean }) {
         />
       ))}
 
-      {/* Area under line */}
+      {/* Area glow under the line. */}
       <motion.path
         d={areaD}
         fill="url(#areaGradient)"
@@ -188,7 +189,7 @@ function LineChart({ isActive }: { isActive: boolean }) {
         transition={{ delay: 0.3, duration: 0.5 }}
       />
 
-      {/* Main line */}
+      {/* Draw the line on entrance. */}
       <motion.path
         d={pathD}
         fill="none"
@@ -200,7 +201,7 @@ function LineChart({ isActive }: { isActive: boolean }) {
         transition={{ duration: 1, delay: 0.2 }}
       />
 
-      {/* Animated dot that moves along the line */}
+      {/* Moving dot signals "live" activity. */}
       {isActive && (
         <motion.circle
           r="4"
@@ -211,7 +212,7 @@ function LineChart({ isActive }: { isActive: boolean }) {
         </motion.circle>
       )}
 
-      {/* Data points */}
+      {/* Points add detail along the line. */}
       {points.map((p, i) => (
         <motion.circle
           key={i}
@@ -228,9 +229,10 @@ function LineChart({ isActive }: { isActive: boolean }) {
   );
 }
 
+// SVG bar chart used inside the card.
 function BarChart({ isActive }: { isActive: boolean }) {
   const bars = [
-    { height: 40, color: '#FFD700' },
+    { height: 70, color: '#FFD700' },
     { height: 60, color: '#FFD700' },
     { height: 35, color: '#FFD700' },
     { height: 75, color: '#FFD700' },
@@ -241,13 +243,14 @@ function BarChart({ isActive }: { isActive: boolean }) {
   return (
     <svg className="w-full h-full" viewBox="0 0 150 75" preserveAspectRatio="none">
       <defs>
+        {/* Vertical gradient for bar depth. */}
         <linearGradient id="barGradient" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#FFD700" stopOpacity="1" />
           <stop offset="100%" stopColor="#FFD700" stopOpacity="0.4" />
         </linearGradient>
       </defs>
 
-      {/* Grid lines */}
+      {/* Grid adds depth and scale. */}
       {[0, 25, 50].map((y) => (
         <line
           key={y}
@@ -260,7 +263,7 @@ function BarChart({ isActive }: { isActive: boolean }) {
         />
       ))}
 
-      {/* Bars */}
+      {/* Bars grow in and pulse when active. */}
       {bars.map((bar, i) => (
         <motion.g key={i}>
           <motion.rect
@@ -278,17 +281,13 @@ function BarChart({ isActive }: { isActive: boolean }) {
             transition={{
               scaleY: { delay: 0.2 + i * 0.08, duration: 0.4 },
               opacity: isActive
-                ? {
-                    duration: 1,
-                    repeat: Infinity,
-                    delay: i * 0.1,
-                  }
+                ? { duration: 1, repeat: Infinity, delay: i * 0.1 }
                 : {},
             }}
             style={{ transformOrigin: 'bottom' }}
           />
 
-          {/* Value indicator on hover */}
+          {/* Values show only when active. */}
           {isActive && (
             <motion.text
               x={19 + i * 23}

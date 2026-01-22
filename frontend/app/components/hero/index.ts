@@ -1,3 +1,4 @@
+// Hero namespace re-exports for cleaner imports.
 export { default as Hero } from './Hero';
 export { default as PlayRoutes } from './PlayRoutes';
 export { default as NetworkNode } from './NetworkNode';

@@ -223,11 +223,6 @@ export default function Tournaments() {
           </p>
         </motion.div>
 
-        {/* Featured Countdown Section */}
-        {featuredTournament && (
-          <FeaturedCountdown tournament={featuredTournament} />
-        )}
-
         {/* Tournament Carousel - shows remaining tournaments */}
         {displayTournaments.length > 1 && (
           <>
@@ -238,8 +233,7 @@ export default function Tournaments() {
               viewport={{ once: true }}
               transition={{ duration: 0.4 }}
             >
-              <h3 className="text-xl font-semibold text-white mb-2">More Tournaments</h3>
-              <p className="text-gray-400 text-sm">Browse all upcoming and live competitions</p>
+      
             </motion.div>
 
             <motion.div

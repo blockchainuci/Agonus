@@ -2,21 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Trophy, Users, Clock, Zap, Bell, Mail, Phone, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trophy, Users, Zap, Bell, Mail, Phone, X } from 'lucide-react';
 import { Tournament } from './ui/tournaments';
 import { effects } from '../design-tokens';
 
 interface TournamentCarouselProps {
   tournaments: Tournament[];
-}
-
-function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }
 
 // Live countdown hook
@@ -57,7 +48,18 @@ function CompactCountdown({ targetDate, label }: { targetDate: string; label: st
   const { days, hours, minutes, seconds, expired } = useCountdown(targetDate);
 
   if (expired) {
-    return <span className="text-gray-400 text-sm">Ended</span>;
+    return (
+      <div className="flex flex-col items-center">
+        <span className="text-xs text-gray-400 mb-2">{label}</span>
+        <div className="flex items-center gap-0.5">
+          <span className="text-gray-300 font-mono font-bold text-2xl">00</span>
+          <span className="text-gray-300 font-bold text-2xl">:</span>
+          <span className="text-gray-300 font-mono font-bold text-2xl">00</span>
+          <span className="text-gray-300 font-bold text-2xl">:</span>
+          <span className="text-gray-300 font-mono font-bold text-2xl">00</span>
+        </div>
+      </div>
+    );
   }
 
   // Calculate total hours including days
@@ -386,10 +388,7 @@ function TournamentCard({ tournament, isActive }: { tournament: Tournament; isAc
             ) : tournament.status === 'UPCOMING' ? (
               <CompactCountdown targetDate={tournament.start_time} label="Starts In" />
             ) : (
-              <div className="text-center text-gray-400">
-                <Clock className="w-5 h-5 mx-auto mb-1" />
-                <span className="text-sm">Ended {formatDate(tournament.end_time)}</span>
-              </div>
+              <CompactCountdown targetDate={tournament.end_time} label="Ends In" />
             )}
           </div>
 

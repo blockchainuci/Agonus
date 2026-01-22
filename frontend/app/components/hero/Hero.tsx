@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef, useState } from 'react';
-import { ConnectWallet } from '@/src/components/ConnectWallet';
 import PlayRoutes from './PlayRoutes';
 import NetworkNode, {
   AgentIcon,
@@ -14,7 +13,7 @@ import NetworkNode, {
 } from './NetworkNode';
 import AnimatedChartCard from './AnimatedChartCard';
 
-// Pre-generated particle positions (deterministic to avoid lint errors)
+// Ambient particles for the hero background.
 const PARTICLES = [
   { id: 0, left: 12, top: 23, duration: 3.5, delay: 0.2 },
   { id: 1, left: 45, top: 67, duration: 4.1, delay: 0.8 },
@@ -38,42 +37,42 @@ const PARTICLES = [
   { id: 19, left: 95, top: 85, duration: 4.9, delay: 1.0 },
 ];
 
-// Node configuration data
+// Node positions for the interactive network layer.
 const nodes = [
   {
     id: 0,
     icon: <AgentIcon />,
     label: 'AI Agents',
     tooltip: 'Autonomous trading agents',
-    position: { x: 25, y: 30 },
+    position: { x: 22, y: 30 },
   },
   {
     id: 1,
     icon: <ChartIcon />,
     label: 'Analytics',
     tooltip: 'Real-time performance metrics',
-    position: { x: 75, y: 25 },
+    position: { x: 73, y: 14 },
   },
   {
     id: 2,
     icon: <WalletIcon />,
     label: 'Wallet',
     tooltip: 'Secure Web3 integration',
-    position: { x: 15, y: 55 },
+    position: { x: 13, y: 50 },
   },
   {
     id: 3,
     icon: <TrophyIcon />,
     label: 'Tournaments',
     tooltip: 'Compete for prizes',
-    position: { x: 85, y: 60 },
+    position: { x: 85, y: 44 },
   },
   {
     id: 4,
     icon: <BetIcon />,
     label: 'Betting',
     tooltip: 'Place strategic bets',
-    position: { x: 22, y: 75 },
+    position: { x: 21, y: 90 },
   },
 ];
 
@@ -88,14 +87,14 @@ export default function Hero() {
     offset: ['start start', 'end start'],
   });
 
-  // Parallax transforms
+  // Parallax transforms for background layers.
   const y1 = useTransform(scrollYProgress, [0, 1], [0, 200]);
   const y2 = useTransform(scrollYProgress, [0, 1], [0, 100]);
   const opacity = useTransform(scrollYProgress, [0, 0.5, 1], [1, 0.8, 0]);
 
 
 
-  // Map node hover to route highlight
+  // Map hovered nodes/cards to route highlights.
   const getHighlightedRoute = () => {
     if (hoveredNode !== null) {
       // Map nodes to routes
@@ -119,6 +118,7 @@ export default function Hero() {
       ref={ref}
       className="relative flex flex-col items-center justify-center text-center overflow-hidden min-h-screen"
       style={{
+        // Deep blue gradient sets the hero mood.
         background: 'linear-gradient(180deg, #0a1929 0%, #0A2540 50%, #0a1929 100%)',
       }}
     >
@@ -226,28 +226,12 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 0.1 }}
           className="mb-6"
         >
-          {/* Badge */}
-          <motion.div
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/30 mb-6"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            <motion.span
-              className="w-2 h-2 rounded-full bg-[#FFD700]"
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
-            <span className="text-sm font-medium text-[#FFD700]">
-              Live Tournament Active
-            </span>
-          </motion.div>
 
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-4">
-            <span className="text-white">Fantasy Football</span>
+            <span className="text-white">Trusting the Algorithm,</span>
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] to-[#FFA500]">
-              for AI Traders
+              Not my Intuition
             </span>
           </h1>
         </motion.div>
@@ -292,7 +276,7 @@ export default function Hero() {
             </svg>
           </Link>
 
-          <ConnectWallet variant="hero" />
+          
         </motion.div>
 
         {/* Stats row */}

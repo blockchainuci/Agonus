@@ -58,6 +58,7 @@ const PlayRoutes = forwardRef<PlayRoutesRef, PlayRoutesProps>(
     }));
 
     useEffect(() => {
+      // Draw routes when the hero becomes visible.
       if (isVisible) {
         // Start drawing routes at 0.3s
         controls.start('visible');
@@ -108,6 +109,7 @@ const PlayRoutes = forwardRef<PlayRoutesRef, PlayRoutesProps>(
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
+          {/* Glow for highlighted routes. */}
           {/* Glow filter for highlighted routes */}
           <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -117,6 +119,7 @@ const PlayRoutes = forwardRef<PlayRoutesRef, PlayRoutesProps>(
             </feMerge>
           </filter>
 
+          {/* Gold gradient for route strokes. */}
           {/* Gradient for routes */}
           <linearGradient id="routeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#FFD700" stopOpacity="0.3" />
@@ -124,6 +127,7 @@ const PlayRoutes = forwardRef<PlayRoutesRef, PlayRoutesProps>(
             <stop offset="100%" stopColor="#FFD700" stopOpacity="0.3" />
           </linearGradient>
 
+          {/* Ball shading for depth. */}
           {/* Ball gradient */}
           <radialGradient id="ballGradient" cx="30%" cy="30%">
             <stop offset="0%" stopColor="#FFF4CC" />
@@ -132,6 +136,7 @@ const PlayRoutes = forwardRef<PlayRoutesRef, PlayRoutesProps>(
           </radialGradient>
         </defs>
 
+        {/* Animated play routes in the background. */}
         {/* Draw routes */}
         {routes.map((route, index) => (
           <g key={index}>
@@ -148,6 +153,7 @@ const PlayRoutes = forwardRef<PlayRoutesRef, PlayRoutesProps>(
               custom={index}
             />
 
+            {/* Bright overlay when hovered/linked. */}
             {/* Highlighted route overlay */}
             <motion.path
               d={route.path}
@@ -164,6 +170,7 @@ const PlayRoutes = forwardRef<PlayRoutesRef, PlayRoutesProps>(
               transition={{ duration: 0.3 }}
             />
 
+            {/* Moving dot to imply motion along the route. */}
             {/* Animated moving dot along route (shows on highlight) */}
             {highlightedRoute === index && (
               <motion.circle
@@ -183,6 +190,7 @@ const PlayRoutes = forwardRef<PlayRoutesRef, PlayRoutesProps>(
           </g>
         ))}
 
+        {/* Center "football" marker. */}
         {/* Center ball (quarterback position) */}
         <motion.g
           initial="hidden"
@@ -261,6 +269,7 @@ const PlayRoutes = forwardRef<PlayRoutesRef, PlayRoutesProps>(
           </motion.g>
         </motion.g>
 
+        {/* Expanding rings reinforce the center focus. */}
         {/* Pulse rings from ball (shows after ball appears) */}
         {isVisible && (
           <>
