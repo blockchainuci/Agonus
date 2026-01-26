@@ -113,7 +113,7 @@ export default function CenteredAgentCarousel({
       {/* -------------------------
            TOP — CENTERED AGENT CARD
          ------------------------- */}
-      <div className="max-w-[420px] w-full perspective-[1400px]">
+      <div className="max-w-[720px] w-full perspective-[1400px]">
         <AnimatePresence mode="wait">
           <motion.div
             key={agent.id}

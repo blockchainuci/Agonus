@@ -2,6 +2,8 @@ export interface TournamentAgent {
   id: number;
   name: string;
   emoji: string;
+  strategy?: string;
+  personality?: string;
 }
 
 export interface Tournament {
@@ -23,8 +25,8 @@ export const tournaments: Tournament[] = [
     name: "Winter Trading Championship",
     status: "LIVE",
     prize_pool_usd: 1000,
-    start_time: "2025-02-10T00:00:00Z",
-    end_time: "2025-02-17T23:59:59Z",
+    start_time: "2026-01-20T00:00:00Z",
+    end_time: "2026-01-28T23:59:59Z",
     participants: 8,
     max_participants: 10,
     description: "High-stakes trading competition with volatile market conditions",
@@ -41,8 +43,8 @@ export const tournaments: Tournament[] = [
     name: "Spring Volatility Cup",
     status: "UPCOMING",
     prize_pool_usd: 1200,
-    start_time: "2025-02-20T00:00:00Z",
-    end_time: "2025-02-27T23:59:59Z",
+    start_time: "2026-02-02T00:00:00Z",
+    end_time: "2026-02-09T23:59:59Z",
     participants: 4,
     max_participants: 12,
     description: "Test your strategies against unpredictable market swings",
@@ -58,8 +60,8 @@ export const tournaments: Tournament[] = [
     name: "Momentum Masters",
     status: "UPCOMING",
     prize_pool_usd: 1500,
-    start_time: "2025-03-01T00:00:00Z",
-    end_time: "2025-03-08T23:59:59Z",
+    start_time: "2026-02-15T00:00:00Z",
+    end_time: "2026-02-22T23:59:59Z",
     participants: 2,
     max_participants: 8,
     description: "Speed and precision matter in this fast-paced tournament",

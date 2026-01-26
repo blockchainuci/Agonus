@@ -44,14 +44,14 @@ const nodes = [
     icon: <AgentIcon />,
     label: 'AI Agents',
     tooltip: 'Autonomous trading agents',
-    position: { x: 22, y: 30 },
+    position: { x: 22, y: 35 },
   },
   {
     id: 1,
     icon: <ChartIcon />,
     label: 'Analytics',
     tooltip: 'Real-time performance metrics',
-    position: { x: 73, y: 14 },
+    position: { x: 73, y: 25 },
   },
   {
     id: 2,
@@ -65,14 +65,14 @@ const nodes = [
     icon: <TrophyIcon />,
     label: 'Tournaments',
     tooltip: 'Compete for prizes',
-    position: { x: 85, y: 44 },
+    position: { x: 82, y: 46 },
   },
   {
     id: 4,
     icon: <BetIcon />,
     label: 'Betting',
     tooltip: 'Place strategic bets',
-    position: { x: 21, y: 90 },
+    position: { x: 20, y: 80 },
   },
 ];
 
@@ -114,34 +114,14 @@ export default function Hero() {
 
   return (
     <section
-      id="home"
       ref={ref}
-      className="relative flex flex-col items-center justify-center text-center overflow-hidden min-h-screen"
-      style={{
-        // Deep blue gradient sets the hero mood.
-        background: 'linear-gradient(180deg, #0a1929 0%, #0A2540 50%, #0a1929 100%)',
-      }}
+      className="relative flex flex-col items-center justify-start text-center overflow-hidden min-h-[140vh] pt-24 md:pt-32"
     >
       {/* ========== LAYER 1: Background ========== */}
       <motion.div
         className="absolute inset-0 pointer-events-none"
         style={{ y: y1 }}
       >
-        {/* Radial glow */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,215,0,0.08),transparent_60%)]" />
-
-        {/* Subtle grid pattern */}
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(255,215,0,0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,215,0,0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: '50px 50px',
-          }}
-        />
-
         {/* Ambient particles */}
         {PARTICLES.map((particle) => (
           <motion.div
@@ -255,7 +235,7 @@ export default function Hero() {
           className="flex flex-col sm:flex-row gap-4 justify-center"
         >
           <Link
-            href="/tournaments"
+            href="/home"
             className="group relative inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-[#0A2540] font-semibold px-8 py-4 shadow-[0_0_25px_rgba(255,215,0,0.4)] transition-all duration-300 hover:shadow-[0_0_35px_rgba(255,215,0,0.6)] overflow-hidden"
           >
             {/* Shine effect */}
@@ -279,31 +259,45 @@ export default function Hero() {
           
         </motion.div>
 
-        {/* Stats row */}
+        {/* Floating stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.7 }}
-          className="flex flex-wrap justify-center gap-8 md:gap-12 mt-12"
+          className="relative h-[200px] mt-16"
         >
-          {[
-            { value: '50+', label: 'AI Agents' },
-            { value: '$1.2M', label: 'Total Prizes' },
-            { value: '10K+', label: 'Active Users' },
-          ].map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 + i * 0.1 }}
-            >
-              <div className="text-3xl md:text-4xl font-bold text-[#FFD700]">
-                {stat.value}
-              </div>
-              <div className="text-sm text-gray-400">{stat.label}</div>
-            </motion.div>
-          ))}
+          <motion.div
+            className="absolute top-0 left-[8%] md:left-[15%]"
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <div className="glass-card rounded-full px-6 py-3 flex items-center gap-3">
+              <span className="text-[#FFD700] font-bold text-xl">$50K+</span>
+              <span className="text-gray-400 text-sm">Prize Pools</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="absolute top-[18%] right-[8%] md:right-[12%]"
+            animate={{ y: [0, 12, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+          >
+            <div className="glass-card rounded-full px-6 py-3 flex items-center gap-3">
+              <span className="text-white font-bold text-xl">24+</span>
+              <span className="text-gray-400 text-sm">AI Agents</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="absolute bottom-0 left-1/2 -translate-x-1/2"
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+          >
+            <div className="glass-card rounded-full px-6 py-3 flex items-center gap-3">
+              <span className="text-white font-bold text-xl">1,000+</span>
+              <span className="text-gray-400 text-sm">Trades Daily</span>
+            </div>
+          </motion.div>
         </motion.div>
       </motion.div>
 

@@ -2,7 +2,6 @@
 // Use this until backend endpoints are ready
 
 import {
-  Tournament,
   TournamentStatus,
   Agent,
   AgentState,

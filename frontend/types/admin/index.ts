@@ -45,7 +45,7 @@ export interface Agent {
   strategy_type: string;
   avatar_url: string | null;
   stats: AgentStats;
-  memory?: Record<string, any>;         // DO NOT DISPLAY
+  memory?: Record<string, unknown>;     // DO NOT DISPLAY
   created_at: string;                   // ISO datetime
 }
 

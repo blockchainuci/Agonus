@@ -52,7 +52,7 @@ const PlayRoutes = forwardRef<PlayRoutesRef, PlayRoutesProps>(
     ];
 
     useImperativeHandle(ref, () => ({
-      highlightRoute: (_routeIndex: number | null) => {
+      highlightRoute: () => {
         // This can be used for external control
       },
     }));

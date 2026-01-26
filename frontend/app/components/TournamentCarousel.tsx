@@ -4,11 +4,69 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Trophy, Users, Zap, Bell, Mail, Phone, X } from 'lucide-react';
 import { Tournament } from './ui/tournaments';
-import { effects } from '../design-tokens';
 
 interface TournamentCarouselProps {
   tournaments: Tournament[];
 }
+
+const agentDetails: Record<string, { strategy: string; personality: string }> = {
+  AlphaBot: {
+    strategy: 'Momentum',
+    personality: 'Aggressive trend chaser focused on breakouts.',
+  },
+  TrendHunter: {
+    strategy: 'Trend Following',
+    personality: 'Rides winning moves until signal reversal.',
+  },
+  WhaleWatch: {
+    strategy: 'Liquidity Sniper',
+    personality: 'Tracks large flows to front-run momentum.',
+  },
+  MomentumX: {
+    strategy: 'High Velocity',
+    personality: 'Fast entries and exits, low patience.',
+  },
+  DeepValue: {
+    strategy: 'Value',
+    personality: 'Patient, waits for asymmetric value.',
+  },
+  SwingTrader: {
+    strategy: 'Swing',
+    personality: 'Holds for multi-day momentum shifts.',
+  },
+  VolBot: {
+    strategy: 'Volatility',
+    personality: 'Thrives on rapid swings and spikes.',
+  },
+  RiskMaster: {
+    strategy: 'Risk Parity',
+    personality: 'Balances risk across positions.',
+  },
+  SpeedDemon: {
+    strategy: 'Scalping',
+    personality: 'Takes tiny profits at high frequency.',
+  },
+  FlashTrader: {
+    strategy: 'Momentum',
+    personality: 'Explosive entries on fast moves.',
+  },
+  QuickSilver: {
+    strategy: 'Arbitrage',
+    personality: 'Finds tiny inefficiencies at speed.',
+  },
+  Champion: {
+    strategy: 'Balanced',
+    personality: 'Consistent, low drawdown approach.',
+  },
+  SilverStar: {
+    strategy: 'Mean Reversion',
+    personality: 'Buys dips, sells fades.',
+  },
+  BronzeBeast: {
+    strategy: 'Contrarian',
+    personality: 'Fades crowded trades with conviction.',
+  },
+};
 
 // Live countdown hook
 function useCountdown(targetDate: string) {
@@ -43,7 +101,7 @@ function calculateTimeLeft(targetDate: string) {
   };
 }
 
-// Compact Countdown Display Component (00:00:00 format)
+// Compact Countdown Display Component (DD:HH:MM:SS format)
 function CompactCountdown({ targetDate, label }: { targetDate: string; label: string }) {
   const { days, hours, minutes, seconds, expired } = useCountdown(targetDate);
 
@@ -62,22 +120,29 @@ function CompactCountdown({ targetDate, label }: { targetDate: string; label: st
     );
   }
 
-  // Calculate total hours including days
-  const totalHours = days * 24 + hours;
-  const displayHours = totalHours > 99 ? 99 : totalHours;
-
   return (
     <div className="flex flex-col items-center">
       <span className="text-xs text-gray-400 mb-2">{label}</span>
-      <div className="flex items-center gap-0.5">
-        {/* Hours (includes days) */}
+      <div className="flex items-center gap-1">
+        {/* Days */}
         <motion.span
-          key={`h-${displayHours}`}
+          key={`d-${days}`}
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-[#FFD700] font-mono font-bold text-2xl"
+          className="text-[#FFD700] font-mono font-bold text-3xl"
         >
-          {String(displayHours).padStart(2, '0')}
+          {String(days).padStart(2, '0')}
+        </motion.span>
+        <span className="text-[#FFD700] font-bold text-2xl animate-pulse">:</span>
+
+        {/* Hours */}
+        <motion.span
+          key={`h-${hours}`}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-[#FFD700] font-mono font-bold text-3xl"
+        >
+          {String(hours).padStart(2, '0')}
         </motion.span>
         <span className="text-[#FFD700] font-bold text-2xl animate-pulse">:</span>
 
@@ -86,7 +151,7 @@ function CompactCountdown({ targetDate, label }: { targetDate: string; label: st
           key={`m-${minutes}`}
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-[#FFD700] font-mono font-bold text-2xl"
+          className="text-[#FFD700] font-mono font-bold text-3xl"
         >
           {String(minutes).padStart(2, '0')}
         </motion.span>
@@ -98,10 +163,16 @@ function CompactCountdown({ targetDate, label }: { targetDate: string; label: st
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.15 }}
-          className="text-[#FFD700] font-mono font-bold text-2xl"
+          className="text-[#FFD700] font-mono font-bold text-3xl"
         >
           {String(seconds).padStart(2, '0')}
         </motion.span>
+      </div>
+      <div className="grid grid-cols-4 gap-1 mt-1 text-[11px] text-gray-400 uppercase tracking-wider w-full max-w-[210px]">
+        <span className="text-center">Days</span>
+        <span className="text-center">Hours</span>
+        <span className="text-center">Mins</span>
+        <span className="text-center">Secs</span>
       </div>
       {days > 0 && (
         <span className="text-xs text-gray-500 mt-1">
@@ -135,8 +206,21 @@ function AgentPreview({ agents, maxDisplay = 4 }: { agents?: Tournament['agents'
               {agent.emoji}
             </div>
             {/* Tooltip */}
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/90 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-              {agent.name}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-20 scale-95 group-hover:scale-100">
+              <div className="rounded-xl px-4 py-3 w-56 text-center bg-[#0A2540]/95 border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
+                <p className="text-white font-semibold text-sm mb-1">{agent.name}</p>
+                {(agent.strategy || agentDetails[agent.name]?.strategy) && (
+                  <p className="text-[#FFD700] text-xs font-medium mb-1">
+                    {agent.strategy || agentDetails[agent.name]?.strategy}
+                  </p>
+                )}
+                {(agent.personality || agentDetails[agent.name]?.personality) && (
+                  <p className="text-gray-400 text-xs leading-relaxed line-clamp-2">
+                    {agent.personality || agentDetails[agent.name]?.personality}
+                  </p>
+                )}
+              </div>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white/10" />
             </div>
           </motion.div>
         ))}
@@ -305,9 +389,7 @@ function NotifyModal({
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      {notifyMethod === 'email' ? 'Email Address' : 'Phone Number'}
-                    </label>
+                    
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         {notifyMethod === 'email' ? (
@@ -358,12 +440,12 @@ function TournamentCard({ tournament, isActive }: { tournament: Tournament; isAc
   return (
     <>
       <motion.div
-        className={`relative flex-shrink-0 w-full max-w-md mx-auto ${effects.rounded.xl} overflow-hidden
+        className={`relative flex-shrink-0 w-full max-w-lg mx-auto rounded-3xl overflow-visible
           ${isActive ? 'scale-100 opacity-100' : 'scale-95 opacity-60'}
           transition-all duration-300`}
       >
         {/* Card Background */}
-        <div className={`${effects.glass.medium} border border-white/10 p-6 h-full`}>
+        <div className="rounded-3xl bg-[#0A2540]/80 border border-white/15 p-6 h-full min-h-[460px]">
           {/* Header */}
           <div className="flex items-start justify-between mb-4">
             <StatusBadge status={tournament.status} />
@@ -476,7 +558,7 @@ export default function TournamentCarousel({ tournaments }: TournamentCarouselPr
       </button>
 
       {/* Carousel Container */}
-      <div ref={containerRef} className="overflow-hidden px-8">
+      <div ref={containerRef} className="overflow-visible px-8">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentIndex}

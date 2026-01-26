@@ -5,12 +5,9 @@ import { motion } from 'framer-motion';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
 import {
-  createChart,
   type CandlestickData,
-  type HistogramData,
   type LineData,
   type Time,
-  type IChartApi,
 } from 'lightweight-charts';
 
 import {
@@ -161,6 +158,7 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
         timeScale: { timeVisible: true },
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const candleSeries = (chart as any).addCandlestickSeries({
         upColor: '#22c55e',
         downColor: '#ef4444',
@@ -173,6 +171,7 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
 
       /* ---------------- Volume ---------------- */
       if (toggles.volume) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const vol = (chart as any).addHistogramSeries({
           priceScaleId: 'volume',
           priceFormat: { type: 'volume' },
@@ -193,18 +192,21 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
 
       /* ---------------- Indicators ---------------- */
       if (toggles.sma) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (chart as any).addLineSeries({ color: '#60a5fa', lineWidth: 2 }).setData(
           calculateSMA(ohlcv)
         );
       }
 
       if (toggles.ema) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (chart as any).addLineSeries({ color: '#fbbf24', lineWidth: 2 }).setData(
           calculateEMA(ohlcv)
         );
       }
 
       if (toggles.vwap) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (chart as any).addLineSeries({ color: '#a855f7', lineWidth: 2 }).setData(
           calculateVWAP(ohlcv)
         );

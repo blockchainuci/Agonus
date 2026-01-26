@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, TrendingUp, TrendingDown, XCircle, Clock, Zap, Hourglass } from "lucide-react";
+import { useAccount } from "wagmi";
 
 import { mockBets } from "@/app/home/data/mockBets";
 import { mockTournaments } from "@/app/home/data/mockTournament";
@@ -49,6 +50,7 @@ const getAgentColor = (id: string) =>
 
 export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
   const [filter, setFilter] = useState<"active" | "past">("active");
+  const { isConnected } = useAccount();
 
   // ---------------------------------------
   // Tournament Status
@@ -134,15 +136,28 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
       {/* BETS LIST */}
       <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
         <AnimatePresence>
-          {displayed.map((bet, index) => (
+          {!isConnected ? (
             <motion.div
-              key={bet.id}
-              initial={{ opacity: 0, y: 20 }}
+              key="connect-placeholder"
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10"
+              exit={{ opacity: 0, y: -10 }}
+              className="bg-white/5 rounded-xl p-4 border border-white/10 text-center"
             >
+              <p className="text-sm text-gray-300">
+                Connect your wallet to place and view bets.
+              </p>
+            </motion.div>
+          ) : (
+            displayed.map((bet, index) => (
+              <motion.div
+                key={bet.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ delay: index * 0.05 }}
+                className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10"
+              >
 
               {/* TOP ROW */}
               <div className="flex items-center justify-between mb-3">
@@ -235,8 +250,9 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
                   )}
                 </div>
               )}
-            </motion.div>
-          ))}
+              </motion.div>
+            ))
+          )}
         </AnimatePresence>
       </div>
     </div>

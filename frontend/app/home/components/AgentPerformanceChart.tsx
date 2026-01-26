@@ -18,6 +18,7 @@ import {
   Activity,
   Coins,
   Info,
+  Percent,
 } from 'lucide-react';
 import type { UTCTimestamp, ISeriesApi, IChartApi } from 'lightweight-charts';
 import { useTournamentAgentStates } from '@/src/hooks/useAgentStates';
@@ -84,6 +85,7 @@ export default function AgentPerformanceChart({
   const [visibleAgents, setVisibleAgents] = useState<Set<string>>(new Set());
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AgentState | null>(null);
+  const [chartMode, setChartMode] = useState<'absolute' | 'relative'>('absolute');
   const chartRef = useRef<IChartApi | null>(null);
   const seriesMapRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
 
@@ -209,6 +211,7 @@ export default function AgentPerformanceChart({
         },
         rightPriceScale: {
           borderColor: 'rgba(255,255,255,0.1)' as string,
+          minimumWidth: 64,
         },
         crosshair: {
           mode: LightweightCharts.CrosshairMode.Normal,
@@ -228,7 +231,17 @@ export default function AgentPerformanceChart({
           visible: visibleAgents.has(line.agentId),
         });
 
-        series.setData(line.data);
+        // Transform data based on chart mode
+        let chartData = line.data;
+        if (chartMode === 'relative' && line.data.length > 0) {
+          const startValue = line.data[0].value;
+          chartData = line.data.map((point) => ({
+            time: point.time,
+            value: startValue !== 0 ? ((point.value - startValue) / startValue) * 100 : 0,
+          }));
+        }
+
+        series.setData(chartData);
         seriesMapRef.current.set(line.agentId, series);
       });
 
@@ -255,7 +268,7 @@ export default function AgentPerformanceChart({
       if (cleanup) cleanup();
       if (container) container.innerHTML = '';
     };
-  }, [performanceLines, isFullscreen, visibleAgents]);
+  }, [performanceLines, isFullscreen, visibleAgents, chartMode]);
 
   // Update visibility when visibleAgents changes
   useEffect(() => {
@@ -315,6 +328,34 @@ export default function AgentPerformanceChart({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Absolute/Relative Toggle */}
+            <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-0.5">
+              <button
+                onClick={() => setChartMode('absolute')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  chartMode === 'absolute'
+                    ? 'bg-[#FFD700] text-[#001D3D]'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                title="Show absolute USD values"
+              >
+                <DollarSign className="w-3.5 h-3.5 inline-block mr-1" />
+                USD
+              </button>
+              <button
+                onClick={() => setChartMode('relative')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  chartMode === 'relative'
+                    ? 'bg-[#FFD700] text-[#001D3D]'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                title="Show percentage change from start"
+              >
+                <Percent className="w-3.5 h-3.5 inline-block mr-1" />
+                Change
+              </button>
+            </div>
+
             {/* Agent Filter Dropdown */}
             <div className="relative">
               <button
@@ -448,10 +489,17 @@ export default function AgentPerformanceChart({
 
               <div>
                 <p className="text-xs text-gray-400 uppercase">
-                  Portfolio Value
+                  {chartMode === 'absolute' ? 'Portfolio Value' : 'Performance'}
                 </p>
                 <p className="text-lg font-bold text-[#FFD700]">
-                  ${topAgentValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  {chartMode === 'absolute'
+                    ? `$${topAgentValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                    : (() => {
+                        const startVal = topAgent?.data[0]?.value || 0;
+                        const pctChange = startVal !== 0 ? ((topAgentValue - startVal) / startVal) * 100 : 0;
+                        return `${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(2)}%`;
+                      })()
+                  }
                 </p>
               </div>
 

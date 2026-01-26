@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TournamentWithMetrics, TournamentStatus, AgentState } from "@/types/admin";
+import { TournamentWithMetrics, TournamentStatus } from "@/types/admin";
 import TournamentStatusBadge from "../common/TournamentStatusBadge";
 import { formatCurrency, formatDate } from "@/lib/utils/admin/formatters";
 import { motion, AnimatePresence } from "framer-motion";

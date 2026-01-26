@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import Navbar from "./Navbar";
+import LandingNavbar from "./nav/LandingNavbar";
+import DashboardNavbar from "./nav/DashboardNavbar";
 import Footer from "./Footer";
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
@@ -10,15 +11,29 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   // Check if we're on an admin route
   const isAdminRoute = pathname?.startsWith("/admin");
 
+  // Check if we're on the dashboard/home route
+  const isDashboardRoute = pathname === "/home";
+
   if (isAdminRoute) {
-    // Admin routes: no navbar/footer
+    // Admin routes: no navbar/footer (admin has its own sidebar)
     return <>{children}</>;
   }
 
-  // Regular routes: show navbar + footer
+  if (isDashboardRoute) {
+    // Dashboard route: use DashboardNavbar with section scroll
+    return (
+      <>
+        <DashboardNavbar />
+        <main className="min-h-screen pt-16">{children}</main>
+        <Footer />
+      </>
+    );
+  }
+
+  // Landing page and other routes: use LandingNavbar
   return (
     <>
-      <Navbar />
+      <LandingNavbar />
       <main className="min-h-screen">{children}</main>
       <Footer />
     </>

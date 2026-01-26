@@ -106,7 +106,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
               totalValue > 0 ? (portfolioValue / totalValue) * 100 : 0;
 
             // Get top asset from portfolio holdings
-            const holdings = (agentState.portfolio as any)?.holdings || {};
+            const holdings = (agentState.portfolio as { holdings?: Record<string, number> })?.holdings || {};
             const portfolioEntries = Object.entries(holdings) as [string, number][];
             const topAsset =
               portfolioEntries.length > 0
@@ -342,7 +342,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
 
               {/* Portfolio Holdings - Only show actual crypto holdings, not all portfolio fields */}
               {(() => {
-                const portfolio = selectedAgent.agentState.portfolio as any;
+                const portfolio = selectedAgent.agentState.portfolio as { holdings?: Record<string, number> };
                 const holdings = portfolio?.holdings || {};
                 const hasHoldings = Object.keys(holdings).length > 0;
 

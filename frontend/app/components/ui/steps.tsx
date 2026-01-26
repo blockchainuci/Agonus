@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, useScroll, useTransform, useInView, MotionValue } from 'framer-motion';
+import { motion, useScroll, useTransform, useInView, MotionValue, useSpring } from 'framer-motion';
 import { useRef, useState, useEffect } from 'react';
 import { Trophy } from 'lucide-react';
 import {
@@ -325,6 +325,7 @@ function AnimatedMoneyIcon({ activated, hasPlayedBurst, onBurstComplete }: {
 
   useEffect(() => {
     if (activated && !hasPlayedBurst) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowBurst(true);
       const timer = setTimeout(() => {
         setShowBurst(false);
@@ -495,22 +496,28 @@ function IconBubble({
 // ============================================
 // SVG PATH (Treasure map style)
 // ============================================
-function JourneyPath({ progress }: { progress: MotionValue<number> }) {
-  // Sharp zigzag path connecting all 4 steps
-  const pathD = `
-    M 50 20
-    L 50 60
-    Q 50 80, 30 100
-    L 30 160
-    Q 30 180, 50 200
-    L 70 220
-    Q 90 240, 70 260
-    L 70 320
-    Q 70 340, 50 360
-    L 50 400
-    Q 50 420, 30 440
-    L 30 500
-  `;
+const JOURNEY_PATH_D = `
+  M 50 20
+  L 50 60
+  Q 50 80, 30 100
+  L 30 160
+  Q 30 180, 50 200
+  L 70 220
+  Q 90 240, 70 260
+  L 70 320
+  Q 70 340, 50 360
+  L 50 400
+  Q 50 420, 30 440
+  L 30 500
+`;
+
+function JourneyPath({
+  progress,
+  pathRef,
+}: {
+  progress: MotionValue<number>;
+  pathRef: React.RefObject<SVGPathElement | null>;
+}) {
 
   return (
     <svg
@@ -521,7 +528,8 @@ function JourneyPath({ progress }: { progress: MotionValue<number> }) {
     >
       {/* Dashed background path */}
       <motion.path
-        d={pathD}
+        ref={pathRef}
+        d={JOURNEY_PATH_D}
         fill="none"
         stroke="rgba(255, 215, 0, 0.25)"
         strokeWidth="3"
@@ -535,7 +543,7 @@ function JourneyPath({ progress }: { progress: MotionValue<number> }) {
 
       {/* Glowing progress path */}
       <motion.path
-        d={pathD}
+        d={JOURNEY_PATH_D}
         fill="none"
         stroke="url(#goldGradientPath)"
         strokeWidth="4"
@@ -565,13 +573,34 @@ function JourneyPath({ progress }: { progress: MotionValue<number> }) {
 }
 
 // Progress marker that moves along the path
-function ProgressMarker({ progress }: { progress: MotionValue<number> }) {
-  const yPosition = useTransform(progress, [0, 1], ['5%', '92%']);
+function ProgressMarker({
+  progress,
+  pathRef,
+}: {
+  progress: MotionValue<number>;
+  pathRef: React.RefObject<SVGPathElement | null>;
+}) {
+  const xPosition = useTransform(progress, (value) => {
+    const path = pathRef.current;
+    if (!path) return '50%';
+    const length = path.getTotalLength();
+    const point = path.getPointAtLength(value * length);
+    return `${point.x}%`;
+  });
+
+  const yPosition = useTransform(progress, (value) => {
+    const path = pathRef.current;
+    if (!path) return '5%';
+    const length = path.getTotalLength();
+    const point = path.getPointAtLength(value * length);
+    const yPercent = (point.y / 520) * 100;
+    return `${yPercent}%`;
+  });
 
   return (
     <motion.div
-      className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none"
-      style={{ top: yPosition }}
+      className="absolute z-20 pointer-events-none"
+      style={{ left: xPosition, top: yPosition, transform: 'translate(-50%, -50%)' }}
     >
       <motion.div
         className="relative"
@@ -732,6 +761,7 @@ function StepCard({
 // ============================================
 export default function Steps() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const pathRef = useRef<SVGPathElement>(null);
   const [activatedSteps, setActivatedSteps] = useState<{ [key: number]: boolean }>({
     0: false, 1: false, 2: false, 3: false
   });
@@ -740,6 +770,11 @@ export default function Steps() {
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ['start center', 'end center'],
+  });
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 120,
+    damping: 20,
+    mass: 0.6,
   });
 
   const handleActivateStep = (index: number) => {
@@ -755,8 +790,8 @@ export default function Steps() {
       <div className="relative max-w-4xl mx-auto">
         {/* Journey path - centered */}
         <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-20">
-          <JourneyPath progress={scrollYProgress} />
-          <ProgressMarker progress={scrollYProgress} />
+          <JourneyPath progress={smoothProgress} pathRef={pathRef} />
+          <ProgressMarker progress={smoothProgress} pathRef={pathRef} />
         </div>
 
         {/* Step cards */}
