@@ -1,4 +1,14 @@
+import os
+from pathlib import Path
+
 import pytest
+from dotenv import load_dotenv
+
+# Load test env vars before any app imports touch DATABASE_URL
+_env_test = Path(__file__).parent / ".env.test"
+if _env_test.exists():
+    load_dotenv(_env_test, override=True)
+
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 

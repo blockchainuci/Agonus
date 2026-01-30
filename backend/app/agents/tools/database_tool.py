@@ -505,3 +505,44 @@ class DatabaseTool:
         await self.session.commit()
         return plan_item
 
+    async def mark_plan_item_executed(self, plan_item_id: UUID) -> None:
+        stmt = (
+            update(PlanItem)
+            .where(PlanItem.id == plan_item_id)
+            .values(
+                status=PlanStatusEnum.executed,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await self.session.execute(stmt)
+        await self.session.commit()
+
+    async def mark_plan_item_failed(self, plan_item_id: UUID, error: str) -> None:
+        stmt = (
+            update(PlanItem)
+            .where(PlanItem.id == plan_item_id)
+            .values(
+                status=PlanStatusEnum.failed,
+                last_error=error,
+                attempts=PlanItem.attempts + 1,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await self.session.execute(stmt)
+        await self.session.commit()
+
+    async def get_due_plan_items(self, now: datetime = None) -> list[PlanItem]:
+        if now is None:
+            now = datetime.now(timezone.utc)
+        stmt = (
+            select(PlanItem)
+            .where(
+                PlanItem.status == PlanStatusEnum.planned,
+                PlanItem.execute_at <= now,
+                PlanItem.attempts < PlanItem.max_attempts,
+            )
+            .order_by(PlanItem.execute_at.asc())
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+

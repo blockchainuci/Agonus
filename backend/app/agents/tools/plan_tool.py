@@ -1,12 +1,15 @@
+import json
 import logging
-from typing import Optional
+from hashlib import sha256
+from typing import Optional, Any
 from uuid import UUID
 import datetime
 from dateutil.parser import isoparse
-from database_tool import create_plan_item
-from ...db.models import PlanItem
+
+from ...db.models import PlanItem, PlanActionEnum
 
 logger = logging.getLogger(__name__)
+
 
 class PlanTool:
     def __init__(
@@ -47,11 +50,13 @@ class PlanTool:
                     "has_database_tool": self.database_tool is not None,
                 },
             )
+
+    @staticmethod
     def _plan_item_to_dict(plan_item: PlanItem) -> dict:
         return {
             "id": str(plan_item.id),
-            "agent_id": plan_item.agent_id,
-            "tournament_id": plan_item.tournament_id,
+            "agent_id": str(plan_item.agent_id),
+            "tournament_id": str(plan_item.tournament_id),
             "execute_at": plan_item.execute_at.isoformat(),
             "status": plan_item.status.value
             if hasattr(plan_item.status, "value")
@@ -62,7 +67,13 @@ class PlanTool:
             "payload": plan_item.payload,
         }
 
-    async def create_plan_step(self, action_type: str, execute_at: datetime, payload, idempotency_key: str = None):
+    async def create_plan_step(
+        self,
+        action_type: str,
+        execute_at,
+        payload,
+        idempotency_key: str = None,
+    ) -> dict[str, Any]:
 
         if not self.db_configured:
             logger.warning(
@@ -70,13 +81,29 @@ class PlanTool:
                 extra={"agent_id": self.agent_id},
             )
             return {"error": "db_not_configured"}
+
+        # Normalize execute_at to datetime
+        if isinstance(execute_at, str):
+            try:
+                execute_at = isoparse(execute_at)
+            except Exception:
+                logger.exception("Invalid execute_at format")
+                return {"error": "invalid_execute_at"}
+
+        # Normalize action_type to enum
+        if isinstance(action_type, str):
+            try:
+                action_type = PlanActionEnum(action_type)
+            except ValueError:
+                return {"error": f"invalid_action_type: {action_type}"}
+
         if idempotency_key is None:
             canonical = json.dumps(
                 {
                     "agent_uuid": str(self.agent_uuid),
                     "tournament_uuid": str(self.tournament_uuid),
-                    "action_type": action_type,
-                    "execute_at": execute_at_dt.isoformat(),
+                    "action_type": action_type.value if hasattr(action_type, "value") else str(action_type),
+                    "execute_at": execute_at.isoformat(),
                     "payload": payload,
                 },
                 sort_keys=True,
@@ -84,7 +111,6 @@ class PlanTool:
             )
             idempotency_key = sha256(canonical.encode("utf-8")).hexdigest()
 
-        # 4️⃣ Create (or fetch) plan item via DB helper
         plan_item = await self.database_tool.create_plan_item(
             agent_uuid=self.agent_uuid,
             tournament_uuid=self.tournament_uuid,
@@ -93,10 +119,9 @@ class PlanTool:
             payload=payload,
             idempotency_key=idempotency_key,
         )
-
-        # 5️⃣ Return JSON-serializable dict
+        #return JSON-serializable dict
         return self._plan_item_to_dict(plan_item)
-    
+
     async def list_plan_steps(
         self,
         statuses: list[str] | None = None,
@@ -117,8 +142,8 @@ class PlanTool:
             limit=limit,
         )
 
-        return [self.plan_item_to_dict(item) for item in plan_items]
-    
+        return [self._plan_item_to_dict(item) for item in plan_items]
+
     async def cancel_plan_step(
         self,
         plan_item_id: UUID,
@@ -138,7 +163,7 @@ class PlanTool:
         )
 
         return True
-    
+
     async def reschedule_plan_step(
         self,
         plan_item_id: UUID,
@@ -167,4 +192,4 @@ class PlanTool:
             new_execute_at=execute_at_dt,
         )
 
-        return self.plan_item_to_dict(plan_item)
+        return self._plan_item_to_dict(plan_item)

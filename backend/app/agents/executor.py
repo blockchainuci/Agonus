@@ -6,6 +6,7 @@ LangChain's AgentExecutor with tools for market data, portfolio management, and
 simulated trading.
 """
 
+import json
 import logging
 import asyncio
 from typing import Any, Dict, List, Tuple, Optional
@@ -22,6 +23,7 @@ from .data_classes import Trade, Portfolio, MarketData
 from .tools.market_data_tool import MarketDataTool
 from .tools.make_trade_tool import MakeTradeTool
 from .tools.database_tool import DatabaseTool
+from .tools.plan_tool import PlanTool
 from .memory import AgentMemory
 
 logger = logging.getLogger(__name__)
@@ -105,6 +107,14 @@ class TradingAgent(BaseAgent):
             database_tool=database_tool,
         )
 
+        # Initialize plan tool
+        self.plan_tool = PlanTool(
+            agent_id=agent_id,
+            agent_uuid=agent_uuid,
+            tournament_uuid=tournament_uuid,
+            database_tool=database_tool,
+        )
+
         # Track if we need to recover state
         if recover_from_crash and database_tool and agent_uuid and tournament_uuid:
             logger.info(f"Attempting crash recovery for agent={agent_id}")
@@ -152,6 +162,38 @@ class TradingAgent(BaseAgent):
                     "CONFIDENCE is 0.0-1.0. SUMMARY is brief explanation."
                 ),
             ),
+            Tool(
+                name="create_plan_step",
+                func=self._create_plan_step_wrapper,
+                description=(
+                    "Schedule a future action. Format: 'ACTION_TYPE EXECUTE_AT PAYLOAD_JSON'. "
+                    "ACTION_TYPE: RESEARCH, OPEN_POSITION, or CLOSE_POSITION. "
+                    "EXECUTE_AT: ISO-8601 datetime (e.g. 2025-06-15T15:00:00Z). "
+                    "PAYLOAD_JSON: JSON object with action details. "
+                    "Example: 'OPEN_POSITION 2025-06-15T15:00:00Z {\"token\": \"ETH\", \"amount\": 100, \"reason\": \"bullish breakout\"}'"
+                ),
+            ),
+            Tool(
+                name="list_plan_steps",
+                func=self._list_plan_steps_wrapper,
+                description="List all scheduled plan steps for this agent. Input: empty string",
+            ),
+            Tool(
+                name="cancel_plan_step",
+                func=self._cancel_plan_step_wrapper,
+                description=(
+                    "Cancel a scheduled plan step. Format: 'PLAN_ITEM_ID [REASON]'. "
+                    "PLAN_ITEM_ID is the UUID of the plan step. REASON is optional."
+                ),
+            ),
+            Tool(
+                name="reschedule_plan_step",
+                func=self._reschedule_plan_step_wrapper,
+                description=(
+                    "Reschedule a plan step to a new time. Format: 'PLAN_ITEM_ID NEW_EXECUTE_AT_ISO'. "
+                    "Example: 'abc123-uuid 2025-06-16T10:00:00Z'"
+                ),
+            ),
         ]
 
         # Create OpenAI LLM
@@ -172,6 +214,9 @@ Total Portfolio Value: ${total_value}
 Market Context:
 {market_context}
 
+Pending Scheduled Plans:
+{pending_plans}
+
 Your goal is to maximize returns while respecting your risk tolerance.
 
 Guidelines:
@@ -183,6 +228,9 @@ Guidelines:
 - Aggressive agents can take larger positions
 - Always provide reasoning in your summary
 - This is a simulation - trades are not executed on-chain
+- You can schedule future actions using create_plan_step (e.g., research later, open a position at a specific time)
+- Review your pending plans before creating new ones to avoid duplicates
+- Cancel plans that are no longer relevant
 
 TOOLS:
 ------
@@ -274,6 +322,76 @@ Thought:{agent_scratchpad}"""
 
         except Exception as e:
             error_msg = f"Trade execution error: {str(e)}"
+            logger.error(error_msg)
+            return error_msg
+
+    def _create_plan_step_wrapper(self, input_str: str) -> str:
+        """Parse: 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"""
+        try:
+            parts = input_str.split(maxsplit=2)
+            if len(parts) < 3:
+                return "Error: Expected 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"
+            action_type = parts[0].upper()
+            execute_at = parts[1]
+            payload = json.loads(parts[2])
+            result = self._run_async(
+                self.plan_tool.create_plan_step(
+                    action_type=action_type,
+                    execute_at=execute_at,
+                    payload=payload,
+                )
+            )
+            return json.dumps(result)
+        except Exception as e:
+            error_msg = f"Error creating plan step: {e}"
+            logger.error(error_msg)
+            return error_msg
+
+    def _list_plan_steps_wrapper(self, _input: str) -> str:
+        """List all plan steps for this agent."""
+        try:
+            result = self._run_async(self.plan_tool.list_plan_steps())
+            return json.dumps(result, indent=2) if result else "No plan steps found."
+        except Exception as e:
+            error_msg = f"Error listing plan steps: {e}"
+            logger.error(error_msg)
+            return error_msg
+
+    def _cancel_plan_step_wrapper(self, input_str: str) -> str:
+        """Parse: 'PLAN_ITEM_ID [REASON]'"""
+        try:
+            parts = input_str.strip().split(maxsplit=1)
+            plan_item_id = UUID(parts[0])
+            reason = parts[1] if len(parts) > 1 else None
+            result = self._run_async(
+                self.plan_tool.cancel_plan_step(
+                    plan_item_id=plan_item_id,
+                    reason=reason,
+                )
+            )
+            return f"Plan step cancelled: {result}"
+        except Exception as e:
+            error_msg = f"Error cancelling plan step: {e}"
+            logger.error(error_msg)
+            return error_msg
+
+    def _reschedule_plan_step_wrapper(self, input_str: str) -> str:
+        """Parse: 'PLAN_ITEM_ID NEW_EXECUTE_AT_ISO'"""
+        try:
+            parts = input_str.strip().split(maxsplit=1)
+            if len(parts) < 2:
+                return "Error: Expected 'PLAN_ITEM_ID NEW_EXECUTE_AT_ISO'"
+            plan_item_id = UUID(parts[0])
+            new_execute_at = parts[1]
+            result = self._run_async(
+                self.plan_tool.reschedule_plan_step(
+                    plan_item_id=plan_item_id,
+                    new_execute_at=new_execute_at,
+                )
+            )
+            return json.dumps(result)
+        except Exception as e:
+            error_msg = f"Error rescheduling plan step: {e}"
             logger.error(error_msg)
             return error_msg
 
@@ -442,6 +560,15 @@ Thought:{agent_scratchpad}"""
         sentiment = self.market_tool.get_market_sentiment()
         market_context = f"Market sentiment: {sentiment}"
 
+        # Fetch pending plans for context
+        if self.plan_tool.db_configured:
+            pending_plans = self._run_async(
+                self.plan_tool.list_plan_steps(statuses=["planned"])
+            )
+        else:
+            pending_plans = []
+        pending_plans_text = json.dumps(pending_plans, indent=2) if pending_plans else "None"
+
         # Run agent
         try:
             result = self.executor.invoke(
@@ -454,6 +581,7 @@ Thought:{agent_scratchpad}"""
                     "holdings": self.portfolio.holdings,
                     "total_value": self.portfolio.total_value,
                     "market_context": market_context,
+                    "pending_plans": pending_plans_text,
                 }
             )
 
