@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from ...db.models import Agent, AgentState, Trade, Tournament, ActionEnum
+from ...db.models import Agent, AgentState, Trade, Tournament, ActionEnum, PlanActionEnum, PlanStatusEnum, PlanItem
 from ..data_classes import Trade as TradeData, Portfolio
 
 logger = logging.getLogger(__name__)
@@ -401,3 +401,107 @@ class DatabaseTool:
             await self.session.rollback()
             logger.error(f"Failed to create agent: {e}")
             raise
+
+    async def create_plan_item(self, agent_uuid: UUID, tournament_uuid: UUID, action_type: PlanActionEnum,
+                                execute_at: datetime, payload, idempotency_key: str, max_attempts: int = 3) -> PlanItem:
+        stmt = (insert(PlanItem).values(agent_id = agent_uuid, 
+                                       tournament_id = tournament_uuid,
+                                       action_type=action_type,
+                                       execute_at=execute_at,
+                                       payload = payload,
+                                       idempotency_key = idempotency_key,
+                                       status = PlanStatusEnum.planned,
+                                       attempts = 0,
+                                       max_attempts = max_attempts).on_conflict_do_nothing(
+                                           index_elements=[
+                                               PlanItem.agent_id,
+                                               PlanItem.tournament_id, 
+                                               PlanItem.idempotency_key
+                                           ]
+                                       ).returning(PlanItem))
+        result = await self.session.execute(stmt)
+        plan_item = result.scalar_one_or_none()
+
+        if plan_item is not None:
+            await self.session.commit()
+            return plan_item
+
+        result = await self.session.execute(
+            select(PlanItem).where(
+                PlanItem.agent_id == agent_uuid,
+                PlanItem.tournament_id == tournament_uuid,
+                PlanItem.idempotency_key == idempotency_key
+            )
+        )
+        return result.scalar_one()
+
+
+    async def list_plan_items(self, agent_uuid: UUID, tournament_uuid: UUID, 
+                              statuses: list[str] = None, limit: int = None) -> list[PlanItem]:
+        stmt = (
+            select(PlanItem).where(
+                PlanItem.agent_id == agent_uuid,
+                PlanItem.tournament_id == tournament_uuid,
+            ).order_by(
+                PlanItem.execute_at.asc(),
+                PlanItem.created_at.asc()
+            )
+        )
+
+        if statuses:
+            stmt = stmt.where(PlanItem.status.in_(statuses))
+        
+        if limit:
+            stmt = stmt.limit(limit)
+
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+    
+    async def cancel_plan_item(self, plan_item_id: UUID, reason: str | None = None) -> None:
+        values = {
+        "status": PlanStatusEnum.cancelled,
+        "updated_at": datetime.utcnow(),
+        }
+
+        if reason:
+            values["last_error"] = reason
+
+        stmt = (
+            update(PlanItem)
+            .where(PlanItem.id == plan_item_id)
+            .values(**values)
+        )
+
+        await self.session.execute(stmt)
+        await self.session.commit()
+    
+    async def reschedule_plan_item(self, plan_item_id: UUID, new_execute_at: datetime,) -> PlanItem:
+
+        stmt = (
+            update(PlanItem)
+            .where(
+                PlanItem.id == plan_item_id,
+                PlanItem.status.in_(
+                    [PlanStatusEnum.planned, PlanStatusEnum.skipped]
+                ),
+            )
+            .values(
+                execute_at=new_execute_at,
+                updated_at=datetime.utcnow(),
+            )
+            .returning(PlanItem)
+        )
+
+        result = await self.session.execute(stmt)
+        plan_item = result.scalar_one_or_none()
+
+        if plan_item is None:
+            await self.session.rollback()
+            raise ValueError(
+                "Plan item cannot be rescheduled: "
+                "not found or status is not planned/skipped"
+            )
+
+        await self.session.commit()
+        return plan_item
+
