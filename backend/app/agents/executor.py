@@ -195,6 +195,8 @@ Guidelines:
 - Aggressive agents can take larger positions
 - Always provide reasoning in your summary
 - This is a simulation - trades are not executed on-chain
+- Before making significant trades, research tokens using the research_token tool to check recent news and sentiment
+- If recent research already exists, you may reuse it instead of researching again
 
 TOOLS:
 ------
@@ -488,8 +490,10 @@ Thought:{agent_scratchpad}"""
         """
         if task is None:
             task = (
-                "Analyze current market conditions and portfolio state. "
-                "Decide if any trades should be executed based on your personality and risk tolerance. "
+                "Before making any trade decisions, research any tokens you are considering  "
+                "using the research_token tool to check recent news and market sentiment "
+                "if you do not already have recent research. "
+                "Then decide if any trades should be executed based on your personality and risk tolerance. "
                 "If you decide to trade, execute it. If not, explain why."
             )
 
