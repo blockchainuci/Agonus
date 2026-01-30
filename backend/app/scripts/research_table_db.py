@@ -22,7 +22,7 @@ async def migrate():
         connect_args={"ssl": "require"},
     )
 
-    migration_sql = """
+    create_table_sql = """
     CREATE TABLE IF NOT EXISTS agent_research_artifact (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         agent_id UUID NOT NULL REFERENCES agent(id),
@@ -34,17 +34,19 @@ async def migrate():
         citations JSONB DEFAULT '[]'::jsonb,
         raw_results JSONB,
         related_tokens JSONB
-    );
+    )
+    """
 
-    -- Index for fast "recent memory" lookup by agent
-    CREATE INDEX IF NOT EXISTS ix_research_agent_created 
-    ON agent_research_artifact(agent_id, created_at DESC);
+    create_index_sql = """
+    CREATE INDEX IF NOT EXISTS ix_research_agent_created
+    ON agent_research_artifact(agent_id, created_at DESC)
     """
 
     async with engine.begin() as conn:
         try:
             print("🏗️  Creating agent_research_artifact table...")
-            await conn.execute(text(migration_sql))
+            await conn.execute(text(create_table_sql))
+            await conn.execute(text(create_index_sql))
             print(" Migration completed successfully!")
         except Exception as e:
             print(f" Migration failed: {e}")

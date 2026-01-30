@@ -135,18 +135,26 @@ class ResearchTool:
         if data.get("choices") and len(data["choices"]) > 0:
             summary = data["choices"][0].get("message", {}).get("content", "")
         
-        #  citations -  returned as a list of URLs
-        raw_citations = data.get("citations", [])
-        citations = []
-        for url in raw_citations:
-            # perplexity returns URLs as strings, create Citation objects
-            #  use the domain as title
-            domain = url.split("//")[-1].split("/")[0] if url else "Unknown"
-            citations.append(Citation(
-                title=domain,  # use domain as fallback title
-                url=url,
-                date=None  # Perplexity doesn't always provide dates
-            ))
+        #Parse citations from perplexity search_results
+        raw_search_citations = data.get("search_results", [])
+        citations: List[Citation] = []
+        for result in raw_search_citations:
+            url = result.get("url")
+            if not url:
+                continue
+
+            citations.append(
+                Citation(
+                    title=result.get("title", "Unknown Source"),
+                    url=result.get("url", ""),
+                    date=result.get("date", None)
+                )
+            )
+        if not citations:
+            logger.error("Research returned no citations")
+            raise ResearchError(
+                "Research returned no citations; Unable to verify the information."
+            )
         
         result = ResearchResult(
             summary_markdown=summary,
