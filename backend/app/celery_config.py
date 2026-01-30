@@ -88,6 +88,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.agents.scheduler.health_check",
         "schedule": 60.0,  # 1 minute
     },
+    # Execute due plan items
+    "execute-due-plans": {
+        "task": "app.agents.scheduler.execute_due_plans",
+        "schedule": float(os.getenv("PLAN_POLL_INTERVAL_SECONDS", "60")),
+    },
 }
 
 # Task routing (optional - for scaling specific task types)

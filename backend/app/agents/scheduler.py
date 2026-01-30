@@ -21,7 +21,7 @@ from sqlalchemy import select
 
 from ..celery_config import celery_app
 from ..db.database import AsyncSessionLocal
-from ..db.models import Tournament, Agent, AgentState, StatusEnum
+from ..db.models import Tournament, Agent, AgentState, StatusEnum, PlanItem, PlanStatusEnum, PlanActionEnum
 from .executor import TradingAgent
 from .tools.database_tool import DatabaseTool
 
@@ -770,3 +770,79 @@ async def _db_health_check():
     """Quick database connection check."""
     async with AsyncSessionLocal() as session:
         await session.execute(select(1))
+
+
+# ============================================================================
+# PLAN EXECUTION
+# ============================================================================
+
+
+@celery_app.task(base=AgentTask, bind=True, name="app.agents.scheduler.execute_due_plans")
+def execute_due_plans(self) -> Dict[str, Any]:
+    """
+    Poll for due plan items and execute them.
+
+    Finds all PlanItems where status=planned and execute_at <= now,
+    then dispatches the appropriate agent action for each.
+
+    Returns:
+        Dict with execution summary
+    """
+    logger.info("Checking for due plan items")
+    try:
+        return asyncio.run(_execute_due_plans_async())
+    except Exception as e:
+        logger.error(f"Failed to execute due plans: {e}")
+        raise
+
+
+async def _execute_due_plans_async() -> Dict[str, Any]:
+    """Async implementation of due plan execution."""
+    async with AsyncSessionLocal() as session:
+        db_tool = DatabaseTool(session)
+        due_items = await db_tool.get_due_plan_items()
+
+        if not due_items:
+            return {
+                "due_items_found": 0,
+                "executed": 0,
+                "failed": 0,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+
+        logger.info(f"Found {len(due_items)} due plan items")
+
+        executed = []
+        failed = []
+
+        for plan_item in due_items:
+            try:
+                # Dispatch agent decision for the plan
+                # The agent will see this plan in its pending_plans context
+                run_agent_decision.delay(
+                    agent_uuid=str(plan_item.agent_id),
+                    tournament_uuid=str(plan_item.tournament_id),
+                    recover_from_crash=True,
+                )
+
+                await db_tool.mark_plan_item_executed(plan_item.id)
+                executed.append(str(plan_item.id))
+
+                logger.info(
+                    f"Plan item executed: id={plan_item.id}, "
+                    f"action_type={plan_item.action_type}, "
+                    f"agent={plan_item.agent_id}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to execute plan item {plan_item.id}: {e}")
+                await db_tool.mark_plan_item_failed(plan_item.id, str(e))
+                failed.append(str(plan_item.id))
+
+        return {
+            "due_items_found": len(due_items),
+            "executed": len(executed),
+            "failed": len(failed),
+            "executed_ids": executed,
+            "failed_ids": failed,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
