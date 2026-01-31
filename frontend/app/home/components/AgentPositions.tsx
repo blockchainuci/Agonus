@@ -14,6 +14,8 @@ import {
 import { useTournamentAgentStates } from '@/src/hooks/useAgentStates';
 import { useAgents } from '@/src/hooks/useAgents';
 import { AgentState, Agent } from '@/src/types';
+import { useBettingStore } from '@/src/store/useBettingStore';
+import { useTournamentStore } from '@/src/store/useTournamentStore';
 
 interface AgentPositionsProps {
   tournamentId: string;
@@ -31,6 +33,8 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
   const { data: agentStates, isLoading: statesLoading } =
     useTournamentAgentStates(tournamentId);
   const { data: agents, isLoading: agentsLoading } = useAgents();
+  const openBetModal = useBettingStore((s) => s.openBetModal);
+  const tournamentStatus = useTournamentStore((s) => s.selectedTournamentStatus);
 
   const isLoading = statesLoading || agentsLoading;
 
@@ -56,7 +60,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
 
   return (
     <motion.div
-      className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-6 h-fit relative overflow-hidden"
+      className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-6 h-[720px] relative overflow-hidden flex flex-col"
       key={tournamentId} // Re-animate when tournament changes
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
@@ -88,7 +92,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
       </div>
 
       {/* positions list */}
-      <div className="space-y-3 mb-6 relative z-10">
+      <div className="space-y-3 mb-6 relative z-10 flex-1 overflow-y-auto pr-2 custom-scrollbar">
         {isLoading ? (
           <div className="text-center py-8">
             <p className="text-gray-400">Loading agent data...</p>
@@ -153,19 +157,36 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                       </div>
                     </div>
 
-                    {/* value and rank */}
-                    <div className="text-right">
-                      <p className="font-bold text-white">
-                        ${portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      </p>
-                      <div className="flex items-center gap-1 text-xs justify-end text-gray-400">
-                        {topAsset && (
-                          <>
-                            Top: {topAsset[0]}
-                          </>
-                        )}
-                      </div>
+                  {/* value and actions */}
+                  <div className="text-right">
+                    <p className="font-bold text-white">
+                      ${portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </p>
+                    <div className="flex items-center gap-1 text-xs justify-end text-gray-400">
+                      {topAsset && (
+                        <>
+                          Top: {topAsset[0]}
+                        </>
+                      )}
                     </div>
+                    {tournamentStatus !== 'ENDED' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (tournamentStatus !== 'LIVE') return;
+                          openBetModal({
+                            tournament_id: tournamentId,
+                            agent_id: agentState.agent_id,
+                            agent_name: agentName,
+                          });
+                        }}
+                        disabled={tournamentStatus !== 'LIVE'}
+                        className="mt-2 inline-flex items-center justify-center rounded-lg bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/30 transition disabled:opacity-50 disabled:hover:bg-cyan-500/20 disabled:cursor-not-allowed"
+                      >
+                        {tournamentStatus === 'UPCOMING' ? 'Bet Not Allowed' : 'Place Bet'}
+                      </button>
+                    )}
+                  </div>
                   </div>
 
                   {/* progress bar */}

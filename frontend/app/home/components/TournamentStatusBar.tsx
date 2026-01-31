@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { mockTournaments } from '../data/mockTournament';
+import { useTournaments } from '@/src/hooks/useTournaments';
 
 import AgentPositions from './AgentPositions';
-import ActiveBets from './ActiveBets';       // ✅ Correct bets UI component
+import ActiveBets from './ActiveBets';
 
 import { useTournamentStore } from '@/src/store/useTournamentStore';
+import type { TournamentStatus } from '@/src/store/useTournamentStore';
 
 /* ---------------------------------------------------------
    TOURNAMENT STATUS BAR (Named Export)
@@ -16,15 +18,44 @@ export function TournamentStatusBar() {
 
   const selectedTournamentId = useTournamentStore((s) => s.selectedTournamentId);
   const setTournamentId = useTournamentStore((s) => s.setTournamentId);
+  const setTournamentStatus = useTournamentStore((s) => s.setTournamentStatus);
+  const { data: tournaments } = useTournaments();
 
-  const tournament =
-    mockTournaments.find((t) => t.id === parseInt(selectedTournamentId, 10)) ||
-    mockTournaments[0];
+  const normalizeStatus = (status?: string): TournamentStatus => {
+    const normalized = (status || '').toLowerCase();
+    if (normalized === 'live') return 'LIVE';
+    if (normalized === 'completed' || normalized === 'ended') return 'ENDED';
+    if (normalized === 'upcoming') return 'UPCOMING';
+    return 'UPCOMING';
+  };
 
-  const formattedEndTime = new Date(tournament.end_time).toLocaleDateString(
-    'en-US',
-    { month: 'short', day: 'numeric', year: 'numeric' }
+  const backendTournament = tournaments?.find(
+    (t) => String(t.id) === String(selectedTournamentId)
   );
+
+  const uiTournament = backendTournament
+    ? {
+        id: String(backendTournament.id),
+        status: normalizeStatus(backendTournament.status),
+        prize_pool_usd: Number(backendTournament.prize_pool),
+        end_time: backendTournament.end_date,
+      }
+    : mockTournaments.find((t) => t.id === parseInt(selectedTournamentId, 10)) ||
+      mockTournaments[0];
+
+  useEffect(() => {
+    if (uiTournament?.status) {
+      setTournamentStatus(uiTournament.status);
+    }
+  }, [uiTournament?.status, setTournamentStatus]);
+
+  const formattedEndTime = uiTournament.end_time
+    ? new Date(uiTournament.end_time).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : 'TBD';
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -41,7 +72,6 @@ export function TournamentStatusBar() {
 
   return (
     <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-2 border-b border-white/10 bg-gradient-to-r from-blue-900/20 to-transparent relative">
-
       {/* Left Section: Title + Dropdown */}
       <div className="flex items-center gap-3">
         <div className="text-yellow-400 font-bold text-2xl">TOURNAMENT</div>
@@ -60,37 +90,45 @@ export function TournamentStatusBar() {
           {isDropdownOpen && (
             <div className="absolute top-full left-0 mt-2 w-64 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-50">
               <div className="py-1">
-                {mockTournaments.map((t) => (
+                {(tournaments && tournaments.length > 0 ? tournaments : mockTournaments).map((t) => {
+                  const isBackend = typeof t.id === 'string';
+                  const status = isBackend ? normalizeStatus((t as typeof backendTournament)?.status) : (t as typeof mockTournaments[number]).status;
+                  const prizePool = isBackend ? Number((t as typeof backendTournament)?.prize_pool) : (t as typeof mockTournaments[number]).prize_pool_usd;
+                  const endTime = isBackend ? (t as typeof backendTournament)?.end_date : (t as typeof mockTournaments[number]).end_time;
+                  const idStr = String(t.id);
+                  const active = idStr === String(uiTournament.id);
+                  return (
                   <button
-                    key={t.id}
+                    key={idStr}
                     onClick={() => {
-                      setTournamentId(String(t.id));
+                      setTournamentId(idStr);
                       setIsDropdownOpen(false);
                     }}
                     className={`w-full text-left px-4 py-3 hover:bg-slate-700 transition-colors ${
-                      t.id === tournament.id ? 'bg-slate-700/50' : ''
+                      active ? 'bg-slate-700/50' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-white font-semibold">Tournament #{t.id}</p>
+                        <p className="text-white font-semibold">Tournament #{idStr}</p>
                         <p className="text-xs text-gray-400">
-                          ${t.prize_pool_usd.toLocaleString()} •{' '}
-                          {new Date(t.end_time).toLocaleDateString('en-US', {
+                          ${Number(prizePool).toLocaleString()} *{' '}
+                          {endTime ? new Date(endTime).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
-                          })}
+                          }) : 'TBD'}
                         </p>
                       </div>
 
                       <span
-                        className={`px-2 py-1 rounded-md font-semibold uppercase text-xs ${getStatusColor(t.status)}`}
+                        className={`px-2 py-1 rounded-md font-semibold uppercase text-xs ${getStatusColor(status)}`}
                       >
-                        {t.status}
+                        {status}
                       </span>
                     </div>
                   </button>
-                ))}
+                );
+                })}
               </div>
             </div>
           )}
@@ -103,17 +141,17 @@ export function TournamentStatusBar() {
           Status:{' '}
           <span
             className={`px-2 py-1 rounded-md font-semibold uppercase text-xs ${getStatusColor(
-              tournament.status
+              uiTournament.status
             )}`}
           >
-            {tournament.status}
+            {uiTournament.status}
           </span>
         </span>
 
         <span>
           Prize Pool:{' '}
           <span className="text-white font-semibold">
-            ${tournament.prize_pool_usd.toLocaleString()}
+            ${Number(uiTournament.prize_pool_usd).toLocaleString()}
           </span>
         </span>
 
@@ -134,18 +172,18 @@ export default function TournamentContainer() {
 
   return (
     <div className="flex flex-col gap-0 w-full bg-black/20 backdrop-blur rounded-2xl border border-white/10 overflow-hidden">
-
       {/* Header */}
       <TournamentStatusBar />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-
         {/* Left: Agent holdings */}
         <AgentPositions tournamentId={selectedTournamentId} />
 
-        {/* Right: Bets (active + past + claim UI) */}
-        <ActiveBets tournamentId={selectedTournamentId} />
+        {/* Right: Bets (active + my bets) */}
+        <div className="flex flex-col gap-6">
+          <ActiveBets tournamentId={selectedTournamentId} />
+        </div>
       </div>
     </div>
   );

@@ -13,15 +13,16 @@ from app.api.routers import auth
 from app.api.routers import market_data
 
 
-app = FastAPI(title="Agonus API")
+app = FastAPI(title="Agonus API", redirect_slashes=False)
 
-# Configure CORS
+# Configure CORS - must be added AFTER exception handlers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # ------------------------------
@@ -35,4 +36,6 @@ app.include_router(runtime_agents_router)
 app.include_router(tournament.router, prefix="/tournaments", tags=["Tournaments"])
 app.include_router(agent.router, prefix="/agents", tags=["Agents"])
 app.include_router(trade.router, prefix="/trades", tags=["Trades"])
-app.include_router(runtime_agents_router)
+app.include_router(bet.router, prefix="/bets", tags=["Bets"])
+app.include_router(auth.router, tags=["Auth"])  # auth.router already has prefix="/auth"
+app.include_router(market_data.router, tags=["Market Data"])  # already has prefix="/market-data"

@@ -1,191 +1,200 @@
-'use client';
+"use client";
 
-import { useTournamentStore } from '@/src/store/useTournamentStore';
-import { X } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useState } from 'react';
-import { useAccount } from 'wagmi';
-import { OddsDisplay } from './OddsDisplay';
-import { MinBetWarning } from './MinBetWarning';
-import { TransactionStatus } from './TransactionStatus';
-import { txToast } from './TransactionToast';
+import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
+import { motion } from "framer-motion";
+import { useAccount } from "wagmi";
+
+import { useBettingStore } from "@/src/store/useBettingStore";
+import { useTournamentStore } from "@/src/store/useTournamentStore";
+import { usePlaceBet } from "@/src/hooks/usePlaceBet";
+import { txToast } from "./TransactionToast";
+import { useWalletAuth } from "@/src/hooks/useWalletAuth";
 
 export default function BetModal() {
+  const { isConnected, address } = useAccount();
+  const { isAuthenticated, isSigningIn, signInError, signIn } = useWalletAuth();
+  const tournamentStatus = useTournamentStore(
+    (s) => s.selectedTournamentStatus
+  );
+
+  const { placeBet } = usePlaceBet();
   const {
     isBetModalOpen,
-    selectedAgent,
+    draft,
     closeBetModal,
-    txStatus,
-    txError,
-    setTxStatus,
-    setTxError,
-    resetTxState,
-  } = useTournamentStore();
+    setDraftAmount,
+    refreshMyBets,
+  } = useBettingStore();
 
-  const { chainId, isConnected } = useAccount();
-  const TARGET_CHAIN = 84532;
-  const wrongNetwork = isConnected && chainId !== TARGET_CHAIN;
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [amountEth, setAmountEth] = useState('');
+  useEffect(() => {
+    if (isBetModalOpen) setError(null);
+  }, [isBetModalOpen, draft.tournament_id, draft.agent_id]);
 
-  if (!isBetModalOpen || !selectedAgent) return null;
+  const title = useMemo(() => {
+    if (draft.agent_name) return `Place a Bet on ${draft.agent_name}`;
+    if (draft.agent_id) return `Place a Bet on Agent ${draft.agent_id}`;
+    return "Place a Bet";
+  }, [draft.agent_id, draft.agent_name]);
 
-  const {
-    name,
-    odds,
-    winRate,
-    rank,
-    portfolioValue,
-    oddsDecimal = odds,
-    oddsFractional = "1/1",
-    minBetEth = "0.001",
-  } = selectedAgent;
+  if (!isBetModalOpen) return null;
 
-  const isTooLow = Number(amountEth || 0) < Number(minBetEth);
+  const bettingClosed = tournamentStatus !== "LIVE";
+  const amountNum = Number(draft.amount_eth);
+  const amountInvalid =
+    !draft.amount_eth || Number.isNaN(amountNum) || amountNum <= 0;
 
-  async function handleConfirmBet() {
+  const canSubmit =
+    !!draft.tournament_id &&
+    !!draft.agent_id &&
+    isConnected &&
+    isAuthenticated &&
+    !bettingClosed &&
+    !amountInvalid &&
+    !submitting;
+
+  async function handleSubmit() {
+    if (!draft.tournament_id || !draft.agent_id) {
+      setError("Missing tournament or agent.");
+      return;
+    }
+    if (!isConnected) {
+      setError("Connect your wallet to place a bet.");
+      return;
+    }
+    if (!isAuthenticated) {
+      setError("Please sign in to place a bet.");
+      return;
+    }
+    if (bettingClosed) {
+      setError("Betting is closed for this tournament.");
+      return;
+    }
+    if (amountInvalid) {
+      setError("Enter a valid amount greater than 0.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
     try {
-      resetTxState();
+      await placeBet({
+        tournament_id: draft.tournament_id,
+        agent_id: draft.agent_id,
+        amount_eth: draft.amount_eth,
+      });
 
-      if (wrongNetwork) {
-        txToast.error("Switch to Base Sepolia (84532) to place a bet.");
-        return;
-      }
-
-      if (isTooLow) {
-        txToast.error(`Minimum bet is ${minBetEth} ETH`);
-        return;
-      }
-
-      txToast.pending("Confirm the bet in your wallet…");
-      setTxStatus('confirming');
-
-      // TODO: replace with real contract logic
-      await new Promise((res) => setTimeout(res, 1200));
-
-      setTxStatus('pending');
-      txToast.pending("Submitting bet to Base Sepolia…");
-
-      setTimeout(() => {
-        setTxStatus('success');
-        txToast.success("Bet placed successfully!");
-      }, 1500);
-
-    } catch (err: unknown) {
-      setTxStatus('error');
-      setTxError((err as Error)?.message || 'Transaction failed');
-      txToast.error("Bet failed");
+      await refreshMyBets(draft.tournament_id);
+      txToast.success("Bet placed successfully!");
+      closeBetModal();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Bet failed";
+      setError(message);
+      txToast.error(message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={closeBetModal}
+        aria-label="Close bet modal"
+      />
+
       <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.2 }}
-        className="bg-[#0a1122] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6 relative"
+        className="relative w-full max-w-md rounded-2xl bg-[#0a1122] border border-white/10 p-6 shadow-2xl"
       >
-        {/* Close */}
         <button
           onClick={closeBetModal}
           className="absolute top-4 right-4 text-gray-400 hover:text-white"
+          aria-label="Close"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Title */}
-        <h2 className="text-2xl font-bold text-white mb-1">
-          Bet on {name}
-        </h2>
+        <h2 className="text-2xl font-bold text-white mb-1">{title}</h2>
+        <p className="text-sm text-gray-400 mb-4">
+          Tournament: {draft.tournament_id ?? "—"}
+        </p>
 
-        {/* OddsDisplay */}
-        <OddsDisplay
-          oddsDecimal={oddsDecimal}
-          oddsFractional={oddsFractional}
-          className="mb-4"
-        />
-
-        {/* Agent Info */}
-        <div className="bg-white/5 rounded-lg p-4 border border-white/10 mb-4">
-          <p className="text-gray-300 text-sm">
-            <span className="text-white font-medium">Win Rate:</span> {winRate}%
-          </p>
-
-          {rank !== undefined && (
-            <p className="text-gray-300 text-sm">
-              <span className="text-white font-medium">Rank:</span> #{rank}
-            </p>
-          )}
-
-          <p className="text-gray-300 text-sm">
-            <span className="text-white font-medium">Portfolio:</span>{" "}
-            ${portfolioValue.toLocaleString()}
+        <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3">
+          <p className="text-sm text-gray-300">
+            Wallet:{" "}
+            {address
+              ? `${address.slice(0, 6)}...${address.slice(-4)}`
+              : "Not connected"}
           </p>
         </div>
 
-        {/* Wrong Network Warning */}
-        {wrongNetwork && (
-          <div className="bg-red-500/20 border border-red-700 text-red-300 text-sm p-2 rounded-md mb-3">
-            ⚠️ You are on the wrong network.  
-            Please switch to <strong>Base Sepolia (84532)</strong> to place bets.
+        {isConnected && !isAuthenticated && (
+          <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm text-gray-200">Sign in required</p>
+                <p className="text-xs text-gray-500">
+                  Sign a message to access betting features.
+                </p>
+                {signInError && (
+                  <p className="mt-2 text-xs text-red-400">{signInError}</p>
+                )}
+              </div>
+              <button
+                onClick={signIn}
+                disabled={isSigningIn}
+                className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-white text-sm font-medium transition disabled:opacity-50"
+              >
+                {isSigningIn ? "Signing..." : "Sign In"}
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Amount Input */}
-        <div className="flex flex-col mb-1">
-          <label className="text-gray-300 text-sm mb-1">Bet Amount (ETH)</label>
+        {bettingClosed && (
+          <div className="mb-3 rounded-lg border border-red-600/40 bg-red-500/10 p-3 text-sm text-red-300">
+            Betting is only open while the tournament is LIVE.
+          </div>
+        )}
 
-          <input
-            type="number"
-            min={minBetEth}
-            step="0.0001"
-            placeholder={`Min ${minBetEth} ETH`}
-            value={amountEth}
-            onChange={(e) => setAmountEth(e.target.value)}
-            className="px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white"
-          />
-        </div>
+        <label className="text-sm text-gray-300">Bet Amount (ETH)</label>
+        <input
+          value={draft.amount_eth}
+          onChange={(e) => setDraftAmount(e.target.value)}
+          inputMode="decimal"
+          placeholder="0.01"
+          className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-white"
+        />
 
-        <MinBetWarning minEth={minBetEth} show={isTooLow && amountEth !== ''} />
+        {amountInvalid && (
+          <p className="mt-2 text-xs text-red-400">
+            Amount must be greater than 0.
+          </p>
+        )}
 
-        <TransactionStatus status={txStatus} errorMessage={txError} />
+        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
 
-        {/* Buttons */}
-        <div className="flex gap-3 mt-4">
-          <button
-            onClick={closeBetModal}
-            className="flex-1 px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500 text-white"
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={handleConfirmBet}
-            disabled={
-              wrongNetwork ||
-              !amountEth ||
-              isTooLow ||
-              txStatus === 'pending' ||
-              txStatus === 'confirming'
-            }
-            className={`flex-1 px-4 py-2 rounded-lg font-semibold transition
-              ${
-                wrongNetwork
-                  ? "bg-gray-700 cursor-not-allowed opacity-40"
-                  : "bg-yellow-500 hover:bg-yellow-400 text-black"
-              }
-            `}
-          >
-            {wrongNetwork
-              ? "Wrong Network"
-              : txStatus === 'confirming'
-              ? "Confirming…"
-              : txStatus === 'pending'
-              ? "Betting…"
-              : "Confirm Bet"}
-          </button>
-        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+          className="mt-4 w-full rounded-xl bg-yellow-500 px-4 py-2 font-semibold text-black disabled:opacity-50"
+        >
+          {submitting
+            ? "Placing bet..."
+            : !isConnected
+            ? "Connect wallet to bet"
+            : !isAuthenticated
+            ? "Sign in to bet"
+            : "Place Bet"}
+        </button>
       </motion.div>
     </div>
   );

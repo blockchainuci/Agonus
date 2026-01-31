@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AtSign, Edit, LogOut, Mail, User } from 'lucide-react';
+import { AtSign, Edit, LogOut, Mail, User, Wallet, Loader2, CheckCircle } from 'lucide-react';
 import { loadUserProfile, saveUserProfile, type UserProfile } from './userProfileStorage';
+import { useWalletAuth } from '@/src/hooks/useWalletAuth';
 
 function truncate(addr: string) {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -12,7 +13,7 @@ function truncate(addr: string) {
 
 export default function UserDropdown() {
   const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { isAuthenticated, isSigningIn, signInError, signIn, fullDisconnect } = useWalletAuth();
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -72,7 +73,10 @@ export default function UserDropdown() {
           {addrLabel}
         </span>
 
-        <span className="w-2 h-2 bg-green-400 rounded-full" title="Connected" />
+        <span
+          className={`w-2 h-2 rounded-full ${isAuthenticated ? 'bg-green-400' : 'bg-amber-400'}`}
+          title={isAuthenticated ? 'Signed in' : 'Not signed in'}
+        />
       </button>
 
       <AnimatePresence>
@@ -88,6 +92,52 @@ export default function UserDropdown() {
               <p className="text-xs text-gray-400">Connected Wallet</p>
               <p className="text-white font-mono text-sm">{addrLabel}</p>
             </div>
+
+            {/* Sign In Section - shown when wallet connected but not authenticated */}
+            {!isAuthenticated && (
+              <div className="p-4 border-b border-white/10 bg-amber-500/5">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500/10">
+                    <Wallet className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-white mb-1">Sign in to Agonus</p>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Sign a message to verify wallet ownership and access betting features.
+                    </p>
+
+                    {signInError && (
+                      <p className="text-xs text-red-400 mb-2">{signInError}</p>
+                    )}
+
+                    <button
+                      onClick={signIn}
+                      disabled={isSigningIn}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-white text-sm font-medium transition disabled:opacity-50"
+                    >
+                      {isSigningIn ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Signing...
+                        </>
+                      ) : (
+                        'Sign Message'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Auth Status - shown when authenticated */}
+            {isAuthenticated && (
+              <div className="px-4 py-2 border-b border-white/10 bg-green-500/5">
+                <div className="flex items-center gap-2 text-green-400 text-sm">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Signed in</span>
+                </div>
+              </div>
+            )}
 
             {/* Profile */}
             <div className="p-4 border-b border-white/10 bg-white/5">
@@ -172,7 +222,7 @@ export default function UserDropdown() {
             <div className="p-2">
               <button
                 onClick={() => {
-                  disconnect();
+                  fullDisconnect();
                   setOpen(false);
                   setEditing(false);
                 }}

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { AgentBet } from '@/src/types/AgentBet';
 
 type TxStatus = 'idle' | 'confirming' | 'pending' | 'success' | 'error';
+export type TournamentStatus = "UPCOMING" | "LIVE" | "ENDED";
 
 // Minimal agent info required to open bet modal (for simple BetButton usage)
 type MinimalAgent = { id: string; name: string };
@@ -10,6 +11,8 @@ interface TournamentStore {
   // Tournament selection
   selectedTournamentId: string;
   setTournamentId: (id: string) => void;
+  selectedTournamentStatus: TournamentStatus;
+  setTournamentStatus: (status: TournamentStatus) => void;
 
   // Betting Modal state
   isBetModalOpen: boolean;
@@ -30,9 +33,11 @@ interface TournamentStore {
 
 export const useTournamentStore = create<TournamentStore>((set) => ({
   // Tournament state
-  selectedTournamentId: '5', // Default tournament ID as string
+  selectedTournamentId: '', // Set once tournaments load; prevents invalid default fetches
 
   setTournamentId: (id) => set({ selectedTournamentId: id }),
+  selectedTournamentStatus: "UPCOMING",
+  setTournamentStatus: (status) => set({ selectedTournamentStatus: status }),
 
   // Betting modal state
   isBetModalOpen: false,

@@ -10,7 +10,7 @@ import { useActiveSection } from './useActiveSection';
 import MarketBlips from './MarketBlips';
 
 const SECTIONS = [
-  { name: 'Tournaments', id: 'overview' },
+  { name: 'Tournaments', id: 'tournaments' },
   { name: 'Performance', id: 'performance' },
   { name: 'Recent Trades', id: 'recent-trades' },
 ];

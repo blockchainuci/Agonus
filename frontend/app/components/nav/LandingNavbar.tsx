@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
+import { useAccount } from 'wagmi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ConnectWallet } from '@/src/components/ConnectWallet';
 import { useActiveSection } from './useActiveSection';
@@ -18,6 +19,7 @@ const navLinks = [
 export default function LandingNavbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { isConnected } = useAccount();
 
   // Get section IDs for scrollspy
   const sectionIds = navLinks.map((link) => link.href);
@@ -90,6 +92,14 @@ export default function LandingNavbar() {
 
         {/* Right: Wallet + Mobile Menu */}
         <div className="justify-self-end flex items-center gap-3">
+          {isConnected && (
+            <Link
+              href="/home"
+              className="hidden md:inline-flex items-center px-4 py-2 rounded-full bg-[#FFD700] text-[#0A2540] font-semibold hover:shadow-[0_0_20px_rgba(255,215,0,0.4)] transition-all gold-shimmer"
+            >
+              Enter Dashboard
+            </Link>
+          )}
           <div className="hidden md:block">
             <ConnectWallet />
           </div>
@@ -133,6 +143,22 @@ export default function LandingNavbar() {
                 </a>
               </motion.div>
             ))}
+
+            {isConnected && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: navLinks.length * 0.1, duration: 0.2 }}
+                className="pt-2"
+              >
+                <Link
+                  href="/home"
+                  className="block w-full text-center px-4 py-2 rounded-full bg-[#FFD700] text-[#0A2540] font-semibold hover:shadow-[0_0_20px_rgba(255,215,0,0.4)] transition-all gold-shimmer"
+                >
+                  Enter Dashboard
+                </Link>
+              </motion.div>
+            )}
 
             {/* Real ConnectWallet on mobile */}
             <motion.div

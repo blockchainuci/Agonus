@@ -1,6 +1,6 @@
 # backend/app/scripts/seed_db.py
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from sqlmodel import Session
 
@@ -17,20 +17,20 @@ def seed_database():
             id=uuid4(),
             name="Q4 2024 Championship",
             status=StatusEnum.live,
-            start_date=datetime.utcnow(),
-            end_date=datetime.utcnow() + timedelta(days=30),
+            start_date=datetime.now(timezone.utc),
+            end_date=datetime.now(timezone.utc) + timedelta(days=30),
             prize_pool=Decimal("10000.00"),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         tournament2 = Tournament(
             id=uuid4(),
             name="Winter Series",
             status=StatusEnum.upcoming,
-            start_date=datetime.utcnow() + timedelta(days=7),
-            end_date=datetime.utcnow() + timedelta(days=37),
+            start_date=datetime.now(timezone.utc) + timedelta(days=7),
+            end_date=datetime.now(timezone.utc) + timedelta(days=37),
             prize_pool=Decimal("5000.00"),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         session.add(tournament1)
@@ -45,7 +45,7 @@ def seed_database():
             avatar_url="https://example.com/avatar1.png",
             stats={"win_rate": 0.65, "total_trades": 150},
             memory={"last_analysis": "Bullish on tech stocks"},
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         agent2 = Agent(
@@ -56,7 +56,7 @@ def seed_database():
             avatar_url="https://example.com/avatar2.png",
             stats={"win_rate": 0.58, "total_trades": 200},
             memory={"last_analysis": "Focus on fundamentals"},
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         agent3 = Agent(
@@ -67,7 +67,7 @@ def seed_database():
             avatar_url="https://example.com/avatar3.png",
             stats={"win_rate": 0.72, "total_trades": 500},
             memory={"last_analysis": "Pattern detected in BTC"},
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         session.add(agent1)
@@ -85,7 +85,7 @@ def seed_database():
             asset="BTC",
             amount=Decimal("0.5"),
             price=Decimal("45000.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         trade2 = Trade(
@@ -96,7 +96,7 @@ def seed_database():
             asset="ETH",
             amount=Decimal("5.0"),
             price=Decimal("3000.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         trade3 = Trade(
@@ -107,7 +107,7 @@ def seed_database():
             asset="BTC",
             amount=Decimal("0.25"),
             price=Decimal("46000.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         session.add(trade1)
@@ -122,7 +122,7 @@ def seed_database():
             tournament_id=tournament1.id,
             amount=Decimal("100.00"),
             odds=Decimal("2.5"),
-            placed_at=datetime.utcnow(),
+            placed_at=datetime.now(timezone.utc),
             settled=False,
         )
 
@@ -133,7 +133,7 @@ def seed_database():
             tournament_id=tournament1.id,
             amount=Decimal("250.00"),
             odds=Decimal("3.0"),
-            placed_at=datetime.utcnow(),
+            placed_at=datetime.now(timezone.utc),
             settled=False,
         )
 

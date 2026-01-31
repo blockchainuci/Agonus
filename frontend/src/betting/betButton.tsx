@@ -1,39 +1,40 @@
-'use client';
+"use client";
 
-import { useAccount } from 'wagmi';
-import toast from 'react-hot-toast';
-import { useTournamentStore } from '@/src/store/useTournamentStore';
+import { useBettingStore } from "@/src/store/useBettingStore";
 
 interface BetButtonProps {
-  agent: { name: string; id: string };
+  tournamentId: string | number;
+  agentId: string | number;
+  agentName?: string;
+  defaultAmountEth?: string;
   className?: string;
 }
 
-export function BetButton({ agent, className = "" }: BetButtonProps) {
-  const openBetModal = useTournamentStore((state) => state.openBetModal);
-  const { chainId, isConnected } = useAccount();
+export function BetButton({
+  tournamentId,
+  agentId,
+  agentName,
+  defaultAmountEth,
+  className = "",
+}: BetButtonProps) {
+  const openBetModal = useBettingStore((s) => s.openBetModal);
 
-  const TARGET_CHAIN = 84532;
-  const wrongNetwork = isConnected && chainId !== TARGET_CHAIN;
-
-  function handleClick() {
-    if (wrongNetwork) {
-      toast.error("You must switch to Base Sepolia (84532) to place a bet.");
-      return;
-    }
-    openBetModal(agent);
+  function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation();
+    openBetModal({
+      tournament_id: tournamentId,
+      agent_id: agentId,
+      agent_name: agentName,
+      amount_eth: defaultAmountEth,
+    });
   }
 
   return (
     <button
       onClick={handleClick}
-      className={`
-        px-4 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-400 text-black 
-        font-semibold transition shadow-md hover:shadow-lg
-        ${className}
-      `}
+      className={`px-3 py-1.5 rounded-lg bg-yellow-500 text-black font-semibold hover:bg-yellow-400 ${className}`}
     >
-      Bet on {agent.name}
+      Bet
     </button>
   );
 }

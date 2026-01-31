@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from datetime import timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
@@ -50,8 +51,14 @@ async def create_bet(
     user: dict = Depends(get_current_user),
 ):
     """POST route for creating a new bet"""
-    bet_dict = bet_data.model_dump()
+    bet_dict = bet_data.model_dump(exclude_unset=True)
     bet_dict["user_address"] = user["address"]  # Force bet ownership
+
+    # Remove fields not in the database model
+    bet_dict.pop("tx_hash", None)
+    # Store naive UTC if DB column is TIMESTAMP WITHOUT TIME ZONE
+    if "placed_at" in bet_dict and bet_dict["placed_at"] is not None:
+        bet_dict["placed_at"] = bet_dict["placed_at"].replace(tzinfo=None)
 
     bet = Bet(**bet_dict)
 

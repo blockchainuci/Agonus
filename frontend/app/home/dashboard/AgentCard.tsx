@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { useTournamentStore } from "@/src/store/useTournamentStore";
 import Tooltip from "@/app/components/ui/Tooltip";
+import { BetButton } from "@/src/betting/betButton";
 
 import type { Agent } from "@/src/types/Agent";
 import type { AgentBet } from "@/src/types/AgentBet";
@@ -46,7 +47,6 @@ export default function AgentCard({
   forceExpand,
 }: AgentCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const openBetModal = useTournamentStore((s) => s.openBetModal);
 
   useEffect(() => {
     if (forceExpand !== undefined) setExpanded(forceExpand); // eslint-disable-line react-hooks/set-state-in-effect
@@ -99,15 +99,12 @@ export default function AgentCard({
           </div>
 
           {/* Bet Button */}
-          <button
-            className="mt-2 px-3 py-1.5 bg-yellow-500 text-black rounded-lg font-semibold hover:bg-yellow-400"
-            onClick={(e) => {
-              e.stopPropagation();
-              openBetModal(modalAgent);
-            }}
-          >
-            Bet on Agent
-          </button>
+          <BetButton
+            tournamentId={modalAgent.tournamentId}
+            agentId={modalAgent.id}
+            agentName={modalAgent.name}
+            className="mt-2"
+          />
 
           {/* Expand / Collapse */}
           <button

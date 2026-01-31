@@ -7,13 +7,13 @@ import AgentPerformanceChart from './components/AgentPerformanceChart';
 import { useTournaments } from '@/src/hooks/useTournaments';
 import { useTournamentStore } from '@/src/store/useTournamentStore';
 import SectionBackground from '../components/background/SectionBackground';
+import BetModal from '@/src/betting/BetModal';
 
 export default function HomePage() {
   // Fetch tournaments from backend (optional - for syncing with backend data)
   const { data: tournaments } = useTournaments();
 
   // Use Zustand store for tournament selection (same as TournamentStatusBar)
-  // Store has default '5' so we always have a selectedTournamentId
   const selectedTournamentId = useTournamentStore((s) => s.selectedTournamentId);
   const setTournamentId = useTournamentStore((s) => s.setTournamentId);
 
@@ -30,7 +30,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <SectionBackground id="overview" variant="base" className="pt-8">
+      <SectionBackground id="tournaments" variant="base" className="pt-8">
         <div className="max-w-7xl mx-auto p-6">
           <div className="scroll-mt-24 relative">
             <TournamentContainer />
@@ -60,6 +60,8 @@ export default function HomePage() {
           </div>
         </div>
       </SectionBackground>
+
+      <BetModal />
     </div>
   );
 }

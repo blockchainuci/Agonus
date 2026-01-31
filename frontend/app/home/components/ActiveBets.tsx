@@ -1,94 +1,62 @@
 'use client';
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, TrendingUp, TrendingDown, XCircle, Clock, Zap, Hourglass } from "lucide-react";
-import { useAccount } from "wagmi";
+import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Trophy, XCircle, Clock, Zap, RefreshCw } from 'lucide-react';
+import { useAccount } from 'wagmi';
 
-import { mockBets } from "@/app/home/data/mockBets";
-import { mockTournaments } from "@/app/home/data/mockTournament";
-import { ClaimWinnings } from "@/src/betting/ClaimWinnings";
-
-// ---------------------------------------
-// Backend Bet Format (Do Not Modify)
-// ---------------------------------------
-export interface Bet {
-  id: string;
-  tournament_id: string;
-  user_address: string;
-  agent_id: string;
-  amount: number;
-  direction: "up" | "down";
-  settled: boolean;
-  payout: number | null;
-  created_at: string;
-}
+import { useWalletAuth } from '@/src/hooks/useWalletAuth';
+import { useBettingStore } from '@/src/store/useBettingStore';
+import type { Bet } from '@/src/types/bets';
 
 interface ActiveBetsProps {
   tournamentId: string;
 }
 
-// ---------------------------------------
-// UI - Enriched Bet
-// ---------------------------------------
-interface EnrichedBet extends Bet {
-  status: "active" | "won" | "lost";
-}
+type UiStatus = 'active' | 'won' | 'lost';
 
-function getBetStatus(b: Bet): "active" | "won" | "lost" {
-  if (!b.settled) return "active";
-  if (b.payout && b.payout > 0) return "won";
-  return "lost";
-}
+const getUiStatus = (status: Bet['status']): UiStatus => {
+  if (status === 'PENDING' || status === 'CONFIRMED') return 'active';
+  if (status === 'SETTLED') return 'won';
+  return 'lost';
+};
 
-const getAgentColor = (id: string) =>
-  ({
-    "1": "from-blue-500 to-cyan-500",
-    "2": "from-purple-500 to-pink-500",
-    "3": "from-green-500 to-emerald-500",
-  }[id] || "from-gray-500 to-slate-500");
+const statusLabel: Record<UiStatus, string> = {
+  active: 'Active',
+  won: 'Settled',
+  lost: 'Canceled/Failed',
+};
+
+const statusIcon = (uiStatus: UiStatus) => {
+  if (uiStatus === 'won') return Trophy;
+  if (uiStatus === 'lost') return XCircle;
+  return Clock;
+};
 
 export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
-  const [filter, setFilter] = useState<"active" | "past">("active");
+  const [filter, setFilter] = useState<'active' | 'past'>('active');
   const { isConnected } = useAccount();
+  const { isAuthenticated, isSigningIn, signInError, signIn } = useWalletAuth();
+  const myBets = useBettingStore((s) => s.myBets);
+  const isLoadingBets = useBettingStore((s) => s.isLoadingBets);
+  const betsError = useBettingStore((s) => s.betsError);
+  const refreshMyBets = useBettingStore((s) => s.refreshMyBets);
 
-  // ---------------------------------------
-  // Tournament Status
-  // ---------------------------------------
-  const tournament = mockTournaments.find((t) => t.id === parseInt(tournamentId, 10));
-  const isLive = tournament?.status === "LIVE";
-  const isEnded = tournament?.status === "ENDED";
+  useEffect(() => {
+    if (!isConnected || !isAuthenticated) return;
+    refreshMyBets(tournamentId);
+  }, [isConnected, isAuthenticated, refreshMyBets, tournamentId]);
 
-  // ---------------------------------------
-  // Enrich Backend Bets
-  // ---------------------------------------
-  const enriched: EnrichedBet[] = mockBets.map((b) => ({
-    ...b,
-    status: getBetStatus(b),
-  }));
-
-  const active = enriched.filter(
-    (b) => b.status === "active" && b.tournament_id === String(tournamentId)
+  const scopedBets = myBets.filter(
+    (b) => String(b.tournament_id) === String(tournamentId)
   );
 
-  const past = enriched.filter(
-    (b) => b.status !== "active" && b.tournament_id === String(tournamentId)
-  );
-
-  const displayed = filter === "active" ? active : past;
-
-  // ---------------------------------------
-  // Mock Claim Function (replace with Web3)
-  // ---------------------------------------
-  const handleClaim = async (bet: EnrichedBet): Promise<void> => {
-    console.log("Claim clicked:", bet);
-    await new Promise<void>((resolve) => setTimeout(resolve, 1200));
-    console.log("Claim complete!");
-  };
+  const active = scopedBets.filter((b) => getUiStatus(b.status) === 'active');
+  const past = scopedBets.filter((b) => getUiStatus(b.status) !== 'active');
+  const displayed = filter === 'active' ? active : past;
 
   return (
-    <div className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 p-6">
-
+    <div className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 p-6 h-[720px] flex flex-col">
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -101,32 +69,43 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
           </div>
         </div>
 
-        <div className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-full">
-          <span className="text-xs text-cyan-400 font-semibold">
-            {displayed.length} Bets
-          </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => refreshMyBets(tournamentId)}
+            disabled={!isConnected || !isAuthenticated || isLoadingBets}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/10 text-xs text-gray-200 hover:bg-white/5 disabled:opacity-50"
+            title="Refresh bets"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </button>
+          <div className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-full">
+            <span className="text-xs text-cyan-400 font-semibold">
+              {displayed.length} Bets
+            </span>
+          </div>
         </div>
       </div>
 
       {/* FILTER TABS */}
       <div className="flex gap-2 mb-4 bg-white/5 p-1 rounded-lg">
         <button
-          onClick={() => setFilter("active")}
+          onClick={() => setFilter('active')}
           className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold ${
-            filter === "active"
-              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-              : "text-gray-400 hover:text-white"
+            filter === 'active'
+              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+              : 'text-gray-400 hover:text-white'
           }`}
         >
           Active ({active.length})
         </button>
 
         <button
-          onClick={() => setFilter("past")}
+          onClick={() => setFilter('past')}
           className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold ${
-            filter === "past"
-              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-              : "text-gray-400 hover:text-white"
+            filter === 'past'
+              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+              : 'text-gray-400 hover:text-white'
           }`}
         >
           Past ({past.length})
@@ -134,7 +113,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
       </div>
 
       {/* BETS LIST */}
-      <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+      <div className="space-y-2 flex-1 overflow-y-auto pr-2">
         <AnimatePresence>
           {!isConnected ? (
             <motion.div
@@ -148,6 +127,63 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
                 Connect your wallet to place and view bets.
               </p>
             </motion.div>
+          ) : !isAuthenticated ? (
+            <motion.div
+              key="signin-placeholder"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="bg-white/5 rounded-xl p-4 border border-white/10"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-gray-200">Sign in required</p>
+                  <p className="text-xs text-gray-500">
+                    Sign a message to access betting features.
+                  </p>
+                  {signInError && (
+                    <p className="mt-2 text-xs text-red-400">{signInError}</p>
+                  )}
+                </div>
+                <button
+                  onClick={signIn}
+                  disabled={isSigningIn}
+                  className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-white text-sm font-medium transition disabled:opacity-50"
+                >
+                  {isSigningIn ? 'Signing...' : 'Sign In'}
+                </button>
+              </div>
+            </motion.div>
+          ) : betsError ? (
+            <motion.div
+              key="error-placeholder"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="bg-red-500/10 rounded-xl p-4 border border-red-500/30"
+            >
+              <p className="text-sm text-red-300">{betsError}</p>
+            </motion.div>
+          ) : isLoadingBets ? (
+            <motion.div
+              key="loading-placeholder"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="bg-white/5 rounded-xl p-4 border border-white/10 text-center"
+            >
+              <p className="text-sm text-gray-300">Loading bets...</p>
+            </motion.div>
+          ) : displayed.length === 0 ? (
+            <motion.div
+              key="empty-placeholder"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="bg-white/5 rounded-xl p-4 border border-white/10 text-center"
+            >
+              <p className="text-sm text-gray-300">No bets yet.</p>
+            </motion.div>
           ) : (
             displayed.map((bet, index) => (
               <motion.div
@@ -158,98 +194,60 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
                 transition={{ delay: index * 0.05 }}
                 className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10"
               >
+                {/* TOP ROW */}
+                <div className="flex items-center justify-between mb-3">
+                  {/* Agent bubble */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold">
+                      {String(bet.agent_id).slice(0, 2).toUpperCase()}
+                    </div>
 
-              {/* TOP ROW */}
-              <div className="flex items-center justify-between mb-3">
-                {/* Agent bubble */}
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-full bg-gradient-to-br ${getAgentColor(
-                      bet.agent_id
-                    )} flex items-center justify-center text-white font-bold`}
-                  >
-                    {bet.agent_id}
-                  </div>
-
-                  <div>
-                    <p className="font-bold text-white text-sm">
-                      Agent #{bet.agent_id}
-                    </p>
-
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      {bet.direction === "up" ? (
-                        <TrendingUp className="w-3 h-3 text-green-400" />
-                      ) : (
-                        <TrendingDown className="w-3 h-3 text-red-400" />
-                      )}
-                      <span>{bet.direction.toUpperCase()}</span>
+                    <div>
+                      <p className="font-bold text-white text-sm">
+                        {bet.agent_name ? bet.agent_name : `Agent ${bet.agent_id}`}
+                      </p>
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        Status: {bet.status}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Status Badge */}
+                  {(() => {
+                    const uiStatus = getUiStatus(bet.status);
+                    const Icon = statusIcon(uiStatus);
+                    const color =
+                      uiStatus === 'won'
+                        ? 'bg-green-500/20 border-green-500/30 text-green-400'
+                        : uiStatus === 'lost'
+                        ? 'bg-red-500/20 border-red-500/30 text-red-400'
+                        : 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400';
+
+                    return (
+                      <div className={`flex items-center gap-1 px-2 py-1 border rounded-full ${color}`}>
+                        <Icon className="w-3 h-3" />
+                        <span className="text-xs font-semibold uppercase">
+                          {statusLabel[uiStatus]}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
-                {/* Status Badge */}
-                {bet.status === "active" && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-cyan-500/20 border border-cyan-500/30 rounded-full">
-                    <Clock className="w-3 h-3 text-cyan-400" />
-                    <span className="text-xs text-cyan-400 font-semibold uppercase">
-                      Active
-                    </span>
-                  </div>
-                )}
-
-                {bet.status === "won" && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded-full">
-                    <Trophy className="w-3 h-3 text-green-400" />
-                    <span className="text-xs text-green-400 font-semibold uppercase">
-                      Won +{bet.payout} ETH
-                    </span>
-                  </div>
-                )}
-
-                {bet.status === "lost" && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-red-500/20 border border-red-500/30 rounded-full">
-                    <XCircle className="w-3 h-3 text-red-400" />
-                    <span className="text-xs text-red-400 font-semibold uppercase">
-                      Lost
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* AMOUNT + TIMESTAMP */}
-              <div className="pt-3 border-t border-white/5">
-                <p className="text-xs text-gray-400 mb-1">Bet Amount</p>
-                <p className="font-bold text-white text-lg mb-1">
-                  {bet.amount} ETH
-                </p>
-                <p className="text-[10px] text-gray-500">
-                  Placed: {new Date(bet.created_at).toLocaleString()}
-                </p>
-              </div>
-
-              {/* CLAIM LOGIC */}
-              {filter === "past" && bet.status === "won" && bet.payout && bet.payout > 0 && (
-                <div className="mt-4">
-
-                  {/* 🔵 If tournament LIVE → show pending */}
-                  {isLive && (
-                    <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 px-3 py-2 rounded-lg flex items-center gap-2">
-                      <Hourglass className="w-4 h-4" />
-                      <p className="text-sm font-medium">Pending settlement — tournament still live</p>
-                    </div>
-                  )}
-
-                  {/* 🟢 If tournament ENDED → allow claim */}
-                  {isEnded && (
-                    <ClaimWinnings
-                      payoutAmountEth={bet.payout.toString()}
-                      tournamentId={Number(bet.tournament_id)}
-                      alreadyClaimed={false}
-                      onClaim={() => handleClaim(bet)}
-                    />
-                  )}
+                {/* AMOUNT + TIMESTAMP */}
+                <div className="pt-3 border-t border-white/5">
+                  <p className="text-xs text-gray-400 mb-1">Bet Amount</p>
+                  <p className="font-bold text-white text-lg mb-1">
+                    {bet.amount_eth} ETH
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    Placed:{' '}
+                    {(() => {
+                      const placed = bet.created_at ?? bet.placed_at;
+                      return placed ? new Date(placed).toLocaleString() : 'Unknown';
+                    })()}
+                  </p>
                 </div>
-              )}
               </motion.div>
             ))
           )}
