@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional, Any
 import enum
 
-from sqlalchemy import String, Numeric, Integer, Enum as SQLEnum, Index, DateTime
+from sqlalchemy import String, Numeric, Integer, Enum as SQLEnum, Index, DateTime, ForeignKey, JSON, UniqueConstraint
 from sqlalchemy import ForeignKey, JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -26,6 +26,19 @@ class ActionEnum(str, enum.Enum):
     buy = "buy"
     sell = "sell"
     hold = "hold"
+ 
+class PlanItemStatus(str, enum.Enum):
+    planned = 'planned'
+    in_progress = 'in_progress'
+    executed = 'executed'
+    failed = 'failed'
+    cancelled = 'cancelled'
+    skipped = 'skipped'
+
+class PlanActionType(str, enum.Enum):
+    RESEARCH = 'RESEARCH'
+    OPEN_POSITION = 'OPEN_POSITION'
+    CLOSE_POSITION = 'CLOSE_POSITION'
 
 
 # MODELS
@@ -136,3 +149,60 @@ class Bet(Base):
 
     tournament: Mapped["Tournament"] = relationship(back_populates="bets")
     agent: Mapped["Agent"] = relationship(back_populates="bets")
+
+class PlanItem(Base):
+    __tablename__ = 'plan_item'
+    __table_args__ = (
+        Index('ix_plan_item_status_execute_at', 'status', 'execute_at'),
+        Index('ix_plan_item_agent_tournament', 'agent_id', 'tournament_id'),
+        UniqueConstraint(
+            'agent_id', 'tournament_id', 'idempotency_key',
+            name = 'uq_plan_item_agent_tournament_idempotency'
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    agent_id: Mapped[UUID] = mapped_column(ForeignKey('agent.id'), index = True)
+    tournament_id: Mapped[UUID] = mapped_column(ForeignKey("tournament.id"), index=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+    execute_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    
+    status: Mapped[PlanItemStatus] = mapped_column(
+        SQLEnum(PlanItemStatus, native_enum=False), 
+        default=PlanItemStatus.planned
+    )
+    action_type: Mapped[PlanActionType] = mapped_column(
+        SQLEnum(PlanActionType, native_enum=False)
+    )   
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    last_error: Mapped[Optional[str]] = mapped_column(String, default=None)
+    idempotency_key: Mapped[str] = mapped_column(String(255))
+
+    agent: Mapped["Agent"] = relationship()
+    tournament: Mapped["Tournament"] = relationship()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+           "id": str(self.id),
+            "agent_id": str(self.agent_id),
+            "tournament_id": str(self.tournament_id),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "execute_at": self.execute_at.isoformat() if self.execute_at else None,
+            "status": self.status.value if self.status else None,
+            "action_type": self.action_type.value if self.action_type else None,
+            "payload": self.payload,
+            "attempts": self.attempts,
+            "max_attempts": self.max_attempts,
+            "last_error": self.last_error,
+            "idempotency_key": self.idempotency_key
+        }
