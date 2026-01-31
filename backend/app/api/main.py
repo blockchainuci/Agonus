@@ -1,10 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-try:
-    from .routers import tournament, agent, agent_state, trade, bet, auth, market_data
-except ImportError:
-    from routers import tournament, agent, agent_state, trade, bet, auth, market_data
+from .routers import tournament, agent, agent_state, trade, bet, auth, market_data
 from os import getenv
 import uvicorn
 from contextlib import asynccontextmanager
