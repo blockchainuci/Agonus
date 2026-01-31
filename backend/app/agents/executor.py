@@ -219,6 +219,13 @@ Pending Scheduled Plans:
 
 Your goal is to maximize returns while respecting your risk tolerance.
 
+PLANNING (required every decision cycle):
+1. Review your pending plans above.
+2. If you have fewer than 4 plans, create new ones so you always maintain at least 4 scheduled steps covering short-term (hours), medium-term (days), and long-term (weeks) actions.
+3. If you act on a plan NOW (e.g., execute a trade it describes), cancel that plan step immediately so it does not remain as stale/duplicate.
+4. Revise or cancel any plans that are outdated or no longer relevant.
+5. After updating your plans, decide whether to execute any trades NOW based on current conditions.
+
 Guidelines:
 - For BUY trades: amount is USDC to spend (e.g., BUY ETH 50 means spend $50 USDC to buy ETH)
 - For SELL trades: amount is quantity of token to sell
@@ -228,9 +235,7 @@ Guidelines:
 - Aggressive agents can take larger positions
 - Always provide reasoning in your summary
 - This is a simulation - trades are not executed on-chain
-- You can schedule future actions using create_plan_step (e.g., research later, open a position at a specific time)
-- Review your pending plans before creating new ones to avoid duplicates
-- Cancel plans that are no longer relevant
+- Do not create duplicate plans — cancel outdated ones first
 
 TOOLS:
 ------
@@ -274,7 +279,7 @@ Thought:{agent_scratchpad}"""
             tools=tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=15,
+            max_iterations=25,
             max_execution_time=60,
         )
 
@@ -289,6 +294,7 @@ Thought:{agent_scratchpad}"""
             Result message
         """
         try:
+            trade_input = trade_input.strip().strip("'\"")
             parts = trade_input.split(maxsplit=4)
             if len(parts) < 5:
                 return f"Error: Invalid trade format. Expected 'ACTION TOKEN AMOUNT CONFIDENCE SUMMARY', got: {trade_input}"
@@ -328,12 +334,14 @@ Thought:{agent_scratchpad}"""
     def _create_plan_step_wrapper(self, input_str: str) -> str:
         """Parse: 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"""
         try:
+            input_str = input_str.strip().strip("'\"")
             parts = input_str.split(maxsplit=2)
             if len(parts) < 3:
                 return "Error: Expected 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"
             action_type = parts[0].upper()
             execute_at = parts[1]
-            payload = json.loads(parts[2])
+            payload_str = parts[2].replace('\\"', '"')
+            payload = json.loads(payload_str)
             result = self._run_async(
                 self.plan_tool.create_plan_step(
                     action_type=action_type,
@@ -360,7 +368,7 @@ Thought:{agent_scratchpad}"""
     def _cancel_plan_step_wrapper(self, input_str: str) -> str:
         """Parse: 'PLAN_ITEM_ID [REASON]'"""
         try:
-            parts = input_str.strip().split(maxsplit=1)
+            parts = input_str.strip().strip("'\"").split(maxsplit=1)
             plan_item_id = UUID(parts[0])
             reason = parts[1] if len(parts) > 1 else None
             result = self._run_async(
@@ -378,7 +386,7 @@ Thought:{agent_scratchpad}"""
     def _reschedule_plan_step_wrapper(self, input_str: str) -> str:
         """Parse: 'PLAN_ITEM_ID NEW_EXECUTE_AT_ISO'"""
         try:
-            parts = input_str.strip().split(maxsplit=1)
+            parts = input_str.strip().strip("'\"").split(maxsplit=1)
             if len(parts) < 2:
                 return "Error: Expected 'PLAN_ITEM_ID NEW_EXECUTE_AT_ISO'"
             plan_item_id = UUID(parts[0])
@@ -548,9 +556,11 @@ Thought:{agent_scratchpad}"""
         """
         if task is None:
             task = (
-                "Analyze current market conditions and portfolio state. "
-                "Decide if any trades should be executed based on your personality and risk tolerance. "
-                "If you decide to trade, execute it. If not, explain why."
+                "1. Analyze current market conditions and your portfolio state. "
+                "2. Check your pending scheduled plans. If any are due or relevant, decide whether to act on, revise, or cancel them. "
+                "If you have no plans, create a strategy with scheduled steps for now and the future using create_plan_step. "
+                "3. Based on your personality and risk tolerance, decide whether to execute any trades now. "
+                "If you trade, execute it. If not, explain your reasoning."
             )
 
         # Update portfolio values before making decision
