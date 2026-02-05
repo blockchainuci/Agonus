@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { useTournamentStore } from "@/src/store/useTournamentStore";
+import { useTournament } from "@/src/hooks/useTournaments";
 import Tooltip from "@/app/components/ui/Tooltip";
 import { BetButton } from "@/src/betting/betButton";
 
@@ -47,12 +48,19 @@ export default function AgentCard({
   forceExpand,
 }: AgentCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const selectedTournamentId = useTournamentStore(
+    (s) => s.selectedTournamentId
+  );
+  const { data: tournament } = useTournament(selectedTournamentId);
 
   useEffect(() => {
     if (forceExpand !== undefined) setExpanded(forceExpand); // eslint-disable-line react-hooks/set-state-in-effect
   }, [forceExpand]);
 
   const modalAgent = normalizeAgent(agent);
+  const contractTournamentId = tournament?.contract_tournament_id ?? null;
+  const contractAgentId =
+    tournament?.agent_contract_mapping?.[agent.id] ?? null;
 
   const winRatePct = modalAgent.winRate.toFixed(1);
   const roiPct = agent.roi_percent.toFixed(2);
@@ -103,6 +111,8 @@ export default function AgentCard({
             tournamentId={modalAgent.tournamentId}
             agentId={modalAgent.id}
             agentName={modalAgent.name}
+            contractTournamentId={contractTournamentId}
+            contractAgentId={contractAgentId}
             className="mt-2"
           />
 

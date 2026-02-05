@@ -3,22 +3,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { motion } from "framer-motion";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 
 import { useBettingStore } from "@/src/store/useBettingStore";
 import { useTournamentStore } from "@/src/store/useTournamentStore";
-import { usePlaceBet } from "@/src/hooks/usePlaceBet";
+import { usePlaceBetOnchain } from "@/src/hooks/useOnchainBetting";
+import { AGONUS_CHAIN_ID } from "@/src/lib/agonusContract";
 import { txToast } from "./TransactionToast";
 import { useWalletAuth } from "@/src/hooks/useWalletAuth";
+import { createBet } from "@/src/lib/api/bets";
 
 export default function BetModal() {
-  const { isConnected, address } = useAccount();
+  const { isConnected, address, chainId } = useAccount();
   const { isAuthenticated, isSigningIn, signInError, signIn } = useWalletAuth();
   const tournamentStatus = useTournamentStore(
     (s) => s.selectedTournamentStatus
   );
+  const publicClient = usePublicClient({ chainId: AGONUS_CHAIN_ID });
 
-  const { placeBet } = usePlaceBet();
+  const placeBetOnchain = usePlaceBetOnchain();
   const {
     isBetModalOpen,
     draft,
@@ -50,6 +53,8 @@ export default function BetModal() {
   const canSubmit =
     !!draft.tournament_id &&
     !!draft.agent_id &&
+    !!draft.contract_tournament_id &&
+    !!draft.contract_agent_id &&
     isConnected &&
     isAuthenticated &&
     !bettingClosed &&
@@ -65,6 +70,10 @@ export default function BetModal() {
       setError("Connect your wallet to place a bet.");
       return;
     }
+    if (chainId && chainId !== AGONUS_CHAIN_ID) {
+      setError(`Switch to Base Sepolia (${AGONUS_CHAIN_ID}) to place a bet.`);
+      return;
+    }
     if (!isAuthenticated) {
       setError("Please sign in to place a bet.");
       return;
@@ -77,12 +86,35 @@ export default function BetModal() {
       setError("Enter a valid amount greater than 0.");
       return;
     }
+    if (!draft.contract_tournament_id || !draft.contract_agent_id) {
+      setError("Tournament is not linked on-chain yet.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
 
     try {
-      await placeBet({
+      if (!publicClient) {
+        throw new Error("Wallet client not ready");
+      }
+
+      const txHash = await placeBetOnchain({
+        contractTournamentId: Number(draft.contract_tournament_id),
+        contractAgentId: Number(draft.contract_agent_id),
+        amountEth: draft.amount_eth,
+      });
+
+      txToast.pending("Confirming on-chain bet...");
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      if (receipt.status !== "success") {
+        throw new Error("On-chain transaction failed");
+      }
+
+      await createBet({
         tournament_id: draft.tournament_id,
         agent_id: draft.agent_id,
         amount_eth: draft.amount_eth,

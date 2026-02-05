@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, XCircle, Clock, Zap, RefreshCw } from 'lucide-react';
 import { useAccount } from 'wagmi';
 
 import { useWalletAuth } from '@/src/hooks/useWalletAuth';
 import { useBettingStore } from '@/src/store/useBettingStore';
+import { useAgents } from '@/src/hooks/useAgents';
 import type { Bet } from '@/src/types/bets';
 
 interface ActiveBetsProps {
@@ -41,6 +42,15 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
   const isLoadingBets = useBettingStore((s) => s.isLoadingBets);
   const betsError = useBettingStore((s) => s.betsError);
   const refreshMyBets = useBettingStore((s) => s.refreshMyBets);
+
+  // Fetch all agents to get names/avatars
+  const { data: agents } = useAgents();
+
+  // Create a lookup map: agent_id -> agent data
+  const agentMap = useMemo(() => {
+    if (!agents) return new Map<string, { name: string; type: string }>();
+    return new Map(agents.map((a) => [String(a.id), { name: a.name, type: a.type }]));
+  }, [agents]);
 
   useEffect(() => {
     if (!isConnected || !isAuthenticated) return;
@@ -197,20 +207,36 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
                 {/* TOP ROW */}
                 <div className="flex items-center justify-between mb-3">
                   {/* Agent bubble */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold">
-                      {String(bet.agent_id).slice(0, 2).toUpperCase()}
-                    </div>
+                  {(() => {
+                    const agentData = agentMap.get(String(bet.agent_id));
+                    const agentName = bet.agent_name || agentData?.name || `Agent`;
+                    const agentType = agentData?.type || '';
+                    // Generate avatar URL using DiceBear (same as mock data)
+                    const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agentName)}`;
 
-                    <div>
-                      <p className="font-bold text-white text-sm">
-                        {bet.agent_name ? bet.agent_name : `Agent ${bet.agent_id}`}
-                      </p>
-                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                        Status: {bet.status}
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden shadow-lg">
+                          <img
+                            src={avatarUrl}
+                            alt={agentName}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div>
+                          <p className="font-bold text-white text-sm">
+                            {agentName}
+                          </p>
+                          <div className="flex items-center gap-1 text-xs text-gray-400">
+                            {agentType && <span className="capitalize">{agentType.replace('_', ' ')}</span>}
+                            {agentType && <span>•</span>}
+                            <span>{bet.status}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Status Badge */}
                   {(() => {

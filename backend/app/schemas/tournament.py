@@ -34,6 +34,16 @@ class TournamentContractLink(BaseModel):
     tx_hash: Optional[str] = None  # For verification/tracking
 
 
+# NEW: Schema for on-chain tournament creation
+class TournamentOnchainCreate(BaseModel):
+    agent_ids: list[UUID]
+
+
+# NEW: Schema for on-chain tournament settlement
+class TournamentOnchainSettle(BaseModel):
+    winner_agent_id: UUID
+
+
 # Schema for responses (GET)
 class TournamentResponse(TournamentBase):
     id: UUID

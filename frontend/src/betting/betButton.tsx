@@ -6,6 +6,8 @@ interface BetButtonProps {
   tournamentId: string | number;
   agentId: string | number;
   agentName?: string;
+  contractTournamentId?: number | null;
+  contractAgentId?: number | null;
   defaultAmountEth?: string;
   className?: string;
 }
@@ -14,6 +16,8 @@ export function BetButton({
   tournamentId,
   agentId,
   agentName,
+  contractTournamentId,
+  contractAgentId,
   defaultAmountEth,
   className = "",
 }: BetButtonProps) {
@@ -25,6 +29,8 @@ export function BetButton({
       tournament_id: tournamentId,
       agent_id: agentId,
       agent_name: agentName,
+      contract_tournament_id: contractTournamentId ?? null,
+      contract_agent_id: contractAgentId ?? null,
       amount_eth: defaultAmountEth,
     });
   }

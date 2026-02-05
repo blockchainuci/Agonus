@@ -4,11 +4,13 @@ import { useAccount } from 'wagmi';
 import { useTournamentStore } from '@/src/store/useTournamentStore';
 import { TransactionStatus } from './TransactionStatus';
 import { txToast } from './TransactionToast';
+import { useClaimWinningsOnchain } from '@/src/hooks/useOnchainBetting';
+import { AGONUS_CHAIN_ID } from '@/src/lib/agonusContract';
 
 interface ClaimWinningsProps {
   payoutAmountEth: string;   // e.g. "0.052"
   tournamentId: number;
-  onClaim: () => Promise<void>;  // Web3 claim function from Tucker/Ali
+  contractTournamentId?: number | null;
   alreadyClaimed: boolean;       // from backend API
   className?: string;
 }
@@ -16,7 +18,7 @@ interface ClaimWinningsProps {
 export function ClaimWinnings({
   payoutAmountEth,
   tournamentId,
-  onClaim,
+  contractTournamentId,
   alreadyClaimed,
   className = "",
 }: ClaimWinningsProps) {
@@ -30,20 +32,25 @@ export function ClaimWinnings({
   } = useTournamentStore();
 
   const { chainId, isConnected } = useAccount();
-  const TARGET_CHAIN = 84532;
-  const wrongNetwork = isConnected && chainId !== TARGET_CHAIN;
+  const wrongNetwork = isConnected && chainId !== AGONUS_CHAIN_ID;
+  const claimWinningsOnchain = useClaimWinningsOnchain();
 
   const isBusy = txStatus === 'pending' || txStatus === 'confirming';
-  const disabled = alreadyClaimed || wrongNetwork || isBusy;
+  const missingContract = !contractTournamentId;
+  const disabled = alreadyClaimed || wrongNetwork || isBusy || missingContract;
 
   async function handleClaim() {
     if (wrongNetwork) {
-      txToast.error("Switch to Base Sepolia (84532) to claim winnings.");
+      txToast.error(`Switch to Base Sepolia (${AGONUS_CHAIN_ID}) to claim winnings.`);
       return;
     }
 
     if (alreadyClaimed) {
       txToast.error("You already claimed your winnings.");
+      return;
+    }
+    if (!contractTournamentId) {
+      txToast.error("Tournament is not linked on-chain yet.");
       return;
     }
 
@@ -54,16 +61,13 @@ export function ClaimWinnings({
 
       // 🔥 Call the real Web3 function
       // Should return a transaction hash or receipt
-      await onClaim();
+      await claimWinningsOnchain(contractTournamentId);
 
       setTxStatus('pending');
       txToast.pending("Claiming winnings on Base Sepolia…");
 
-      // Simulate network delay (remove when real hook implemented)
-      setTimeout(() => {
-        setTxStatus('success');
-        txToast.success("Winnings claimed successfully!");
-      }, 1200);
+      setTxStatus('success');
+      txToast.success("Winnings claimed successfully!");
 
     } catch (err: unknown) {
       console.error(err);
@@ -77,6 +81,7 @@ export function ClaimWinnings({
   function getButtonLabel() {
     if (alreadyClaimed) return "Claimed";
     if (wrongNetwork) return "Wrong Network";
+    if (missingContract) return "Not Linked";
     if (txStatus === 'confirming') return "Confirming…";
     if (txStatus === 'pending') return "Claiming…";
     return "Claim Winnings";
@@ -109,7 +114,7 @@ export function ClaimWinnings({
       {wrongNetwork && (
         <div className="bg-red-500/20 border border-red-700 text-red-300 text-sm p-2 rounded-md mb-3">
           ⚠️ You are on the wrong network.  
-          Switch to <strong>Base Sepolia (84532)</strong> to claim winnings.
+          Switch to <strong>Base Sepolia ({AGONUS_CHAIN_ID})</strong> to claim winnings.
         </div>
       )}
 

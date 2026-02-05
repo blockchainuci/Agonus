@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { mockTournaments } from '../data/mockTournament';
 import { useTournaments } from '@/src/hooks/useTournaments';
 
 import AgentPositions from './AgentPositions';
@@ -40,8 +39,7 @@ export function TournamentStatusBar() {
         prize_pool_usd: Number(backendTournament.prize_pool),
         end_time: backendTournament.end_date,
       }
-    : mockTournaments.find((t) => t.id === parseInt(selectedTournamentId, 10)) ||
-      mockTournaments[0];
+    : undefined;
 
   useEffect(() => {
     if (uiTournament?.status) {
@@ -49,7 +47,13 @@ export function TournamentStatusBar() {
     }
   }, [uiTournament?.status, setTournamentStatus]);
 
-  const formattedEndTime = uiTournament.end_time
+  useEffect(() => {
+    if (tournaments && tournaments.length > 0 && !selectedTournamentId) {
+      setTournamentId(String(tournaments[0].id));
+    }
+  }, [tournaments, selectedTournamentId, setTournamentId]);
+
+  const formattedEndTime = uiTournament?.end_time
     ? new Date(uiTournament.end_time).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -90,13 +94,12 @@ export function TournamentStatusBar() {
           {isDropdownOpen && (
             <div className="absolute top-full left-0 mt-2 w-64 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-50">
               <div className="py-1">
-                {(tournaments && tournaments.length > 0 ? tournaments : mockTournaments).map((t) => {
-                  const isBackend = typeof t.id === 'string';
-                  const status = isBackend ? normalizeStatus((t as typeof backendTournament)?.status) : (t as typeof mockTournaments[number]).status;
-                  const prizePool = isBackend ? Number((t as typeof backendTournament)?.prize_pool) : (t as typeof mockTournaments[number]).prize_pool_usd;
-                  const endTime = isBackend ? (t as typeof backendTournament)?.end_date : (t as typeof mockTournaments[number]).end_time;
+                {(tournaments ?? []).map((t) => {
+                  const status = normalizeStatus(t.status);
+                  const prizePool = Number(t.prize_pool);
+                  const endTime = t.end_date;
                   const idStr = String(t.id);
-                  const active = idStr === String(uiTournament.id);
+                  const active = uiTournament ? idStr === String(uiTournament.id) : false;
                   return (
                   <button
                     key={idStr}
@@ -141,17 +144,17 @@ export function TournamentStatusBar() {
           Status:{' '}
           <span
             className={`px-2 py-1 rounded-md font-semibold uppercase text-xs ${getStatusColor(
-              uiTournament.status
+              uiTournament?.status ?? 'UPCOMING'
             )}`}
           >
-            {uiTournament.status}
+            {uiTournament?.status ?? "UPCOMING"}
           </span>
         </span>
 
         <span>
           Prize Pool:{' '}
           <span className="text-white font-semibold">
-            ${Number(uiTournament.prize_pool_usd).toLocaleString()}
+            {uiTournament ? `$${Number(uiTournament.prize_pool_usd).toLocaleString()}` : "—"}
           </span>
         </span>
 

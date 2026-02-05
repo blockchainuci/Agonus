@@ -1,6 +1,6 @@
 // src/config/wagmi.ts
 import { http, createConfig } from 'wagmi';
-import { mainnet, sepolia, base } from 'wagmi/chains';
+import { mainnet, sepolia, base, baseSepolia } from 'wagmi/chains';
 import { injected, walletConnect, coinbaseWallet } from 'wagmi/connectors';
 
 // Project ID is gitignored in the .env.local file for security
@@ -25,12 +25,13 @@ const connectors = walletConnectProjectId && walletConnectProjectId !== 'YOUR_PR
   : baseConnectors;
 
 export const config = createConfig({
-  chains: [mainnet, sepolia, base],
+  chains: [baseSepolia, base, sepolia, mainnet],
   connectors,
   ssr: true, // Enable SSR support
   transports: {
     [mainnet.id]: http(),
     [sepolia.id]: http(),
     [base.id]: http(),
+    [baseSepolia.id]: http(process.env.NEXT_PUBLIC_RPC_URL || undefined),
   },
 });

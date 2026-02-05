@@ -6,6 +6,8 @@ type BetDraft = {
   tournament_id: string | number | null;
   agent_id: string | number | null;
   agent_name?: string | null;
+  contract_tournament_id?: number | null;
+  contract_agent_id?: number | null;
   amount_eth: string;
 };
 
@@ -17,6 +19,8 @@ type BettingState = {
     tournament_id: string | number;
     agent_id: string | number;
     agent_name?: string;
+    contract_tournament_id?: number | null;
+    contract_agent_id?: number | null;
     amount_eth?: string;
   }) => void;
 
@@ -39,13 +43,22 @@ export const useBettingStore = create<BettingState>((set) => ({
     amount_eth: "0.01",
   },
 
-  openBetModal: ({ tournament_id, agent_id, agent_name, amount_eth }) =>
+  openBetModal: ({
+    tournament_id,
+    agent_id,
+    agent_name,
+    contract_tournament_id,
+    contract_agent_id,
+    amount_eth,
+  }) =>
     set({
       isBetModalOpen: true,
       draft: {
         tournament_id,
         agent_id,
         agent_name: agent_name ?? null,
+        contract_tournament_id: contract_tournament_id ?? null,
+        contract_agent_id: contract_agent_id ?? null,
         amount_eth: amount_eth ?? "0.01",
       },
     }),
@@ -57,6 +70,8 @@ export const useBettingStore = create<BettingState>((set) => ({
         tournament_id: null,
         agent_id: null,
         agent_name: null,
+        contract_tournament_id: null,
+        contract_agent_id: null,
         amount_eth: "0.01",
       },
     }),

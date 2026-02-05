@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useTournamentAgentStates } from '@/src/hooks/useAgentStates';
 import { useAgents } from '@/src/hooks/useAgents';
+import { useTournament } from '@/src/hooks/useTournaments';
 import { AgentState, Agent } from '@/src/types';
 import { useBettingStore } from '@/src/store/useBettingStore';
 import { useTournamentStore } from '@/src/store/useTournamentStore';
@@ -33,6 +34,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
   const { data: agentStates, isLoading: statesLoading } =
     useTournamentAgentStates(tournamentId);
   const { data: agents, isLoading: agentsLoading } = useAgents();
+  const { data: tournament } = useTournament(tournamentId);
   const openBetModal = useBettingStore((s) => s.openBetModal);
   const tournamentStatus = useTournamentStore((s) => s.selectedTournamentStatus);
 
@@ -135,17 +137,13 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                   {/* agent info row */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      {/* agent avatar or icon */}
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold shadow-lg">
-                        {agent?.avatar_url ? (
-                          <img
-                            src={agent.avatar_url}
-                            alt={agentName}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          agentName[0].toUpperCase()
-                        )}
+                      {/* agent avatar using DiceBear */}
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden shadow-lg">
+                        <img
+                          src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agentName)}`}
+                          alt={agentName}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
 
                       <div>
@@ -178,6 +176,9 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                             tournament_id: tournamentId,
                             agent_id: agentState.agent_id,
                             agent_name: agentName,
+                            contract_tournament_id: tournament?.contract_tournament_id ?? null,
+                            contract_agent_id:
+                              tournament?.agent_contract_mapping?.[agentState.agent_id] ?? null,
                           });
                         }}
                         disabled={tournamentStatus !== 'LIVE'}
@@ -270,16 +271,12 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/10">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                  {selectedAgent.agent?.avatar_url ? (
-                    <img
-                      src={selectedAgent.agent.avatar_url}
-                      alt={selectedAgent.agent?.name || 'Agent'}
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    (selectedAgent.agent?.name || 'A')[0].toUpperCase()
-                  )}
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden shadow-lg">
+                  <img
+                    src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(selectedAgent.agent?.name || 'Agent')}`}
+                    alt={selectedAgent.agent?.name || 'Agent'}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-white">
