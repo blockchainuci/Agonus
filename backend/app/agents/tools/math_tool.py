@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, Literal
 
 from cachetools import TTLCache
+import requests
 
 from .market_data_tool import MarketDataTool
 
@@ -25,6 +27,7 @@ IndicatorValue = Union[float, Dict[str, float]]
 IndicatorSeriesPoint = Dict[str, float]
 IndicatorSeries = List[IndicatorSeriesPoint]
 SignalSummary = Dict[str, Any]
+TaapiResponse = Dict[str, Any]
 
 
 class MathToolError(Exception):
@@ -48,6 +51,10 @@ class MathTool:
         default_periods: Optional[Dict[str, int]] = None,
         cache_maxsize: int = 1024,
         cache_ttl_by_timeframe: Optional[Dict[Timeframe, int]] = None,
+        taapi_base_url: Optional[str] = None,
+        taapi_key_env: str = "TAAPI_API_KEY",
+        taapi_key: Optional[str] = None,
+        taapi_timeout: int = 15,
     ) -> None:
         """
         Initialize MathTool.
@@ -64,6 +71,11 @@ class MathTool:
             cache_maxsize: Max number of cached entries kept in memory.
             cache_ttl_by_timeframe: Mapping of timeframe -> TTL seconds for
                 cached indicator results. If None, defaults are used.
+            taapi_base_url: Base URL for TAAPI indicator endpoints.
+            taapi_key_env: Environment variable name used to look up the TAAPI key.
+            taapi_key: Optional explicit TAAPI key override. If None, the value
+                is pulled from the environment variable.
+            taapi_timeout: HTTP timeout (seconds) for TAAPI requests.
 
         Returns:
             None
@@ -93,6 +105,10 @@ class MathTool:
             "4h": 900,
             "1d": 3600,
         }
+        self._taapi_base_url = taapi_base_url or "https://api.taapi.io"
+        self._taapi_key_env = taapi_key_env
+        self._taapi_key = taapi_key or os.getenv(taapi_key_env)
+        self._taapi_timeout = taapi_timeout
 
         logger.info("MathTool initialized")
 
@@ -361,6 +377,171 @@ class MathTool:
             MathToolError: If there is not enough data.
         """
         pass
+
+    def _ensure_taapi_configured(self) -> None:
+        """
+        Ensure TAAPI credentials are available before making API calls.
+
+        This method checks whether a TAAPI API key is configured either via
+        the provided taapi_key argument or via the environment variable
+        specified by taapi_key_env. It raises an error if the key is missing.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            MathToolError: If TAAPI credentials are not configured.
+        """
+        if not self._taapi_key:
+            raise MathToolError(
+                f"TAAPI API key not configured. Set {self._taapi_key_env} or pass taapi_key."
+            )
+
+    def _taapi_endpoint_for_indicator(self, indicator: str) -> str:
+        """
+        Resolve a user-requested indicator name into a TAAPI endpoint slug.
+
+        This method normalizes user input (case/spacing) and maps common
+        indicator names to TAAPI endpoints. If no explicit mapping exists,
+        it falls back to a normalized slug based on the input.
+
+        Args:
+            indicator: Human-friendly indicator name (e.g., "Relative Strength Index",
+                "RSI", "macd", "Bollinger Bands").
+
+        Returns:
+            TAAPI endpoint slug (e.g., "rsi", "macd", "bbands").
+
+        Raises:
+            MathToolError: If the indicator string is empty.
+        """
+        normalized = indicator.strip().lower()
+        if not normalized:
+            raise MathToolError("Indicator name cannot be empty.")
+
+        #dict of common TAAPI indicators that won't be implemented by us in the previous helper methods
+        alias_map = {
+            "average directional index": "adx",
+            "adx": "adx",
+            "commodity channel index": "cci",
+            "cci": "cci",
+            "stochastic oscillator": "stoch",
+            "stoch": "stoch",
+            "stochastic rsi": "stochrsi",
+            "stochrsi": "stochrsi",
+            "on balance volume": "obv",
+            "obv": "obv",
+            "volume weighted average price": "vwap",
+            "vwap": "vwap",
+            "ichimoku cloud": "ichimoku",
+            "ichimoku": "ichimoku",
+            "parabolic sar": "sar",
+            "sar": "sar",
+            "williams %r": "williamsr",
+            "williamsr": "williamsr",
+            "momentum": "mom",
+            "mom": "mom",
+            "rate of change": "roc",
+            "roc": "roc",
+            "trix": "trix",
+            "chaikin a/d line": "ad",
+            "ad": "ad",
+            "chaikin a/d oscillator": "adosc",
+            "adosc": "adosc",
+            "money flow index": "mfi",
+            "mfi": "mfi",
+            "supertrend": "supertrend",
+            "donchian channels": "donchian",
+            "donchian": "donchian",
+            "keltner channels": "kc",
+            "keltner": "kc",
+            "heikin ashi": "heikinashi",
+            "heikinashi": "heikinashi",
+        }
+
+        if normalized in alias_map:
+            return alias_map[normalized]
+
+        slug = normalized.replace(" ", "")
+        return slug
+
+    def _taapi_request(self, endpoint: str, params: Mapping[str, Any]) -> TaapiResponse:
+        """
+        Perform a GET request to a TAAPI endpoint.
+
+        This method adds authentication parameters, sends the HTTP request,
+        and returns the parsed JSON response. It centralizes TAAPI request
+        logic so individual indicator methods can focus on inputs and outputs.
+
+        Args:
+            endpoint: TAAPI endpoint slug (e.g., "rsi", "macd").
+            params: Query parameters specific to the endpoint.
+
+        Returns:
+            Parsed JSON response from TAAPI as a dictionary.
+
+        Raises:
+            MathToolError: If TAAPI is not configured, the request fails,
+                or the response cannot be parsed.
+        """
+        self._ensure_taapi_configured()
+        url = f"{self._taapi_base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        query = dict(params)
+        query["secret"] = self._taapi_key
+
+        try:
+            response = requests.get(url, params=query, timeout=self._taapi_timeout)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:
+            raise MathToolError(f"TAAPI request failed: {exc}") from exc
+        except ValueError as exc:
+            raise MathToolError("TAAPI response was not valid JSON.") from exc
+
+    def _fetch_taapi_indicator(
+        self,
+        indicator: str,
+        token: str,
+        exchange: str,
+        interval: Timeframe,
+        symbol: Optional[str] = None,
+        **params: Any,
+    ) -> TaapiResponse:
+        """
+        Fetch a technical indicator from TAAPI for a given token.
+
+        This method resolves a user-requested indicator name to a TAAPI
+        endpoint, builds the required query parameters, and performs the
+        API request.
+
+        Args:
+            indicator: Indicator name requested by the user (e.g., "rsi").
+            token: Token symbol (e.g., "BTC", "ETH").
+            exchange: Exchange name recognized by TAAPI (e.g., "binance").
+            interval: Candle interval for the indicator (e.g., "1h").
+            symbol: Optional trading pair override (e.g., "BTC/USDT"). If not
+                provided, a default of "{token}/USDT" is used.
+            **params: Additional TAAPI parameters specific to the indicator.
+
+        Returns:
+            Parsed JSON response from TAAPI.
+
+        Raises:
+            MathToolError: If indicator resolution fails, TAAPI is not
+                configured, or the request fails.
+        """
+        endpoint = self._taapi_endpoint_for_indicator(indicator)
+        pair = symbol or f"{token.upper()}/USDT"
+        query_params = {
+            "exchange": exchange,
+            "symbol": pair,
+            "interval": interval,
+        }
+        query_params.update(params)
+        return self._taapi_request(endpoint=endpoint, params=query_params)
 
     def _cache_get(self, key: str) -> Optional[Any]:
         """
