@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, L
 
 from cachetools import TTLCache
 import requests
+import numpy as np
 
 from .market_data_tool import MarketDataTool
 
@@ -259,7 +260,31 @@ class MathTool:
         Raises:
             MathToolError: If there is not enough data.
         """
-        pass
+        if period <= 0:
+            raise MathToolError("RSI period must be positive.")
+        if len(prices) < period + 1:
+            raise MathToolError(
+                f"Not enough price data for RSI. Need at least {period + 1} points."
+            )
+
+        price_array = np.asarray(prices, dtype=float)
+        deltas = np.diff(price_array)
+        gains = np.where(deltas > 0, deltas, 0.0)
+        losses = np.where(deltas < 0, -deltas, 0.0)
+
+        avg_gain = np.mean(gains[:period])
+        avg_loss = np.mean(losses[:period])
+
+        for i in range(period, len(gains)):
+            avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+            avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+
+        if avg_loss == 0:
+            return 100.0
+
+        rs = avg_gain / avg_loss
+        rsi = 100.0 - (100.0 / (1.0 + rs))
+        return float(rsi)
 
     def _compute_sma(self, prices: Sequence[float], period: int) -> float:
         """
@@ -275,7 +300,15 @@ class MathTool:
         Raises:
             MathToolError: If there is not enough data.
         """
-        pass
+        if period <= 0:
+            raise MathToolError("SMA period must be positive.")
+        if len(prices) < period:
+            raise MathToolError(
+                f"Not enough price data for SMA. Need at least {period} points."
+            )
+        window = np.asarray(prices[-period:], dtype=float)
+        return float(np.mean(window))
+    
     def _compute_ema(self, prices: Sequence[float], period: int) -> float:
         """
         Compute the Exponential Moving Average (EMA).
@@ -290,7 +323,19 @@ class MathTool:
         Raises:
             MathToolError: If there is not enough data.
         """
-        pass
+        if period <= 0:
+            raise MathToolError("EMA period must be positive.")
+        if len(prices) < period:
+            raise MathToolError(
+                f"Not enough price data for EMA. Need at least {period} points."
+            )
+
+        price_array = np.asarray(prices, dtype=float)
+        alpha = 2.0 / (period + 1.0)
+        ema = np.mean(price_array[:period])
+        for price in price_array[period:]:
+            ema = (price - ema) * alpha + ema
+        return float(ema)
 
     def _compute_macd(
         self,
@@ -314,7 +359,36 @@ class MathTool:
         Raises:
             MathToolError: If there is not enough data.
         """
-        pass
+        if fast <= 0 or slow <= 0 or signal <= 0:
+            raise MathToolError("MACD periods must be positive.")
+        if fast >= slow:
+            raise MathToolError("MACD fast period must be less than slow period.")
+        if len(prices) < slow + signal:
+            raise MathToolError(
+                f"Not enough price data for MACD. Need at least {slow + signal} points."
+            )
+
+        price_array = np.asarray(prices, dtype=float)
+
+        def _ema_series(values: np.ndarray, period: int) -> np.ndarray:
+            alpha = 2.0 / (period + 1.0)
+            ema_values = np.zeros_like(values)
+            ema_values[:period] = np.mean(values[:period])
+            for i in range(period, len(values)):
+                ema_values[i] = (values[i] - ema_values[i - 1]) * alpha + ema_values[i - 1]
+            return ema_values
+
+        ema_fast = _ema_series(price_array, fast)
+        ema_slow = _ema_series(price_array, slow)
+        macd_line = ema_fast - ema_slow
+        signal_line = _ema_series(macd_line, signal)
+        histogram = macd_line[-1] - signal_line[-1]
+
+        return {
+            "macd": float(macd_line[-1]),
+            "signal": float(signal_line[-1]),
+            "histogram": float(histogram),
+        }
 
     def _compute_bbands(
         self,
@@ -336,7 +410,19 @@ class MathTool:
         Raises:
             MathToolError: If there is not enough data.
         """
-        pass
+        if period <= 0:
+            raise MathToolError("BBands period must be positive.")
+        if len(prices) < period:
+            raise MathToolError(
+                f"Not enough price data for BBands. Need at least {period} points."
+            )
+
+        window = np.asarray(prices[-period:], dtype=float)
+        middle = float(np.mean(window))
+        deviation = float(np.std(window, ddof=0))
+        upper = middle + (stddev * deviation)
+        lower = middle - (stddev * deviation)
+        return {"upper": upper, "middle": middle, "lower": lower}
 
     def _compute_atr(
         self,
@@ -360,7 +446,33 @@ class MathTool:
         Raises:
             MathToolError: If there is not enough data.
         """
-        pass
+        if period <= 0:
+            raise MathToolError("ATR period must be positive.")
+        if len(highs) != len(lows) or len(highs) != len(closes):
+            raise MathToolError("Highs, lows, and closes must be the same length.")
+        if len(highs) < period + 1:
+            raise MathToolError(
+                f"Not enough data for ATR. Need at least {period + 1} points."
+            )
+
+        highs_arr = np.asarray(highs, dtype=float)
+        lows_arr = np.asarray(lows, dtype=float)
+        closes_arr = np.asarray(closes, dtype=float)
+
+        true_ranges = []
+        for i in range(1, len(highs_arr)):
+            high = highs_arr[i]
+            low = lows_arr[i]
+            prev_close = closes_arr[i - 1]
+            tr = max(
+                high - low,
+                abs(high - prev_close),
+                abs(low - prev_close),
+            )
+            true_ranges.append(tr)
+
+        tr_window = np.asarray(true_ranges[-period:], dtype=float)
+        return float(np.mean(tr_window))
 
     def _compute_volatility(self, prices: Sequence[float], period: int = 20) -> float:
         """
@@ -376,7 +488,17 @@ class MathTool:
         Raises:
             MathToolError: If there is not enough data.
         """
-        pass
+        if period <= 0:
+            raise MathToolError("Volatility period must be positive.")
+        if len(prices) < period + 1:
+            raise MathToolError(
+                f"Not enough price data for volatility. Need at least {period + 1} points."
+            )
+
+        price_array = np.asarray(prices, dtype=float)
+        log_returns = np.diff(np.log(price_array))
+        window = log_returns[-period:]
+        return float(np.std(window, ddof=0))
 
     def _ensure_taapi_configured(self) -> None:
         """
