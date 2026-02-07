@@ -185,12 +185,11 @@ class TradeTool:
             if action == "BUY":
                 logger.debug(f"Swapping {qty} USDC for {token}")
                 swap_result = execute_ts_swap(
-                    agent_id=self.agent_id,
+                    private_key=private_key,
                     from_token="USDC",
                     to_token=token,
                     amount=qty,
                     slippage=50,
-                    private_key=private_key,  # Pass decrypted key directly
                 )
                 amount_out_wei = int(swap_result["amount_out"])
                 actual_qty = amount_out_wei / (10 ** token_decimals[token])
@@ -201,12 +200,11 @@ class TradeTool:
             else:
                 logger.debug(f"Swapping {qty} {token} for USDC")
                 swap_result = execute_ts_swap(
-                    agent_id=self.agent_id,
+                    private_key=private_key,
                     from_token=token,
                     to_token="USDC",
                     amount=qty,
                     slippage=50,
-                    private_key=private_key,  # Pass decrypted key directly
                 )
                 amount_out_wei = int(swap_result["amount_out"])
                 usdc_received = amount_out_wei / (10 ** token_decimals["USDC"])

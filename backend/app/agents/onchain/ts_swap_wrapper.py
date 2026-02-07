@@ -12,17 +12,17 @@ from typing import Dict, Literal
 
 
 def execute_ts_swap(
-    agent_id: str,
+    private_key: str,
     from_token: Literal["USDC", "WETH", "CBBTC"],
     to_token: Literal["USDC", "WETH", "CBBTC"],
     amount: float,
-    slippage: int = 50
+    slippage: int = 50,
 ) -> Dict[str, any]:
     """
     Execute a swap using the TypeScript implementation.
 
     Args:
-        agent_id: Agent identifier (e.g., "agent_1")
+        private_key: The agent's private key for signing transactions
         from_token: Source token symbol
         to_token: Destination token symbol
         amount: Amount to swap (in token units, not wei)
@@ -36,12 +36,10 @@ def execute_ts_swap(
     Raises:
         ValueError: If swap fails
     """
-    # Get agent private key from env
-    private_key_var = f"{agent_id.upper()}_PRIVATE_KEY"
-    agent_private_key = os.getenv(private_key_var)
+    if not private_key:
+        raise ValueError("private_key is required")
 
-    if not agent_private_key:
-        raise ValueError(f"Missing environment variable: {private_key_var}")
+    agent_private_key = private_key
 
     # Get RPC URL (prioritize RPC_URL for testnet/mainnet, fallback to RPC_LOCAL for local dev)
     rpc_url = os.getenv("RPC_URL") or os.getenv("RPC_LOCAL", "http://127.0.0.1:8545")
