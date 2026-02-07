@@ -10,7 +10,8 @@ type MinimalAgent = { id: string; name: string };
 interface TournamentStore {
   // Tournament selection
   selectedTournamentId: string;
-  setTournamentId: (id: string) => void;
+  selectedTournamentName: string;
+  setTournamentId: (id: string, name?: string) => void;
   selectedTournamentStatus: TournamentStatus;
   setTournamentStatus: (status: TournamentStatus) => void;
 
@@ -34,8 +35,9 @@ interface TournamentStore {
 export const useTournamentStore = create<TournamentStore>((set) => ({
   // Tournament state
   selectedTournamentId: '', // Set once tournaments load; prevents invalid default fetches
+  selectedTournamentName: '',
 
-  setTournamentId: (id) => set({ selectedTournamentId: id }),
+  setTournamentId: (id, name) => set({ selectedTournamentId: id, selectedTournamentName: name || '' }),
   selectedTournamentStatus: "UPCOMING",
   setTournamentStatus: (status) => set({ selectedTournamentStatus: status }),
 

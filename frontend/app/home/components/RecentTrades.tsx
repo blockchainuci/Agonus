@@ -18,7 +18,9 @@ import {
 } from 'lucide-react';
 import { useTournamentTrades } from '@/src/hooks/useTrades';
 import { useAgents } from '@/src/hooks/useAgents';
+import { useTournament } from '@/src/hooks/useTournaments';
 import { Trade } from '@/src/types';
+import { findAgentById } from '@/src/util/findAgentById';
 
 interface RecentTradesProps {
   tournamentId: string;
@@ -30,11 +32,11 @@ type ActionFilter = 'all' | 'buy' | 'sell';
 export default function RecentTrades({ tournamentId }: RecentTradesProps) {
   const { data: trades, isLoading } = useTournamentTrades(tournamentId);
   const { data: agents } = useAgents();
+  const { data: tournament } = useTournament(tournamentId);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [actionFilter, setActionFilter] = useState<ActionFilter>('all');
   const [assetFilter, setAssetFilter] = useState<string>('all');
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
-  const isLiveTournament = true; // Assume live for now
 
   // Close modal
   const closeModal = () => {
@@ -139,7 +141,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">Recent Trades</h3>
-            <p className="text-xs text-gray-400">Tournament #{tournamentId}</p>
+            <p className="text-xs text-gray-400">{tournament?.name || 'Loading...'}</p>
           </div>
         </div>
 
@@ -367,23 +369,6 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                   </div>
                 </div>
 
-                {/* pulse indicator for recent trades */}
-                {index === 0 && isLiveTournament &&(
-                  <motion.div
-                    className={`absolute top-4 right-4 w-2 h-2 rounded-full ${
-                      isBuy ? 'bg-green-400' : 'bg-red-400'
-                    }`}
-                    animate={{
-                      scale: [1, 1.5, 1],
-                      opacity: [1, 0.5, 1],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                    }}
-                  />
-                )}
               </motion.div>
             );
           })
@@ -440,7 +425,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
         const amount = parseFloat(selectedTrade.amount);
         const price = parseFloat(selectedTrade.price);
         const totalValue = amount * price;
-        const agent = agents?.find(a => a.id === selectedTrade.agent_id);
+        const agent = findAgentById(agents, selectedTrade.agent_id);
 
         return (
           <div
@@ -525,31 +510,25 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                 </div>
 
                 {/* Agent Info */}
-                {agent && (
-                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Activity className="w-4 h-4 text-purple-400" />
-                      <span className="text-xs text-gray-400 uppercase">Executed By</span>
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Activity className="w-4 h-4 text-purple-400" />
+                    <span className="text-xs text-gray-400 uppercase">Executed By</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden shadow-lg">
+                      <img
+                        src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agent?.name || selectedTrade.agent_id)}`}
+                        alt={agent?.name || 'Agent'}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold">
-                        {agent.avatar_url ? (
-                          <img
-                            src={agent.avatar_url}
-                            alt={agent.name}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          agent.name[0].toUpperCase()
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-bold text-white">{agent.name}</p>
-                        <p className="text-xs text-gray-400">{agent.strategy_type}</p>
-                      </div>
+                    <div>
+                      <p className="font-bold text-white">{agent?.name || `Agent ${selectedTrade.agent_id.slice(0, 8)}...`}</p>
+                      <p className="text-xs text-gray-400">{agent?.strategy_type || ''}</p>
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* Trade ID */}
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10">

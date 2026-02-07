@@ -4,6 +4,7 @@ import { getMyBets } from "@/src/lib/api/bets";
 
 type BetDraft = {
   tournament_id: string | number | null;
+  tournament_name?: string | null;
   agent_id: string | number | null;
   agent_name?: string | null;
   contract_tournament_id?: number | null;
@@ -17,6 +18,7 @@ type BettingState = {
 
   openBetModal: (args: {
     tournament_id: string | number;
+    tournament_name?: string;
     agent_id: string | number;
     agent_name?: string;
     contract_tournament_id?: number | null;
@@ -45,6 +47,7 @@ export const useBettingStore = create<BettingState>((set) => ({
 
   openBetModal: ({
     tournament_id,
+    tournament_name,
     agent_id,
     agent_name,
     contract_tournament_id,
@@ -55,6 +58,7 @@ export const useBettingStore = create<BettingState>((set) => ({
       isBetModalOpen: true,
       draft: {
         tournament_id,
+        tournament_name: tournament_name ?? null,
         agent_id,
         agent_name: agent_name ?? null,
         contract_tournament_id: contract_tournament_id ?? null,
@@ -68,6 +72,7 @@ export const useBettingStore = create<BettingState>((set) => ({
       isBetModalOpen: false,
       draft: {
         tournament_id: null,
+        tournament_name: null,
         agent_id: null,
         agent_name: null,
         contract_tournament_id: null,

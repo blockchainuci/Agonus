@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo, memo } from 'react';
 import PlayRoutes from './PlayRoutes';
 import NetworkNode, {
   AgentIcon,
@@ -13,7 +13,7 @@ import NetworkNode, {
 } from './NetworkNode';
 import AnimatedChartCard from './AnimatedChartCard';
 
-// Ambient particles for the hero background.
+// Ambient particles for the hero background (reduced for performance).
 const PARTICLES = [
   { id: 0, left: 12, top: 23, duration: 3.5, delay: 0.2 },
   { id: 1, left: 45, top: 67, duration: 4.1, delay: 0.8 },
@@ -23,18 +23,6 @@ const PARTICLES = [
   { id: 5, left: 89, top: 56, duration: 4.3, delay: 0.6 },
   { id: 6, left: 34, top: 45, duration: 3.1, delay: 1.8 },
   { id: 7, left: 67, top: 78, duration: 4.7, delay: 0.3 },
-  { id: 8, left: 11, top: 90, duration: 3.6, delay: 1.2 },
-  { id: 9, left: 92, top: 22, duration: 4.0, delay: 0.9 },
-  { id: 10, left: 28, top: 55, duration: 3.4, delay: 1.6 },
-  { id: 11, left: 61, top: 33, duration: 4.2, delay: 0.5 },
-  { id: 12, left: 44, top: 88, duration: 3.9, delay: 1.3 },
-  { id: 13, left: 77, top: 11, duration: 4.4, delay: 0.7 },
-  { id: 14, left: 15, top: 66, duration: 3.3, delay: 1.9 },
-  { id: 15, left: 88, top: 44, duration: 4.6, delay: 0.1 },
-  { id: 16, left: 33, top: 77, duration: 3.7, delay: 1.4 },
-  { id: 17, left: 66, top: 22, duration: 4.8, delay: 0.0 },
-  { id: 18, left: 50, top: 50, duration: 3.0, delay: 1.7 },
-  { id: 19, left: 95, top: 85, duration: 4.9, delay: 1.0 },
 ];
 
 // Node positions for the interactive network layer.
@@ -75,6 +63,33 @@ const nodes = [
     position: { x: 20, y: 80 },
   },
 ];
+
+// Memoized particles layer — prevents re-render when hover state changes
+const ParticlesLayer = memo(function ParticlesLayer() {
+  return (
+    <>
+      {PARTICLES.map((particle) => (
+        <motion.div
+          key={particle.id}
+          className="absolute w-1 h-1 rounded-full bg-[#FFD700]/30"
+          style={{
+            left: `${particle.left}%`,
+            top: `${particle.top}%`,
+          }}
+          animate={{
+            y: [0, -30, 0],
+            opacity: [0.3, 0.7, 0.3],
+          }}
+          transition={{
+            duration: particle.duration,
+            repeat: Infinity,
+            delay: particle.delay,
+          }}
+        />
+      ))}
+    </>
+  );
+});
 
 export default function Hero() {
   const ref = useRef(null);
@@ -122,26 +137,7 @@ export default function Hero() {
         className="absolute inset-0 pointer-events-none"
         style={{ y: y1 }}
       >
-        {/* Ambient particles */}
-        {PARTICLES.map((particle) => (
-          <motion.div
-            key={particle.id}
-            className="absolute w-1 h-1 rounded-full bg-[#FFD700]/30"
-            style={{
-              left: `${particle.left}%`,
-              top: `${particle.top}%`,
-            }}
-            animate={{
-              y: [0, -30, 0],
-              opacity: [0.3, 0.7, 0.3],
-            }}
-            transition={{
-              duration: particle.duration,
-              repeat: Infinity,
-              delay: particle.delay,
-            }}
-          />
-        ))}
+        <ParticlesLayer />
       </motion.div>
 
       {/* ========== LAYER 2: Play Routes (Football-style SVG) ========== */}

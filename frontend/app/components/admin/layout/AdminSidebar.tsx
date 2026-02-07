@@ -6,14 +6,14 @@ import { useState, useEffect, useRef } from "react";
 
 const navItems = [
   {
-    label: "Agents",
-    sectionId: "agents-section",
-    icon: Users,
-  },
-  {
     label: "Tournaments",
     sectionId: "tournaments-section",
     icon: Trophy,
+  },
+  {
+    label: "Agents",
+    sectionId: "agents-section",
+    icon: Users,
   },
 ];
 

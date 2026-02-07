@@ -4,6 +4,7 @@ import { useBettingStore } from "@/src/store/useBettingStore";
 
 interface BetButtonProps {
   tournamentId: string | number;
+  tournamentName?: string;
   agentId: string | number;
   agentName?: string;
   contractTournamentId?: number | null;
@@ -14,6 +15,7 @@ interface BetButtonProps {
 
 export function BetButton({
   tournamentId,
+  tournamentName,
   agentId,
   agentName,
   contractTournamentId,
@@ -27,6 +29,7 @@ export function BetButton({
     e.stopPropagation();
     openBetModal({
       tournament_id: tournamentId,
+      tournament_name: tournamentName,
       agent_id: agentId,
       agent_name: agentName,
       contract_tournament_id: contractTournamentId ?? null,

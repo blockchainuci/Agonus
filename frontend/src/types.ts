@@ -41,9 +41,10 @@ export interface Tournament {
   prize_pool: DecimalString;
   winner_agent_id?: ID;
 
-  // Critical for smart contract integration
+  // Smart contract integration
   contract_tournament_id?: number;
   agent_contract_mapping: Record<string, number>; // { "agent_uuid": contract_id }
+  betting_closed: boolean;
 
   created_at: ISODate;
 }

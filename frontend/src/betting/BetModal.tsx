@@ -124,7 +124,17 @@ export default function BetModal() {
       txToast.success("Bet placed successfully!");
       closeBetModal();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Bet failed";
+      const raw = err instanceof Error ? err.message : "Bet failed";
+      // Extract readable part from viem/contract errors
+      const revertMatch = raw.match(/execution reverted:\s*([^"',]+)/i);
+      const userRejected = /user rejected|user denied/i.test(raw);
+      const message = userRejected
+        ? "Transaction rejected by user"
+        : revertMatch
+        ? revertMatch[1].trim()
+        : raw.length > 80
+        ? raw.slice(0, 80) + "..."
+        : raw;
       setError(message);
       txToast.error(message);
     } finally {
@@ -156,7 +166,7 @@ export default function BetModal() {
 
         <h2 className="text-2xl font-bold text-white mb-1">{title}</h2>
         <p className="text-sm text-gray-400 mb-4">
-          Tournament: {draft.tournament_id ?? "—"}
+          Tournament: {draft.tournament_name || draft.tournament_id || "—"}
         </p>
 
         <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3">

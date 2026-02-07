@@ -24,6 +24,7 @@ import type { UTCTimestamp, ISeriesApi, IChartApi } from 'lightweight-charts';
 import { useTournamentAgentStates } from '@/src/hooks/useAgentStates';
 import { useAgents } from '@/src/hooks/useAgents';
 import { AgentState } from '@/src/types';
+import { findAgentById } from '@/src/util/findAgentById';
 
 // Tooltip component for explaining terms
 function InfoTooltip({ text }: { text: string }) {
@@ -104,7 +105,7 @@ export default function AgentPerformanceChart({
 
     // Create performance lines for each agent
     const lines: AgentPerformanceLine[] = agentStates.map((state, index) => {
-      const agent = agents.find((a) => a.id === state.agent_id);
+      const agent = findAgentById(agents, state.agent_id);
       const agentName = agent?.name || `Agent ${index + 1}`;
 
       // For now, we'll create a simple time series based on current state
@@ -186,10 +187,12 @@ export default function AgentPerformanceChart({
     const container = chartContainerRef.current;
     if (!container || performanceLines.length === 0) return;
 
-    let cleanup: (() => void) | undefined;
+    let disposed = false;
+    let resizeHandler: (() => void) | undefined;
+    let chartInstance: IChartApi | null = null;
 
     import('lightweight-charts').then((LightweightCharts) => {
-      if (!chartContainerRef.current) return;
+      if (disposed || !chartContainerRef.current) return;
 
       const ctn = chartContainerRef.current;
       ctn.innerHTML = '';
@@ -218,6 +221,7 @@ export default function AgentPerformanceChart({
         },
       });
 
+      chartInstance = chart;
       chartRef.current = chart;
       seriesMapRef.current.clear();
 
@@ -247,28 +251,27 @@ export default function AgentPerformanceChart({
 
       chart.timeScale().fitContent();
 
-      const handleResize = () => {
-        if (!chart || !chartContainerRef.current) return;
+      resizeHandler = () => {
+        if (disposed || !chartContainerRef.current) return;
         chart.applyOptions({
           width: chartContainerRef.current.clientWidth,
           height: isFullscreen ? window.innerHeight - 100 : 450,
         });
       };
 
-      window.addEventListener('resize', handleResize);
-
-      cleanup = () => {
-        window.removeEventListener('resize', handleResize);
-        chart?.remove();
-        chartRef.current = null;
-      };
+      window.addEventListener('resize', resizeHandler);
     });
 
     return () => {
-      if (cleanup) cleanup();
+      disposed = true;
+      if (resizeHandler) window.removeEventListener('resize', resizeHandler);
+      if (chartInstance) {
+        chartInstance.remove();
+        chartRef.current = null;
+      }
       if (container) container.innerHTML = '';
     };
-  }, [performanceLines, isFullscreen, visibleAgents, chartMode]);
+  }, [performanceLines, isFullscreen, chartMode]);
 
   // Update visibility when visibleAgents changes
   useEffect(() => {
@@ -525,7 +528,7 @@ export default function AgentPerformanceChart({
 
       {/* Agent Detail Modal */}
       {selectedAgent && (() => {
-        const agent = agents?.find((a) => a.id === selectedAgent.agent_id);
+        const agent = findAgentById(agents, selectedAgent.agent_id);
         const initialValue = 10000; // Placeholder - should come from backend
         const portfolioValue = parseFloat(selectedAgent.portfolio_value_usd);
         const pnl = portfolioValue - initialValue;
@@ -553,17 +556,13 @@ export default function AgentPerformanceChart({
 
               {/* Agent Header */}
               <div className="flex items-start gap-4 mb-6 pb-6 border-b border-white/10">
-                {agent?.avatar_url ? (
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden border-2 border-purple-500/30 shadow-lg">
                   <img
-                    src={agent.avatar_url}
-                    alt={agent.name}
-                    className="w-20 h-20 rounded-full border-2 border-purple-500/30"
+                    src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agent?.name || 'Agent')}`}
+                    alt={agent?.name || 'Agent'}
+                    className="w-full h-full object-cover"
                   />
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center border-2 border-purple-500/30">
-                    <Brain className="w-10 h-10 text-purple-400" />
-                  </div>
-                )}
+                </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h2 className="text-2xl font-bold text-white">{agent?.name || 'Unknown Agent'}</h2>

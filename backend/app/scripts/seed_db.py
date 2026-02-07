@@ -1,21 +1,32 @@
 # backend/app/scripts/seed_db.py
+import os
+import sys
+from pathlib import Path
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from sqlmodel import Session
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
-from backend.app.db.database import engine
-from backend.app.db.models import Tournament, Agent, Trade, Bet, StatusEnum, ActionEnum
+# Allow running from anywhere
+sys.path.append(str(Path(__file__).resolve().parents[3]))
+
+from backend.app.db.models import Tournament, Agent, AgentState, Trade, Bet, StatusEnum, ActionEnum
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env")
+_db_url = os.getenv("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+sync_engine = create_engine(_db_url)
 
 
 def seed_database():
     """Seed the database with test data"""
 
-    with Session(engine) as session:
+    with Session(sync_engine) as session:
         # Create Tournaments
         tournament1 = Tournament(
             id=uuid4(),
-            name="Q4 2024 Championship",
+            name="Q4 2025 Championship",
             status=StatusEnum.live,
             start_date=datetime.now(timezone.utc),
             end_date=datetime.now(timezone.utc) + timedelta(days=30),
@@ -25,7 +36,7 @@ def seed_database():
 
         tournament2 = Tournament(
             id=uuid4(),
-            name="Winter Series",
+            name="Spring Series",
             status=StatusEnum.upcoming,
             start_date=datetime.now(timezone.utc) + timedelta(days=7),
             end_date=datetime.now(timezone.utc) + timedelta(days=37),
@@ -74,6 +85,45 @@ def seed_database():
         session.add(agent2)
         session.add(agent3)
 
+        session.commit()
+
+        # Create Agent States
+        agent_state1 = AgentState(
+            agent_id=agent1.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=1,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        agent_state2 = AgentState(
+            agent_id=agent2.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=2,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        agent_state3 = AgentState(
+            agent_id=agent3.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=3,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        session.add(agent_state1)
+        session.add(agent_state2)
+        session.add(agent_state3)
         session.commit()
 
         # Create Trades
@@ -142,11 +192,12 @@ def seed_database():
 
         session.commit()
 
-        print("✅ Database seeded successfully!")
-        print(f"   - Created 2 tournaments")
-        print(f"   - Created 3 agents")
-        print(f"   - Created 3 trades")
-        print(f"   - Created 2 bets")
+        print("Database seeded successfully!")
+        print("   - Created 2 tournaments")
+        print("   - Created 3 agents")
+        print("   - Created 3 agent states")
+        print("   - Created 3 trades")
+        print("   - Created 2 bets")
 
 
 if __name__ == "__main__":

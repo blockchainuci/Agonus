@@ -1,9 +1,9 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
-# FIXED IMPORT PATHS
 from app.db.database import get_db
 from app.db.models import Tournament, AgentState, Agent
 from app.schemas.tournament import (
@@ -18,9 +18,26 @@ from app.schemas.agent_state import AgentStateResponse
 from app.api.deps import require_admin
 from app.agents.scheduler import (
     run_agent_decision,
-    initialize_tournament_agents,
+    _initialize_tournament_agents_async,
 )
 from app.onchain.agonus_betting import get_agonus_client
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_revert_reason(exc: Exception) -> str | None:
+    """Extract a human-readable revert reason from a web3 exception."""
+    msg = str(exc)
+    # web3 ContractLogicError includes the revert reason string
+    if "execution reverted" in msg.lower():
+        return msg
+    # Some providers include the reason in a nested dict
+    if hasattr(exc, "args") and exc.args:
+        for arg in exc.args:
+            if isinstance(arg, dict) and "message" in arg:
+                return arg["message"]
+    return None
+
 
 router = APIRouter()
 
@@ -117,10 +134,16 @@ async def create_onchain_tournament(
     try:
         client = get_agonus_client()
         result = client.create_tournament(agent_count=len(payload.agent_ids))
+    except (ValueError, ConnectionError) as e:
+        raise HTTPException(status_code=400, detail=f"Configuration error: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"On-chain create failed: {e}")
+        logger.exception("On-chain create failed")
+        detail = _extract_revert_reason(e) or str(e)
+        raise HTTPException(status_code=400, detail=f"On-chain create failed: {detail}")
 
-    mapping = {str(agent_id): idx + 1 for idx, agent_id in enumerate(payload.agent_ids)}
+    # Sort agent IDs deterministically so the mapping is always the same
+    sorted_ids = sorted(str(aid) for aid in payload.agent_ids)
+    mapping = {agent_id: idx + 1 for idx, agent_id in enumerate(sorted_ids)}
     tournament.contract_tournament_id = result.contract_tournament_id
     tournament.agent_contract_mapping = mapping
 
@@ -135,11 +158,37 @@ async def create_onchain_tournament(
 
 
 @router.post("/{tournament_id}/start")
-async def start_tournament(tournament_id: str):
-    initialize_tournament_agents.delay(
-        tournament_uuid=tournament_id, agent_uuids=["uuid-1", "uuid-2"]
+async def start_tournament(
+    tournament_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """Start tournament — initializes agent states via background task."""
+    tournament = await session.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
+    if not tournament.agent_contract_mapping:
+        raise HTTPException(status_code=400, detail="No agents mapped. Link on-chain first.")
+
+    agent_uuids = list(tournament.agent_contract_mapping.keys())
+    await _initialize_tournament_agents_async(
+        tournament_id, [UUID(u) for u in agent_uuids]
     )
-    return {"message": "Tournament initialization started"}
+
+    # Update agent stats: increment total_tournaments
+    for uid in agent_uuids:
+        agent = await session.get(Agent, UUID(uid))
+        if agent:
+            stats = dict(agent.stats or {})
+            stats["total_tournaments"] = stats.get("total_tournaments", 0) + 1
+            agent.stats = stats
+            session.add(agent)
+
+    tournament.status = "live"
+    session.add(tournament)
+    await session.commit()
+
+    return {"message": "Tournament started", "agents_count": len(agent_uuids)}
 
 
 @router.post("/{tournament_id}/onchain/close")
@@ -154,12 +203,26 @@ async def close_onchain_betting(
         raise HTTPException(status_code=404, detail="Tournament Not Found")
     if tournament.contract_tournament_id is None:
         raise HTTPException(status_code=400, detail="Tournament not linked on-chain")
+    if tournament.status == "completed":
+        raise HTTPException(status_code=400, detail="Tournament already completed or cancelled")
+    if tournament.betting_closed:
+        raise HTTPException(status_code=400, detail="Betting already closed")
+    if tournament.winner_agent_id is not None:
+        raise HTTPException(status_code=400, detail="Tournament already settled")
 
     try:
         client = get_agonus_client()
         result = client.close_betting(tournament.contract_tournament_id)
+    except (ValueError, ConnectionError) as e:
+        raise HTTPException(status_code=400, detail=f"Configuration error: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"On-chain close failed: {e}")
+        logger.exception("On-chain close failed")
+        detail = _extract_revert_reason(e) or str(e)
+        raise HTTPException(status_code=400, detail=f"On-chain close failed: {detail}")
+
+    tournament.betting_closed = True
+    session.add(tournament)
+    await session.commit()
 
     return {"tx_hash": result.tx_hash}
 
@@ -177,6 +240,10 @@ async def settle_onchain_tournament(
         raise HTTPException(status_code=404, detail="Tournament Not Found")
     if tournament.contract_tournament_id is None:
         raise HTTPException(status_code=400, detail="Tournament not linked on-chain")
+    if not tournament.betting_closed:
+        raise HTTPException(status_code=400, detail="Must close betting before settling")
+    if tournament.winner_agent_id is not None:
+        raise HTTPException(status_code=400, detail="Tournament already settled")
 
     contract_agent_id = tournament.agent_contract_mapping.get(str(payload.winner_agent_id))
     if not contract_agent_id:
@@ -187,11 +254,31 @@ async def settle_onchain_tournament(
         result = client.settle_tournament(
             tournament.contract_tournament_id, contract_agent_id
         )
+    except (ValueError, ConnectionError) as e:
+        raise HTTPException(status_code=400, detail=f"Configuration error: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"On-chain settle failed: {e}")
+        logger.exception("On-chain settle failed")
+        detail = _extract_revert_reason(e) or str(e)
+        raise HTTPException(status_code=400, detail=f"On-chain settle failed: {detail}")
 
     tournament.winner_agent_id = payload.winner_agent_id
+    tournament.status = "completed"
     session.add(tournament)
+
+    # Update agent stats: increment wins for winner, recalculate win_rate for all
+    for uid in (tournament.agent_contract_mapping or {}).keys():
+        agent = await session.get(Agent, UUID(uid))
+        if not agent:
+            continue
+        stats = dict(agent.stats or {})
+        if UUID(uid) == payload.winner_agent_id:
+            stats["wins"] = stats.get("wins", 0) + 1
+        total = stats.get("total_tournaments", 0)
+        wins = stats.get("wins", 0)
+        stats["win_rate"] = wins / total if total > 0 else 0
+        agent.stats = stats
+        session.add(agent)
+
     await session.commit()
 
     return {"tx_hash": result.tx_hash}
@@ -209,12 +296,23 @@ async def cancel_onchain_tournament(
         raise HTTPException(status_code=404, detail="Tournament Not Found")
     if tournament.contract_tournament_id is None:
         raise HTTPException(status_code=400, detail="Tournament not linked on-chain")
+    if tournament.winner_agent_id is not None:
+        raise HTTPException(status_code=400, detail="Tournament already settled, cannot cancel")
 
     try:
         client = get_agonus_client()
         result = client.cancel_tournament(tournament.contract_tournament_id)
+    except (ValueError, ConnectionError) as e:
+        raise HTTPException(status_code=400, detail=f"Configuration error: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"On-chain cancel failed: {e}")
+        logger.exception("On-chain cancel failed")
+        detail = _extract_revert_reason(e) or str(e)
+        raise HTTPException(status_code=400, detail=f"On-chain cancel failed: {detail}")
+
+    tournament.status = "completed"
+    tournament.betting_closed = True
+    session.add(tournament)
+    await session.commit()
 
     return {"tx_hash": result.tx_hash}
 

@@ -8,6 +8,7 @@ import { useAccount } from 'wagmi';
 import { useWalletAuth } from '@/src/hooks/useWalletAuth';
 import { useBettingStore } from '@/src/store/useBettingStore';
 import { useAgents } from '@/src/hooks/useAgents';
+import { useTournament } from '@/src/hooks/useTournaments';
 import type { Bet } from '@/src/types/bets';
 
 interface ActiveBetsProps {
@@ -45,11 +46,12 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
 
   // Fetch all agents to get names/avatars
   const { data: agents } = useAgents();
+  const { data: tournament } = useTournament(tournamentId);
 
   // Create a lookup map: agent_id -> agent data
   const agentMap = useMemo(() => {
-    if (!agents) return new Map<string, { name: string; type: string }>();
-    return new Map(agents.map((a) => [String(a.id), { name: a.name, type: a.type }]));
+    if (!agents) return new Map<string, { name: string; strategy_type: string }>();
+    return new Map(agents.map((a) => [String(a.id), { name: a.name, strategy_type: a.strategy_type }]));
   }, [agents]);
 
   useEffect(() => {
@@ -75,7 +77,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">Your Bets</h3>
-            <p className="text-xs text-gray-400">Tournament #{tournamentId}</p>
+            <p className="text-xs text-gray-400">{tournament?.name || 'Loading...'}</p>
           </div>
         </div>
 
@@ -210,7 +212,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
                   {(() => {
                     const agentData = agentMap.get(String(bet.agent_id));
                     const agentName = bet.agent_name || agentData?.name || `Agent`;
-                    const agentType = agentData?.type || '';
+                    const agentType = agentData?.strategy_type || '';
                     // Generate avatar URL using DiceBear (same as mock data)
                     const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agentName)}`;
 

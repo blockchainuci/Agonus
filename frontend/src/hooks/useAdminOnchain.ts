@@ -25,6 +25,9 @@ export function useCreateOnchainTournament() {
     mutationFn: async ({ tournamentId, agentIds }) => {
       const payload: OnchainCreatePayload = { agent_ids: agentIds };
 
+      console.log('Creating on-chain tournament:', { tournamentId, payload });
+      console.log('Auth headers present:', !!getAuthHeaders().Authorization);
+
       const res = await fetch(`${API_URL}/tournaments/${tournamentId}/onchain/create`, {
         method: 'POST',
         headers: {
@@ -34,9 +37,55 @@ export function useCreateOnchainTournament() {
         body: JSON.stringify(payload),
       });
 
+      console.log('Response status:', res.status);
+
       if (!res.ok) {
-        const error = await res.json().catch(() => ({ detail: 'Failed to create on-chain tournament' }));
-        throw new Error(error.detail || 'Failed to create on-chain tournament');
+        const errorData = await res.json().catch(() => ({ detail: 'Failed to create on-chain tournament' }));
+        console.error('Create on-chain error:', errorData);
+
+        // Handle Pydantic validation errors (422)
+        if (res.status === 422 && Array.isArray(errorData.detail)) {
+          const validationErrors = errorData.detail
+            .map((err: { loc?: string[]; msg?: string }) => `${err.loc?.join('.')}: ${err.msg}`)
+            .join(', ');
+          throw new Error(`Validation error: ${validationErrors}`);
+        }
+
+        // Handle auth errors
+        if (res.status === 401 || res.status === 403) {
+          throw new Error('Authentication required. Please sign in as admin.');
+        }
+
+        throw new Error(errorData.detail || `Failed to create on-chain tournament (${res.status})`);
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+    },
+  });
+}
+
+/**
+ * Start tournament (initialize agents and set status to live)
+ */
+export function useStartTournament() {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ message: string; agents_count: number }, Error, string>({
+    mutationFn: async (tournamentId) => {
+      const res = await fetch(`${API_URL}/tournaments/${tournamentId}/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: 'Failed to start tournament' }));
+        throw new Error(error.detail || 'Failed to start tournament');
       }
 
       return res.json();

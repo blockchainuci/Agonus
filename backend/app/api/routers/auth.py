@@ -50,6 +50,7 @@ def wallet_auth(data: WalletSignIn) -> dict:
 
     # Determine role
     role = "admin" if data.address.lower() in ADMIN_ADDRESSES else "user"
+    print(f"[AUTH] Wallet: {data.address.lower()}, ADMIN_ADDRESSES: {ADMIN_ADDRESSES}, Role: {role}")
 
     # Generate JWT
     expire = datetime.utcnow() + timedelta(hours=24)

@@ -7,8 +7,8 @@ type ApiOptions = {
   credentials?: RequestCredentials;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const BASE_URL = API_URL ? API_URL.replace(/\/$/, "") : "";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const BASE_URL = API_URL.replace(/\/$/, "");
 
 if (!BASE_URL && typeof window !== "undefined") {
   console.warn("NEXT_PUBLIC_API_URL is not set.");

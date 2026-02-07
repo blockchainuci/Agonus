@@ -21,7 +21,10 @@ export default function CenteredAgentCarousel({
 
   const frameRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
-  const animateRef = useRef<((now: number) => void) | null>(null);
+  const lastProgressUpdate = useRef<number>(0);
+
+  // Use a ref for goNext to avoid re-triggering the RAF effect
+  const goNextRef = useRef<() => void>(() => {});
 
   // -------------------------
   // Navigation Handlers
@@ -31,6 +34,7 @@ export default function CenteredAgentCarousel({
     setActive((prev) => {
       const next = (prev + 1) % items.length;
       startRef.current = performance.now();
+      lastProgressUpdate.current = 0;
       setProgress(0);
       return next;
     });
@@ -40,10 +44,14 @@ export default function CenteredAgentCarousel({
     setActive((prev) => {
       const next = (prev - 1 + items.length) % items.length;
       startRef.current = performance.now();
+      lastProgressUpdate.current = 0;
       setProgress(0);
       return next;
     });
   }, [items.length]);
+
+  // Keep ref in sync
+  goNextRef.current = goNext;
 
   // -------------------------
   // Autorotation Animation
@@ -54,26 +62,29 @@ export default function CenteredAgentCarousel({
       const elapsed = now - startRef.current;
       const pct = Math.min(elapsed / autoRotateMs, 1);
 
-      setProgress(pct * 100);
+      // Throttle state updates to ~10fps to reduce re-renders
+      if (now - lastProgressUpdate.current > 100 || pct >= 1) {
+        lastProgressUpdate.current = now;
+        setProgress(pct * 100);
+      }
 
       if (pct < 1) {
         frameRef.current = requestAnimationFrame(animate);
       } else {
-        goNext();
+        goNextRef.current();
       }
     };
 
-    animateRef.current = animate;
     startRef.current = performance.now();
+    lastProgressUpdate.current = 0;
     frameRef.current = requestAnimationFrame(animate);
 
-    // ✔ FIXED CLEANUP — always returns void
     return () => {
       if (frameRef.current !== null) {
         cancelAnimationFrame(frameRef.current);
       }
     };
-  }, [active, autoRotateMs, goNext]);
+  }, [active, autoRotateMs]);
 
   // -------------------------
   // Swipe Gesture Navigation

@@ -23,7 +23,7 @@ export default function HomePage() {
       // Only update if the current ID doesn't exist in backend tournaments
       const currentExists = tournaments.some(t => String(t.id) === selectedTournamentId);
       if (!currentExists) {
-        setTournamentId(String(tournaments[0].id));
+        setTournamentId(String(tournaments[0].id), tournaments[0].name);
       }
     }
   }, [tournaments, selectedTournamentId, setTournamentId]);

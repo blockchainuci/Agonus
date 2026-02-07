@@ -29,6 +29,7 @@ export function ClaimWinnings({
     setTxStatus,
     setTxError,
     resetTxState,
+    selectedTournamentName,
   } = useTournamentStore();
 
   const { chainId, isConnected } = useAccount();
@@ -97,7 +98,7 @@ export function ClaimWinnings({
       <p className="text-sm text-gray-300 mb-3">
         {alreadyClaimed ? (
           <>
-            You already claimed your winnings for Tournament #{tournamentId}.
+            You already claimed your winnings for {selectedTournamentName || `Tournament #${tournamentId}`}.
           </>
         ) : (
           <>
@@ -105,7 +106,7 @@ export function ClaimWinnings({
             <span className="text-green-400 font-semibold">
               {payoutAmountEth} ETH
             </span>{" "}
-            in Tournament #{tournamentId}.
+            in {selectedTournamentName || `Tournament #${tournamentId}`}.
           </>
         )}
       </p>

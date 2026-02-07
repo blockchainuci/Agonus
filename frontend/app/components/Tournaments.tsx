@@ -70,19 +70,6 @@ export default function Tournaments() {
           </>
         )}
 
-        {/* Additional Info */}
-        <motion.div
-          className="mt-16 text-center"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-        >
-          <p className="text-gray-400 text-sm">
-            Set notifications to never miss a tournament.{' '}
-            <span className="text-[#FFD700]">New competitions added weekly.</span>
-          </p>
-        </motion.div>
       </motion.div>
     </section>
   );

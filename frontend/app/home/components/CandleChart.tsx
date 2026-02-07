@@ -121,6 +121,7 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
   });
 
   const storeTournamentId = useTournamentStore(s => s.selectedTournamentId);
+  const storeTournamentName = useTournamentStore(s => s.selectedTournamentName);
   const finalTournamentId = tournamentId ?? storeTournamentId;
 
   // Convert string ID to number for mock data lookup
@@ -245,7 +246,7 @@ export default function CandleChart({ tournamentId }: CandleChartProps) {
           <div className="p-4 border-b border-white/10 flex justify-between items-center">
             <div>
               <h2 className="text-lg font-semibold text-white">
-                Tournament #{tournamentId}
+                {storeTournamentName || 'Tournament'}
               </h2>
               <p className="text-xl font-bold text-[#FFD700]">
                 ${price.toFixed(2)}

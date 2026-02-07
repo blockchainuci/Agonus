@@ -6,7 +6,7 @@ import SectionBackground from './components/background/SectionBackground';
 
 export default function Home() {
   return (
-    <div className="min-h-screen">
+    <div className="relative min-h-screen">
       <SectionBackground id="home" variant="base">
         <Hero />
       </SectionBackground>

@@ -5,6 +5,26 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 
 type Variant = 'base' | 'spotlight' | 'blips' | 'grid' | 'inverse' | 'grid-inverse';
 
+// Separate component so useScroll only runs when parallax is enabled
+function ParallaxLayer({ sectionRef }: { sectionRef: React.RefObject<HTMLElement | null> }) {
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start end', 'end start'],
+  });
+  const parallaxY = useTransform(scrollYProgress, [0, 1], [80, -80]);
+
+  return (
+    <motion.div
+      className="pointer-events-none absolute inset-0 opacity-[0.08]"
+      style={{
+        y: parallaxY,
+        background:
+          'linear-gradient(180deg, transparent 0%, rgba(255,215,0,0.08) 50%, transparent 100%)',
+      }}
+    />
+  );
+}
+
 export default function SectionBackground({
   id,
   variant = 'base',
@@ -23,11 +43,6 @@ export default function SectionBackground({
 }>) {
   const [pos, setPos] = useState({ x: 50, y: 35 });
   const sectionRef = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ['start end', 'end start'],
-  });
-  const parallaxY = useTransform(scrollYProgress, [0, 1], [80, -80]);
 
   useEffect(() => {
     if (variant !== 'spotlight') return;
@@ -82,16 +97,7 @@ export default function SectionBackground({
         <div className="pointer-events-none absolute inset-0" style={spotlightStyle} />
       )}
 
-      {parallax && (
-        <motion.div
-          className="pointer-events-none absolute inset-0 opacity-[0.08]"
-          style={{
-            y: parallaxY,
-            background:
-              'linear-gradient(180deg, transparent 0%, rgba(255,215,0,0.08) 50%, transparent 100%)',
-          }}
-        />
-      )}
+      {parallax && <ParallaxLayer sectionRef={sectionRef} />}
 
       {variant === 'blips' && (
         <>

@@ -17,6 +17,7 @@ import { useTournament } from '@/src/hooks/useTournaments';
 import { AgentState, Agent } from '@/src/types';
 import { useBettingStore } from '@/src/store/useBettingStore';
 import { useTournamentStore } from '@/src/store/useTournamentStore';
+import { findAgentById } from '@/src/util/findAgentById';
 
 interface AgentPositionsProps {
   tournamentId: string;
@@ -43,9 +44,30 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
   // State for selected agent modal
   const [selectedAgent, setSelectedAgent] = useState<SelectedAgentData | null>(null);
 
+  // Build fallback agent states from agent_contract_mapping when backend hasn't initialized states yet
+  const hasLiveStates = agentStates && agentStates.length > 0;
+  const mappedAgentIds = tournament?.agent_contract_mapping ? Object.keys(tournament.agent_contract_mapping) : [];
+  const hasMappedAgents = mappedAgentIds.length > 0;
+
+  const fallbackAgentStates: AgentState[] = (!hasLiveStates && hasMappedAgents)
+    ? mappedAgentIds.map((agentId, idx) => ({
+        agent_id: agentId,
+        tournament_id: tournamentId,
+        portfolio: {},
+        portfolio_value_usd: '0',
+        rank: idx + 1,
+        trades_count: 0,
+        last_decision: 'Waiting to start trading',
+        updated_at: new Date().toISOString(),
+      }))
+    : [];
+
+  const displayedStates = hasLiveStates ? agentStates : fallbackAgentStates;
+  const isFallback = !hasLiveStates && fallbackAgentStates.length > 0;
+
   // calculate total portfolio value for this tournament
   const totalValue =
-    agentStates?.reduce(
+    displayedStates.reduce(
       (sum, state) => sum + parseFloat(state.portfolio_value_usd),
       0,
     ) || 0;
@@ -79,7 +101,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">Agent Positions</h3>
-            <p className="text-xs text-gray-400">Tournament #{tournamentId}</p>
+            <p className="text-xs text-gray-400">{tournament?.name || 'Loading...'}</p>
           </div>
         </div>
 
@@ -99,13 +121,19 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
           <div className="text-center py-8">
             <p className="text-gray-400">Loading agent data...</p>
           </div>
-        ) : !agentStates || agentStates.length === 0 ? (
+        ) : displayedStates.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-400">No agents for this tournament</p>
           </div>
         ) : (
-          agentStates.map((agentState, index) => {
-            const agent = agents?.find((a) => a.id === agentState.agent_id);
+          <>
+          {isFallback && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-2">
+              <p className="text-xs text-blue-300">Agents assigned but not yet trading. Data will update once the tournament starts.</p>
+            </div>
+          )}
+          {displayedStates.map((agentState, index) => {
+            const agent = findAgentById(agents, agentState.agent_id);
             const agentName = agent?.name || `Agent ${index + 1}`;
             const portfolioValue = parseFloat(agentState.portfolio_value_usd);
             const percentOfTotal =
@@ -167,26 +195,25 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                         </>
                       )}
                     </div>
-                    {tournamentStatus !== 'ENDED' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (tournamentStatus !== 'LIVE') return;
-                          openBetModal({
-                            tournament_id: tournamentId,
-                            agent_id: agentState.agent_id,
-                            agent_name: agentName,
-                            contract_tournament_id: tournament?.contract_tournament_id ?? null,
-                            contract_agent_id:
-                              tournament?.agent_contract_mapping?.[agentState.agent_id] ?? null,
-                          });
-                        }}
-                        disabled={tournamentStatus !== 'LIVE'}
-                        className="mt-2 inline-flex items-center justify-center rounded-lg bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/30 transition disabled:opacity-50 disabled:hover:bg-cyan-500/20 disabled:cursor-not-allowed"
-                      >
-                        {tournamentStatus === 'UPCOMING' ? 'Bet Not Allowed' : 'Place Bet'}
-                      </button>
-                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (tournamentStatus !== 'LIVE') return;
+                        openBetModal({
+                          tournament_id: tournamentId,
+                          tournament_name: tournament?.name,
+                          agent_id: agentState.agent_id,
+                          agent_name: agentName,
+                          contract_tournament_id: tournament?.contract_tournament_id ?? null,
+                          contract_agent_id:
+                            tournament?.agent_contract_mapping?.[agentState.agent_id] ?? null,
+                        });
+                      }}
+                      disabled={tournamentStatus !== 'LIVE'}
+                      className="mt-2 inline-flex items-center justify-center rounded-lg bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/30 transition disabled:opacity-50 disabled:hover:bg-cyan-500/20 disabled:cursor-not-allowed"
+                    >
+                      {tournamentStatus === 'LIVE' ? 'Place Bet' : tournamentStatus === 'UPCOMING' ? 'Betting Opens Soon' : 'Tournament Ended'}
+                    </button>
                   </div>
                   </div>
 
@@ -227,12 +254,13 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                 </div>
               </motion.div>
             );
-          })
+          })}
+          </>
         )}
       </div>
 
       {/* total portfolio summary */}
-      {agentStates && agentStates.length > 0 && (
+      {displayedStates.length > 0 && !isFallback && (
         <div className="pt-6 border-t border-white/10 relative z-10">
           <div className="bg-gradient-to-r from-[#FFD700]/10 to-[#FFC300]/5 rounded-xl p-4 border border-[#FFD700]/20">
             <div className="flex items-center justify-between">
@@ -247,7 +275,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                   ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  {agentStates.length} agents
+                  {displayedStates.length} agents
                 </p>
               </div>
             </div>

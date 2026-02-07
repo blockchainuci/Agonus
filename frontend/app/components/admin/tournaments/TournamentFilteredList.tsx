@@ -125,7 +125,7 @@ export default function TournamentFilteredList({
                           className="w-8 h-8 rounded-full overflow-hidden border-2 border-white/20 hover:border-blue-400 transition-all cursor-pointer"
                         >
                           <img
-                            src={agentState.agent?.avatar_url || '/placeholder-agent.png'}
+                            src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agentState.agent?.name || agentState.agent_id)}`}
                             alt={agentState.agent?.name || "Agent"}
                             className="w-full h-full object-cover"
                           />
@@ -144,7 +144,7 @@ export default function TournamentFilteredList({
                                 <div className="flex items-center gap-2 mb-2">
                                   <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-blue-400">
                                     <img
-                                      src={agentState.agent?.avatar_url || '/placeholder-agent.png'}
+                                      src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agentState.agent?.name || agentState.agent_id)}`}
                                       alt={agentState.agent?.name || "Agent"}
                                       className="w-full h-full object-cover"
                                     />

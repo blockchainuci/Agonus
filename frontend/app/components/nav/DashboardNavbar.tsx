@@ -46,7 +46,7 @@ export default function DashboardNavbar() {
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Logo - stays on /home */}
-          <Link href="/home" className="flex items-center hover:opacity-80 transition">
+          <Link href="/home" className="relative flex items-center hover:opacity-80 transition">
             <MarketBlips />
           </Link>
 

@@ -35,6 +35,7 @@ export function TournamentStatusBar() {
   const uiTournament = backendTournament
     ? {
         id: String(backendTournament.id),
+        name: backendTournament.name,
         status: normalizeStatus(backendTournament.status),
         prize_pool_usd: Number(backendTournament.prize_pool),
         end_time: backendTournament.end_date,
@@ -49,7 +50,7 @@ export function TournamentStatusBar() {
 
   useEffect(() => {
     if (tournaments && tournaments.length > 0 && !selectedTournamentId) {
-      setTournamentId(String(tournaments[0].id));
+      setTournamentId(String(tournaments[0].id), tournaments[0].name);
     }
   }, [tournaments, selectedTournamentId, setTournamentId]);
 
@@ -78,7 +79,9 @@ export function TournamentStatusBar() {
     <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-2 border-b border-white/10 bg-gradient-to-r from-blue-900/20 to-transparent relative">
       {/* Left Section: Title + Dropdown */}
       <div className="flex items-center gap-3">
-        <div className="text-yellow-400 font-bold text-2xl">TOURNAMENT</div>
+        <div className="text-yellow-400 font-bold text-2xl">
+          {uiTournament?.name || 'TOURNAMENT'}
+        </div>
 
         {/* Dropdown */}
         <div className="relative">
@@ -104,7 +107,7 @@ export function TournamentStatusBar() {
                   <button
                     key={idStr}
                     onClick={() => {
-                      setTournamentId(idStr);
+                      setTournamentId(idStr, t.name);
                       setIsDropdownOpen(false);
                     }}
                     className={`w-full text-left px-4 py-3 hover:bg-slate-700 transition-colors ${
@@ -113,7 +116,7 @@ export function TournamentStatusBar() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-white font-semibold">Tournament #{idStr}</p>
+                        <p className="text-white font-semibold">{t.name || `Tournament ${idStr.slice(0, 8)}`}</p>
                         <p className="text-xs text-gray-400">
                           ${Number(prizePool).toLocaleString()} *{' '}
                           {endTime ? new Date(endTime).toLocaleDateString('en-US', {

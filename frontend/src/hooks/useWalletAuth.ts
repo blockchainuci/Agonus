@@ -16,10 +16,13 @@ export function useWalletAuth() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isSigningIn = useAuthStore((s) => s.isSigningIn);
   const signInError = useAuthStore((s) => s.signInError);
+  const role = useAuthStore((s) => s.role);
   const setToken = useAuthStore((s) => s.setToken);
   const setSigningIn = useAuthStore((s) => s.setSigningIn);
   const setSignInError = useAuthStore((s) => s.setSignInError);
   const signOut = useAuthStore((s) => s.signOut);
+
+  const isAdmin = role === "admin";
 
   // Check if user needs to sign in (wallet connected but not authenticated)
   const needsSignIn = isConnected && !isAuthenticated && !isSigningIn;
@@ -94,6 +97,8 @@ export function useWalletAuth() {
     needsSignIn,
     address,
     token,
+    role,
+    isAdmin,
 
     // Actions
     signIn,

@@ -273,7 +273,7 @@ function BarChart({ isActive }: { isActive: boolean }) {
             height={bar.height}
             fill="url(#barGradient)"
             rx="2"
-            initial={{ scaleY: 0 }}
+            initial={{ scaleY: 0, opacity: 1 }}
             animate={{
               scaleY: 1,
               opacity: isActive ? [0.7, 1, 0.7] : 1,

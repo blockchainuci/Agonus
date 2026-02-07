@@ -26,17 +26,11 @@ export default function AgentCircleRoster({ agents }: AgentCircleRosterProps) {
           {/* Avatar Circle */}
           <div className="relative group">
             <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-2 border-blue-500/30 flex items-center justify-center overflow-hidden transition-all duration-300 hover:scale-110 hover:border-blue-400">
-              {agent.avatar_url ? (
-                <img
-                  src={agent.avatar_url}
-                  alt={agent.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-3xl font-bold text-blue-400">
-                  {agent.name.charAt(0)}
-                </span>
-              )}
+              <img
+                src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agent.name)}`}
+                alt={agent.name}
+                className="w-full h-full object-cover"
+              />
             </div>
 
             {/* Hover Stats Tooltip */}
