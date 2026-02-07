@@ -38,7 +38,8 @@ POOL_FEES = {
 
 
 def execute_swap(
-    agent_id: str,
+    wallet_address: str,
+    wallet_private_key: str,
     from_token: Literal["USDC", "WETH", "CBBTC"],
     to_token: Literal["USDC", "WETH", "CBBTC"],
     amount: float,
@@ -48,7 +49,8 @@ def execute_swap(
     Execute a swap using the uniswap-python library.
 
     Args:
-        agent_id: Agent identifier (e.g., "agent_1")
+        wallet_address: Wallet address to execute swap from
+        wallet_private_key: Private key for signing (plain, not encrypted)
         from_token: Source token symbol
         to_token: Destination token symbol
         amount: Amount to swap (in token units, not wei)
@@ -62,22 +64,8 @@ def execute_swap(
     Raises:
         ValueError: If swap fails or invalid parameters provided
     """
-    # Get agent private key from env
-    private_key_var = f"{agent_id.upper()}_PRIVATE_KEY"
-    agent_private_key = os.getenv(private_key_var)
-
-    if not agent_private_key:
-        raise ValueError(f"Missing environment variable: {private_key_var}")
-
-    # Get agent address
-    address_var = f"{agent_id.upper()}_ADDRESS"
-    agent_address = os.getenv(address_var)
-
-    if not agent_address:
-        raise ValueError(f"Missing environment variable: {address_var}")
-
     # Get RPC URL
-    rpc_url = os.getenv("RPC_LOCAL", "http://127.0.0.1:8545")
+    rpc_url = os.getenv("RPC_URL")
 
     # Validate tokens
     from_token = from_token.upper()
@@ -103,8 +91,8 @@ def execute_swap(
     try:
         # Initialize Uniswap instance with V3
         uniswap = Uniswap(
-            address=agent_address,
-            private_key=agent_private_key,
+            address=wallet_address,
+            private_key=wallet_private_key,
             version=3,
             provider=rpc_url,
             web3=None  # Let the library create the web3 instance

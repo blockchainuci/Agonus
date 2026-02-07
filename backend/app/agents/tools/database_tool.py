@@ -355,6 +355,54 @@ class DatabaseTool:
             logger.error(f"Failed to get agent by name: {e}")
             raise
 
+    async def get_agent_wallet_credentials(
+        self, agent_uuid: UUID
+    ) -> Dict[str, str]:
+        """
+        Load agent's wallet credentials from database.
+
+        Args:
+            agent_uuid: Agent UUID
+
+        Returns:
+            Dict with 'wallet_address' and 'encrypted_private_key'
+
+        Raises:
+            ValueError: If agent not found or wallet credentials missing
+        """
+        try:
+            stmt = select(Agent).where(Agent.id == agent_uuid)
+            result = await self.session.execute(stmt)
+            agent = result.scalar_one_or_none()
+
+            if not agent:
+                raise ValueError(f"Agent not found: {agent_uuid}")
+
+            # Extract wallet credentials from stats
+            wallet_address = agent.stats.get("wallet_address")
+            encrypted_private_key = agent.stats.get("encrypted_private_key")
+
+            if not wallet_address or not encrypted_private_key:
+                raise ValueError(
+                    f"Agent {agent_uuid} missing wallet credentials in stats. "
+                    f"Has wallet_address: {bool(wallet_address)}, "
+                    f"Has encrypted_private_key: {bool(encrypted_private_key)}"
+                )
+
+            logger.debug(
+                f"Loaded wallet credentials for agent={agent_uuid}, "
+                f"wallet={wallet_address}"
+            )
+
+            return {
+                "wallet_address": wallet_address,
+                "encrypted_private_key": encrypted_private_key,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to load wallet credentials for agent={agent_uuid}: {e}")
+            raise
+
     async def create_agent_if_not_exists(
         self,
         agent_name: str,
