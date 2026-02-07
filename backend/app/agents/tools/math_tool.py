@@ -116,7 +116,7 @@ class MathTool:
     def get_indicator(
         self,
         token: str,
-        indicator: IndicatorName,
+        indicator: str,
         timeframe: Optional[Timeframe] = None,
         period: Optional[int] = None,
         lookback: Optional[int] = None,
@@ -143,14 +143,91 @@ class MathTool:
             MathToolError: If the token or indicator is unsupported, or if
                 the calculation fails.
         """
-        pass
+        token_upper = token.upper()
+        indicator_lower = indicator.lower()
+        timeframe = timeframe or self.default_timeframe
+
+        cache_key = f"indicator:{token_upper}:{indicator_lower}:{timeframe}:{period}:{lookback}:{sorted(params.items())}"
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
+
+        local_indicators = {
+            "rsi",
+            "sma",
+            "ema",
+            "macd",
+            "bbands",
+            "atr",
+            "volatility",
+        }
+
+        if indicator_lower not in local_indicators:
+            exchange = params.pop("exchange", "binance")
+            symbol = params.pop("symbol", None)
+            response = self._fetch_taapi_indicator(
+                indicator=indicator_lower,
+                token=token_upper,
+                exchange=exchange,
+                interval=timeframe,
+                symbol=symbol,
+                **params,
+            )
+            self._cache_set(cache_key, response, self.cache_ttl_by_timeframe.get(timeframe))
+            return response
+
+        timeframe_minutes = {
+            "1m": 1,
+            "5m": 5,
+            "15m": 15,
+            "1h": 60,
+            "4h": 240,
+            "1d": 1440,
+        }
+
+        if indicator_lower == "macd":
+            fast = int(params.get("fast", self.default_periods["macd_fast"]))
+            slow = int(params.get("slow", self.default_periods["macd_slow"]))
+            signal = int(params.get("signal", self.default_periods["macd_signal"]))
+            required_points = slow + signal
+        else:
+            default_period = int(self.default_periods.get(indicator_lower, 14))
+            period = int(period) if period is not None else default_period
+            required_points = period + 1 if indicator_lower in {"rsi", "volatility"} else period
+
+        if lookback:
+            required_points = max(required_points, int(lookback))
+
+        hours = max(1, int(np.ceil(required_points * timeframe_minutes[timeframe] / 60)))
+        prices = self._get_price_series(token_upper, hours)
+
+        if indicator_lower == "rsi":
+            result = self._compute_rsi(prices, period)
+        elif indicator_lower == "sma":
+            result = self._compute_sma(prices, period)
+        elif indicator_lower == "ema":
+            result = self._compute_ema(prices, period)
+        elif indicator_lower == "macd":
+            result = self._compute_macd(prices, fast=fast, slow=slow, signal=signal)
+        elif indicator_lower == "bbands":
+            stddev = float(params.get("stddev", 2.0))
+            result = self._compute_bbands(prices, period=period, stddev=stddev)
+        elif indicator_lower == "atr":
+            result = self._compute_atr(prices, prices, prices, period=period)
+        elif indicator_lower == "volatility":
+            result = self._compute_volatility(prices, period=period)
+        else:
+            raise MathToolError(f"Unsupported indicator: {indicator}")
+
+        self._cache_set(cache_key, result, self.cache_ttl_by_timeframe.get(timeframe))
+        return result
 
     def get_indicators(
         self,
         token: str,
-        indicators: Sequence[IndicatorName],
+        indicators: Sequence[str],
         timeframe: Optional[Timeframe] = None,
-        period_overrides: Optional[Mapping[IndicatorName, int]] = None,
+        period_overrides: Optional[Mapping[str, int]] = None,
         **params: Any,
     ) -> Dict[str, IndicatorValue]:
         """
@@ -171,12 +248,25 @@ class MathTool:
         Raises:
             MathToolError: If any indicator or token is unsupported.
         """
-        pass
+        results: Dict[str, IndicatorValue] = {}
+        period_overrides = period_overrides or {}
+
+        for indicator in indicators:
+            override_period = period_overrides.get(indicator)
+            results[indicator] = self.get_indicator(
+                token=token,
+                indicator=indicator,
+                timeframe=timeframe,
+                period=override_period,
+                **params,
+            )
+
+        return results
 
     def get_indicator_series(
         self,
         token: str,
-        indicator: IndicatorName,
+        indicator: str,
         lookback: int,
         timeframe: Optional[Timeframe] = None,
         period: Optional[int] = None,
@@ -199,7 +289,90 @@ class MathTool:
         Raises:
             MathToolError: If token or indicator is unsupported.
         """
-        pass
+        indicator_lower = indicator.lower()
+        timeframe = timeframe or self.default_timeframe
+
+        local_indicators = {
+            "rsi",
+            "sma",
+            "ema",
+            "macd",
+            "bbands",
+            "atr",
+            "volatility",
+        }
+        if indicator_lower not in local_indicators:
+            raise MathToolError(
+                f"Indicator series not supported for TAAPI fallback: {indicator}"
+            )
+
+        timeframe_minutes = {
+            "1m": 1,
+            "5m": 5,
+            "15m": 15,
+            "1h": 60,
+            "4h": 240,
+            "1d": 1440,
+        }
+
+        if indicator_lower == "macd":
+            fast = int(params.get("fast", self.default_periods["macd_fast"]))
+            slow = int(params.get("slow", self.default_periods["macd_slow"]))
+            signal = int(params.get("signal", self.default_periods["macd_signal"]))
+            required_points = slow + signal
+            period = None
+        else:
+            default_period = int(self.default_periods.get(indicator_lower, 14))
+            period = int(period) if period is not None else default_period
+            required_points = period + 1 if indicator_lower in {"rsi", "volatility"} else period
+
+        min_points = required_points + lookback - 1
+        hours = max(1, int(np.ceil(min_points * timeframe_minutes[timeframe] / 60)))
+
+        history = self.market_tool.get_price_history(token, hours=hours)
+        if not history:
+            raise MathToolError(f"Price history unavailable for {token}.")
+
+        prices = [float(point["price"]) for point in history if "price" in point]
+        timestamps = [float(point["timestamp"]) for point in history if "timestamp" in point]
+
+        if len(prices) < min_points:
+            raise MathToolError(
+                f"Not enough data to build series. Need {min_points} points, got {len(prices)}."
+            )
+
+        series: IndicatorSeries = []
+        start_index = len(prices) - lookback
+        for idx in range(start_index, len(prices)):
+            window = prices[: idx + 1]
+            if indicator_lower == "rsi":
+                value = self._compute_rsi(window, period)
+            elif indicator_lower == "sma":
+                value = self._compute_sma(window, period)
+            elif indicator_lower == "ema":
+                value = self._compute_ema(window, period)
+            elif indicator_lower == "macd":
+                value = self._compute_macd(window, fast=fast, slow=slow, signal=signal)
+                value = value.get("macd", 0.0)
+            elif indicator_lower == "bbands":
+                stddev = float(params.get("stddev", 2.0))
+                value = self._compute_bbands(window, period=period, stddev=stddev)
+                value = value.get("middle", 0.0)
+            elif indicator_lower == "atr":
+                value = self._compute_atr(window, window, window, period=period)
+            elif indicator_lower == "volatility":
+                value = self._compute_volatility(window, period=period)
+            else:
+                raise MathToolError(f"Unsupported indicator: {indicator}")
+
+            series.append(
+                {
+                    "timestamp": timestamps[idx] if idx < len(timestamps) else float(idx),
+                    "value": float(value),
+                }
+            )
+
+        return series
 
     def get_signal_summary(
         self,
@@ -228,7 +401,58 @@ class MathTool:
         Raises:
             MathToolError: If token is unsupported or calculations fail.
         """
-        pass
+        timeframe = timeframe or self.default_timeframe
+
+        rsi = self.get_indicator(token, "rsi", timeframe=timeframe)
+        macd = self.get_indicator(token, "macd", timeframe=timeframe)
+        ema_fast = self.get_indicator(token, "ema", timeframe=timeframe, period=12)
+        ema_slow = self.get_indicator(token, "ema", timeframe=timeframe, period=26)
+
+        reasons: List[str] = []
+        score = 0.0
+
+        if isinstance(rsi, float):
+            if rsi > 60:
+                score += 0.3
+                reasons.append("RSI > 60")
+            elif rsi < 40:
+                score -= 0.3
+                reasons.append("RSI < 40")
+
+        macd_hist = 0.0
+        if isinstance(macd, dict):
+            macd_hist = float(macd.get("histogram", 0.0))
+            if macd_hist > 0:
+                score += 0.3
+                reasons.append("MACD histogram positive")
+            elif macd_hist < 0:
+                score -= 0.3
+                reasons.append("MACD histogram negative")
+
+        if isinstance(ema_fast, float) and isinstance(ema_slow, float):
+            if ema_fast > ema_slow:
+                score += 0.4
+                reasons.append("EMA(12) > EMA(26)")
+            elif ema_fast < ema_slow:
+                score -= 0.4
+                reasons.append("EMA(12) < EMA(26)")
+
+        if score > 0.2:
+            bias = "bullish"
+        elif score < -0.2:
+            bias = "bearish"
+        else:
+            bias = "neutral"
+
+        return {
+            "score": round(score, 3),
+            "bias": bias,
+            "reasons": reasons,
+            "rsi": rsi,
+            "macd": macd,
+            "ema_fast": ema_fast,
+            "ema_slow": ema_slow,
+        }
 
     def _get_price_series(self, token: str, hours: int) -> List[float]:
         """
@@ -244,7 +468,19 @@ class MathTool:
         Raises:
             MathToolError: If price data cannot be fetched or parsed.
         """
-        pass
+        history = self.market_tool.get_price_history(token, hours=hours)
+        if not history:
+            raise MathToolError(f"Price history unavailable for {token}.")
+
+        try:
+            prices = [float(point["price"]) for point in history if "price" in point]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MathToolError("Failed to parse price history data.") from exc
+
+        if not prices:
+            raise MathToolError("Price history returned no usable data.")
+
+        return prices
 
     def _compute_rsi(self, prices: Sequence[float], period: int) -> float:
         """
