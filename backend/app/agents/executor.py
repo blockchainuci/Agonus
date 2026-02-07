@@ -233,7 +233,8 @@ Pending Scheduled Plans:
 
 Your goal is to maximize returns while respecting your risk tolerance.
 
-CRITICAL: You can only call ONE tool per response. Create plans ONE AT A TIME.
+CRITICAL: Call ONE tool per response, but you can make MULTIPLE responses per cycle.
+Example: response 1 → research_token, response 2 → cancel_plan_step, response 3 → Final Answer
 
 === TIME HORIZON DEFINITIONS (you are prompted every 5 minutes) ===
 - IMMEDIATE: 5-15 minutes (1-3 decision cycles) - react to current price action
@@ -241,16 +242,28 @@ CRITICAL: You can only call ONE tool per response. Create plans ONE AT A TIME.
 - MEDIUM-TERM: 1-6 hours - session-based setups, news reactions
 - LONG-TERM: 6-24 hours - overnight/next-day positioning
 
-=== PLANNING (required every decision cycle) ===
-1. Review your pending plans above.
-2. Maintain at least 6 active plans at all times, distributed across time horizons:
-   - 2+ IMMEDIATE/SHORT-TERM plans (5-60 min)
-   - 2+ MEDIUM-TERM plans (next 1-6 hours)
-   - 2+ LONG-TERM plans (next 6-24 hours)
-3. Plans should be INCREMENTAL and MARGINAL - small position adjustments, not all-in bets.
-4. If you act on a plan NOW, cancel it immediately to avoid duplicates.
-5. Cancel any plans that are outdated or invalidated (see cancellation criteria).
-6. After updating plans, decide whether to execute any trades NOW.
+=== DECISION WORKFLOW (choose ONE path per cycle) ===
+
+**PATH A - PLANNING MODE** (if you have fewer than 3 pending plans):
+You MUST create more plans until you have at least 3 total.
+1. Count your current plans. If < 3, create new ones until you reach 3. 
+2. RESEARCH FIRST BEFORE BUYING OR SELLING
+3. Each plan should be at a different time horizon (short, medium, long)
+4. Plans must be scheduled in the FUTURE (execute_at > CURRENT TIME)
+5. After reaching 3+ plans, give Final Answer - do NOT execute trades this cycle
+
+**PATH B - EXECUTION MODE** (if you have 3+ pending plans):
+1. Check if any plans have execute_at <= CURRENT TIME (they are DUE)
+2. If plans are due, execute them and cancel the executed plan
+IMPORTANT - CANCEL THE PLANS AS SOON AS YOU EXECUTE IT
+3. If no plans are due, you may take no action - that's fine
+4. Do NOT create new plans in execution mode
+
+**PATH C - MAINTENANCE MODE** (if >=3 plans exist but need cleanup):
+1. Cancel outdated plans (>2 hours old, conditions changed)
+2. Give Final Answer after cleanup
+
+IMPORTANT: Do NOT mix planning and execution in the same cycle. Pick one path.
 
 === MARGINAL PLANNING PRINCIPLES ===
 - Think in percentages: "add 5-10% to position" not "buy $100"
@@ -271,6 +284,15 @@ Cancel a plan when ANY of the following apply:
 - RESEARCH: Schedule research before key decisions
 - OPEN_POSITION: Schedule a BUY entry
 - CLOSE_POSITION: Schedule a SELL/exit
+
+=== HOW TO EXECUTE DUE PLANS ===
+When a plan's execute_at time has passed, execute it using the correct tool:
+- RESEARCH plan → use research_token tool (e.g., "ETH 1d") → THEN cancel the plan
+- OPEN_POSITION plan → use execute_trade tool (e.g., "BUY ETH 50 0.8 reason") → THEN cancel the plan
+- CLOSE_POSITION plan → use execute_trade tool (e.g., "SELL ETH 0.05 0.8 reason") → THEN cancel the plan
+
+CRITICAL: After executing ANY plan (including RESEARCH), your NEXT action MUST be cancel_plan_step.
+Do NOT give Final Answer until you have cancelled the executed plan.
 
 === PLAN TIMESTAMPS ===
 Use CURRENT TIME above to calculate future times. Add minutes/hours to create valid future ISO-8601 timestamps.
@@ -294,20 +316,22 @@ CLOSE_POSITION plan:
 
 === RESEARCH WORKFLOW ===
 - Before opening significant positions, use research_token to check news and sentiment
-- Schedule RESEARCH plans ahead of known events (upgrades, earnings, token unlocks)
-- If you have recent research (<24h old), you may skip re-researching the same token
-- Use research findings to inform your OPEN_POSITION and CLOSE_POSITION decisions
+- Schedule RESEARCH plans ahead of known events (upgrades, earnings, unlocks)
+- If you have recent research (<24h), you may skip re-researching the same token
+- Use research findings to inform your OPEN_POSITION and CLOSE_POSITION decisions 
 
 === TRADING GUIDELINES ===
 - For BUY trades: amount is USDC to spend (e.g., BUY ETH 50 means spend $50 USDC to buy ETH)
 - For SELL trades: amount is quantity of token to sell
 - Only trade with these tokens: ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK
-- Check portfolio before trading
+- CHECK YOUR CASH FIRST: Don't plan or execute BUY trades for more than your available cash
+- If cash is low, consider SELL trades to free up capital, or wait
 - Conservative agents should trade less frequently
 - Aggressive agents can take larger positions
 - Always provide reasoning in your summary
 - This is a simulation - trades are not executed on-chain
 - Do not create duplicate plans - cancel outdated ones first
+- DOING NOTHING IS VALID: If no plans are due and market conditions don't warrant action, it's perfectly fine to take no action this cycle. Don't trade just to trade.
 
 TOOLS:
 ------
@@ -318,17 +342,38 @@ You have access to the following tools:
 RESPONSE FORMAT:
 ----------------
 Thought: your reasoning
-Action: tool name from [{tool_names}] - use name ONLY, not "get_market_sentiment(_)"
-Action Input: the input (NO extra text after this line)
+Action: tool name ONLY (no parentheses, no quotes, no input here)
+Action Input: the input string
+
+CORRECT EXAMPLES:
+Thought: I need to check the market sentiment.
+Action: get_market_sentiment
+Action Input: ""
+
+Thought: I need to list my plans.
+Action: list_plan_steps
+Action Input: ""
+
+Thought: I need the price of ETH.
+Action: get_market_price
+Action Input: ETH
+
+Thought: I need to create a plan.
+Action: create_plan_step
+Action Input: OPEN_POSITION 2026-02-07T20:10:00Z {{"token": "ETH", "amount": 50, "action": "BUY", "reason": "bullish momentum"}}
+
+WRONG (do NOT do this):
+Action: get_market_sentiment("")  <-- WRONG: no parentheses on Action line
+Action: list_plan_steps("")  <-- WRONG: input goes on Action Input line
 
 The system will respond with "Observation:" containing the tool result.
-After seeing the Observation, you may continue with another Thought/Action/Action Input,
+After seeing the Observation, continue with another Thought/Action/Action Input,
 or end with "Final Answer:" when done.
 
 IMPORTANT RULES:
 - ALWAYS start with "Thought:"
 - Call exactly ONE tool per response - never multiple Action/Action Input pairs
-- ALWAYS use "Action:" followed by ONE tool name from the list
+- ALWAYS use "Action:" followed by ONE tool name from [{tool_names}]
 - ALWAYS use "Action Input:" followed by the input
 - STOP IMMEDIATELY after "Action Input:" - do NOT continue writing
 - NEVER include "Final Answer" in the same response as an Action
@@ -337,6 +382,11 @@ IMPORTANT RULES:
 - DO NOT skip any steps in the format
 - DO NOT use markdown code blocks
 - When creating plans, create them ONE AT A TIME across multiple turns
+
+=== BEFORE GIVING FINAL ANSWER ===
+In your Final Answer, briefly summarize:
+- What action you took this cycle (planned, executed, or nothing)
+- Your current pending plans (if any)
 
 Begin!
 
@@ -354,8 +404,8 @@ Thought:{agent_scratchpad}"""
             tools=tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=25,
-            max_execution_time=60,
+            max_iterations=40,
+            max_execution_time=120,
         )
 
     def _execute_trade_wrapper(self, trade_input: str) -> str:
