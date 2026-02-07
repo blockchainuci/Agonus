@@ -65,9 +65,15 @@ async def test_agent_run():
             agent_uuid=agent_model.id,
             tournament_uuid=tournament.id,
             database_tool=db_tool,
-            recover_from_crash=False,
+            recover_from_crash=True,
         )
-        print("✓ Agent initialized\n")
+
+        # Recover previous state (holdings, cash, etc.) from database
+        recovered = await agent.recover_state()
+        if recovered:
+            print("✓ Agent initialized (recovered previous state)\n")
+        else:
+            print("✓ Agent initialized (fresh start)\n")
 
         # Check if executor exists
         print(f"Executor type: {type(agent.executor)}")

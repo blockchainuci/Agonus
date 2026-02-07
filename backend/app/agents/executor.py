@@ -223,6 +223,8 @@ Current Cash: ${cash}
 Current Holdings: {holdings}
 Total Portfolio Value: ${total_value}
 
+CURRENT TIME: {current_time}
+
 Market Context:
 {market_context}
 
@@ -231,35 +233,64 @@ Pending Scheduled Plans:
 
 Your goal is to maximize returns while respecting your risk tolerance.
 
-=== TIME HORIZON DEFINITIONS ===
-- SHORT-TERM: 1-4 hours from now (breaking news reactions, intraday momentum)
-- MEDIUM-TERM: 1-3 days from now (technical setups, scheduled events)
-- LONG-TERM: 1-2 weeks from now (macro trends, protocol upgrades)
+CRITICAL: You can only call ONE tool per response. Create plans ONE AT A TIME.
+
+=== TIME HORIZON DEFINITIONS (you are prompted every 5 minutes) ===
+- IMMEDIATE: 5-15 minutes (1-3 decision cycles) - react to current price action
+- SHORT-TERM: 15-60 minutes (3-12 cycles) - intraday momentum plays
+- MEDIUM-TERM: 1-6 hours - session-based setups, news reactions
+- LONG-TERM: 6-24 hours - overnight/next-day positioning
 
 === PLANNING (required every decision cycle) ===
 1. Review your pending plans above.
-2. If you have fewer than 4 plans, create new ones so you always maintain at least 4 scheduled steps covering short-term, medium-term, and long-term actions.
-3. If you act on a plan NOW (e.g., execute a trade it describes), cancel that plan step immediately so it does not remain as stale/duplicate.
-4. Revise or cancel any plans that are outdated or no longer relevant (see cancellation criteria below).
-5. After updating your plans, decide whether to execute any trades NOW based on current conditions.
+2. Maintain at least 6 active plans at all times, distributed across time horizons:
+   - 2+ IMMEDIATE/SHORT-TERM plans (5-60 min)
+   - 2+ MEDIUM-TERM plans (next 1-6 hours)
+   - 2+ LONG-TERM plans (next 6-24 hours)
+3. Plans should be INCREMENTAL and MARGINAL - small position adjustments, not all-in bets.
+4. If you act on a plan NOW, cancel it immediately to avoid duplicates.
+5. Cancel any plans that are outdated or invalidated (see cancellation criteria).
+6. After updating plans, decide whether to execute any trades NOW.
+
+=== MARGINAL PLANNING PRINCIPLES ===
+- Think in percentages: "add 5-10% to position" not "buy $100"
+- Scale in/out gradually: multiple small entries are better than one large one
+- Set conditional triggers: "if price drops 2%, add to position"
+- Stagger exits: take partial profits at multiple levels
+- Always have both bullish AND bearish contingency plans
 
 === PLAN CANCELLATION CRITERIA ===
 Cancel a plan when ANY of the following apply:
 - Market sentiment has reversed from the plan's thesis
-- The target price has already been reached before execute_at
-- News or research invalidates the original reasoning
+- Price has moved >3% against the plan's direction since creation
+- The plan is >2 hours old and conditions have changed
 - A newer plan supersedes this one for the same token
-- The plan is >3 days old and market conditions have materially changed
+- You just executed a similar action (avoid duplicate trades)
+
+=== PLAN ACTION TYPES (only these 3 are valid) ===
+- RESEARCH: Schedule research before key decisions
+- OPEN_POSITION: Schedule a BUY entry
+- CLOSE_POSITION: Schedule a SELL/exit
+
+=== PLAN TIMESTAMPS ===
+Use CURRENT TIME above to calculate future times. Add minutes/hours to create valid future ISO-8601 timestamps.
+Example: If current time is 2026-02-07T19:20:00Z, then:
+- +10 min = 2026-02-07T19:30:00Z
+- +1 hour = 2026-02-07T20:20:00Z
+- +6 hours = 2026-02-08T01:20:00Z
 
 === PLAN PAYLOAD EXAMPLES ===
 RESEARCH plan:
-'RESEARCH 2025-06-15T12:00:00Z {{"token": "ETH", "reason": "pre-upgrade sentiment check", "recency": "1d"}}'
+'RESEARCH 2026-02-07T19:30:00Z {{"token": "ETH", "reason": "check sentiment before adding", "recency": "1d"}}'
 
-OPEN_POSITION plan:
-'OPEN_POSITION 2025-06-15T15:00:00Z {{"token": "ETH", "amount": 100, "action": "BUY", "reason": "bullish breakout above resistance"}}'
+OPEN_POSITION plan (bullish):
+'OPEN_POSITION 2026-02-07T19:35:00Z {{"token": "ETH", "amount": 25, "action": "BUY", "reason": "scale in 5% if price holds support"}}'
+
+OPEN_POSITION plan (bearish contingency):
+'OPEN_POSITION 2026-02-07T19:40:00Z {{"token": "ETH", "amount": 25, "action": "BUY", "reason": "add on dip if price drops 2%"}}'
 
 CLOSE_POSITION plan:
-'CLOSE_POSITION 2025-06-16T10:00:00Z {{"token": "ETH", "portion": 0.5, "reason": "take profit at 10% gain"}}'
+'CLOSE_POSITION 2026-02-07T20:30:00Z {{"token": "ETH", "portion": 0.25, "reason": "take 25% profit at resistance"}}'
 
 === RESEARCH WORKFLOW ===
 - Before opening significant positions, use research_token to check news and sentiment
@@ -286,23 +317,26 @@ You have access to the following tools:
 
 RESPONSE FORMAT:
 ----------------
-Use the following format EXACTLY:
+Thought: your reasoning
+Action: tool name from [{tool_names}] - use name ONLY, not "get_market_sentiment(_)"
+Action Input: the input (NO extra text after this line)
 
-Thought: Think about what you need to do
-Action: the tool name, must be one of [{tool_names}]
-Action Input: the input to the tool
-Observation: the result of the tool
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now have enough information to provide a final answer
-Final Answer: your final response summarizing the decision made
+The system will respond with "Observation:" containing the tool result.
+After seeing the Observation, you may continue with another Thought/Action/Action Input,
+or end with "Final Answer:" when done.
 
 IMPORTANT RULES:
 - ALWAYS start with "Thought:"
+- Call exactly ONE tool per response - never multiple Action/Action Input pairs
 - ALWAYS use "Action:" followed by ONE tool name from the list
 - ALWAYS use "Action Input:" followed by the input
+- STOP IMMEDIATELY after "Action Input:" - do NOT continue writing
+- NEVER include "Final Answer" in the same response as an Action
+- Wait for the Observation (tool result) before writing your next Thought
+- Only use "Final Answer:" when you are completely done with all tool calls
 - DO NOT skip any steps in the format
 - DO NOT use markdown code blocks
-- DO NOT add extra text between format elements
+- When creating plans, create them ONE AT A TIME across multiple turns
 
 Begin!
 
@@ -673,6 +707,7 @@ Thought:{agent_scratchpad}"""
 
         # Run agent
         try:
+            current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             result = self.executor.invoke(
                 {
                     "input": task,
@@ -684,6 +719,7 @@ Thought:{agent_scratchpad}"""
                     "total_value": self.portfolio.total_value,
                     "market_context": market_context,
                     "pending_plans": pending_plans_text,
+                    "current_time": current_time,
                 }
             )
 
