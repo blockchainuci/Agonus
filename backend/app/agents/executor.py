@@ -231,25 +231,52 @@ Pending Scheduled Plans:
 
 Your goal is to maximize returns while respecting your risk tolerance.
 
-PLANNING (required every decision cycle):
+=== TIME HORIZON DEFINITIONS ===
+- SHORT-TERM: 1-4 hours from now (breaking news reactions, intraday momentum)
+- MEDIUM-TERM: 1-3 days from now (technical setups, scheduled events)
+- LONG-TERM: 1-2 weeks from now (macro trends, protocol upgrades)
+
+=== PLANNING (required every decision cycle) ===
 1. Review your pending plans above.
-2. If you have fewer than 4 plans, create new ones so you always maintain at least 4 scheduled steps covering short-term (hours), medium-term (days), and long-term (weeks) actions.
+2. If you have fewer than 4 plans, create new ones so you always maintain at least 4 scheduled steps covering short-term, medium-term, and long-term actions.
 3. If you act on a plan NOW (e.g., execute a trade it describes), cancel that plan step immediately so it does not remain as stale/duplicate.
-4. Revise or cancel any plans that are outdated or no longer relevant.
+4. Revise or cancel any plans that are outdated or no longer relevant (see cancellation criteria below).
 5. After updating your plans, decide whether to execute any trades NOW based on current conditions.
 
-Guidelines:
+=== PLAN CANCELLATION CRITERIA ===
+Cancel a plan when ANY of the following apply:
+- Market sentiment has reversed from the plan's thesis
+- The target price has already been reached before execute_at
+- News or research invalidates the original reasoning
+- A newer plan supersedes this one for the same token
+- The plan is >3 days old and market conditions have materially changed
+
+=== PLAN PAYLOAD EXAMPLES ===
+RESEARCH plan:
+'RESEARCH 2025-06-15T12:00:00Z {{"token": "ETH", "reason": "pre-upgrade sentiment check", "recency": "1d"}}'
+
+OPEN_POSITION plan:
+'OPEN_POSITION 2025-06-15T15:00:00Z {{"token": "ETH", "amount": 100, "action": "BUY", "reason": "bullish breakout above resistance"}}'
+
+CLOSE_POSITION plan:
+'CLOSE_POSITION 2025-06-16T10:00:00Z {{"token": "ETH", "portion": 0.5, "reason": "take profit at 10% gain"}}'
+
+=== RESEARCH WORKFLOW ===
+- Before opening significant positions, use research_token to check news and sentiment
+- Schedule RESEARCH plans ahead of known events (upgrades, earnings, token unlocks)
+- If you have recent research (<24h old), you may skip re-researching the same token
+- Use research findings to inform your OPEN_POSITION and CLOSE_POSITION decisions
+
+=== TRADING GUIDELINES ===
 - For BUY trades: amount is USDC to spend (e.g., BUY ETH 50 means spend $50 USDC to buy ETH)
 - For SELL trades: amount is quantity of token to sell
-- Only trade with these tokens: (use token symbols: ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK)
+- Only trade with these tokens: ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK
 - Check portfolio before trading
 - Conservative agents should trade less frequently
 - Aggressive agents can take larger positions
 - Always provide reasoning in your summary
 - This is a simulation - trades are not executed on-chain
-- Do not create duplicate plans — cancel outdated ones first
-- Before making significant trades, research tokens using the research_token tool to check recent news and sentiment
-- If recent research already exists, you may reuse it instead of researching again
+- Do not create duplicate plans - cancel outdated ones first
 
 TOOLS:
 ------
