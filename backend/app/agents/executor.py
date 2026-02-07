@@ -443,9 +443,9 @@ Thought:{agent_scratchpad}"""
             return error_msg
 
     def _list_plan_steps_wrapper(self, _input: str) -> str:
-        """List all plan steps for this agent."""
+        """List active (planned) plan steps for this agent."""
         try:
-            result = self._run_async(self.plan_tool.list_plan_steps())
+            result = self._run_async(self.plan_tool.list_plan_steps(statuses=["planned"]))
             return json.dumps(result, indent=2) if result else "No plan steps found."
         except Exception as e:
             error_msg = f"Error listing plan steps: {e}"
