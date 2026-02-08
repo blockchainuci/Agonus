@@ -22,6 +22,7 @@ from .base import BaseAgent
 from .data_classes import Trade, Portfolio, MarketData
 from .tools.market_data_tool import MarketDataTool
 from .tools.make_trade_tool import MakeTradeTool
+from .tools.math_tool import MathTool
 from .tools.database_tool import DatabaseTool
 from .tools.research_tool import ResearchTool
 
@@ -91,6 +92,8 @@ class TradingAgent(BaseAgent):
         # Initialize market data tool
         self.market_tool = MarketDataTool()
 
+        # Initialize math tool (technical indicators)
+        self.math_tool = MathTool(market_tool=self.market_tool)
         # Intilialize research tool
         self.research_tool = ResearchTool()
 
@@ -150,6 +153,17 @@ class TradingAgent(BaseAgent):
                 name="get_market_sentiment",
                 func=lambda _: self.market_tool.get_market_sentiment(),
                 description="Get overall market sentiment (bullish/bearish/neutral). Input: empty string",
+            ),
+            Tool(
+                name="get_technical_indicator",
+                func=self._get_technical_indicator_wrapper,
+                description=(
+                    "Compute a technical indicator using MathTool. "
+                    "Input JSON: {\"token\":\"BTC\",\"indicator\":\"rsi\",\"timeframe\":\"1h\","
+                    "\"period\":14,\"lookback\":null,\"params\":{}}. "
+                    "Supported indicators: rsi, sma, ema, macd, bbands, atr, volatility. "
+                    "For macd params: fast, slow, signal. For bbands params: stddev."
+                ),
             ),
             Tool(
                 name="get_portfolio_status",
@@ -345,6 +359,55 @@ Thought:{agent_scratchpad}"""
             logger.error(error_msg)
             return error_msg
 
+    def _get_technical_indicator_wrapper(self, input_str: str) -> str:
+        """
+        Wrapper for MathTool.get_indicator.
+
+        Accepts JSON input with keys: token, indicator, timeframe, period, lookback, params.
+        """
+        try:
+            input_str = input_str.strip().strip("'\"")
+            payload: Dict[str, Any]
+            if input_str.startswith("{") and input_str.endswith("}"):
+                payload = json.loads(input_str)
+            else:
+                parts = input_str.split()
+                if len(parts) < 2:
+                    return "Error: Expected JSON or 'TOKEN INDICATOR [TIMEFRAME] [PERIOD] [LOOKBACK]'"
+                payload = {
+                    "token": parts[0],
+                    "indicator": parts[1],
+                }
+                if len(parts) >= 3:
+                    payload["timeframe"] = parts[2]
+                if len(parts) >= 4:
+                    payload["period"] = int(parts[3])
+                if len(parts) >= 5:
+                    payload["lookback"] = int(parts[4])
+
+            token = payload.get("token")
+            indicator = payload.get("indicator")
+            timeframe = payload.get("timeframe")
+            period = payload.get("period")
+            lookback = payload.get("lookback")
+            params = payload.get("params") or {}
+
+            if not token or not indicator:
+                return "Error: 'token' and 'indicator' are required."
+
+            result = self.math_tool.get_indicator(
+                token=token,
+                indicator=indicator,
+                timeframe=timeframe,
+                period=period,
+                lookback=lookback,
+                **params,
+            )
+            return json.dumps(result) if isinstance(result, dict) else str(result)
+        except Exception as e:
+            error_msg = f"Error computing indicator: {e}"
+            logger.error(error_msg)
+            return error_msg
     def _execute_research_token_wrapper(self, input_str: str) -> str:
         """
         Wrapper for executing research token from LangChain tool.
