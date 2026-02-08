@@ -241,11 +241,6 @@ PLANNING (required every decision cycle):
 4. Revise or cancel any plans that are outdated or no longer relevant.
 5. After updating your plans, decide whether to execute any trades NOW based on current conditions.
 
-Required indicator check (every decision cycle):
-- You MUST call get_technical_indicator at least once before any trade decision.
-- Use it for BTC and any tokens you are considering trading.
-- If you do not call it, your response is invalid.
-
 Guidelines:
 - For BUY trades: amount is USDC to spend (e.g., BUY ETH 50 means spend $50 USDC to buy ETH)
 - For SELL trades: amount is quantity of token to sell
