@@ -174,7 +174,8 @@ class TradingAgent(BaseAgent):
                     "Research a token for news and any market sentiments, "
                     "Input: token symbol and recency (e.g., 'ETH 7d' for last 7 days)"
                 ),
-              Tool(
+            ),
+            Tool(
                 name="create_plan_step",
                 func=self._create_plan_step_wrapper,
                 description=(
@@ -182,7 +183,7 @@ class TradingAgent(BaseAgent):
                     "ACTION_TYPE: RESEARCH, OPEN_POSITION, or CLOSE_POSITION. "
                     "EXECUTE_AT: ISO-8601 datetime (e.g. 2025-06-15T15:00:00Z). "
                     "PAYLOAD_JSON: JSON object with action details. "
-                    "Example: 'OPEN_POSITION 2025-06-15T15:00:00Z {\"token\": \"ETH\", \"amount\": 100, \"reason\": \"bullish breakout\"}'"
+                    'Example: \'OPEN_POSITION 2025-06-15T15:00:00Z {"token": "ETH", "amount": 100, "reason": "bullish breakout"}\''
                 ),
             ),
             Tool(
@@ -343,7 +344,7 @@ Thought:{agent_scratchpad}"""
             error_msg = f"Trade execution error: {str(e)}"
             logger.error(error_msg)
             return error_msg
-        
+
     def _execute_research_token_wrapper(self, input_str: str) -> str:
         """
         Wrapper for executing research token from LangChain tool.
@@ -388,7 +389,6 @@ Thought:{agent_scratchpad}"""
         except Exception as e:
             logger.error(f"Research tool error: {e}")
             return f"Research tool error: {str(e)}"
-
 
     def _create_plan_step_wrapper(self, input_str: str) -> str:
         """Parse: 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"""
@@ -474,6 +474,7 @@ Thought:{agent_scratchpad}"""
         if loop is not None:
             # Already in async context - use nest_asyncio
             import nest_asyncio
+
             nest_asyncio.apply()
             return loop.run_until_complete(coro)
         else:
@@ -636,7 +637,9 @@ Thought:{agent_scratchpad}"""
             )
         else:
             pending_plans = []
-        pending_plans_text = json.dumps(pending_plans, indent=2) if pending_plans else "None"
+        pending_plans_text = (
+            json.dumps(pending_plans, indent=2) if pending_plans else "None"
+        )
 
         # Run agent
         try:
