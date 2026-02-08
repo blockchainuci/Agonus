@@ -6,6 +6,7 @@ LangChain's AgentExecutor with tools for market data, portfolio management, and
 simulated trading.
 """
 
+import json
 import logging
 import asyncio
 from typing import Any, Dict, List, Tuple, Optional
@@ -23,6 +24,8 @@ from .tools.market_data_tool import MarketDataTool
 from .tools.make_trade_tool import MakeTradeTool
 from .tools.database_tool import DatabaseTool
 from .tools.research_tool import ResearchTool
+
+from .tools.plan_tool import PlanTool
 from .memory import AgentMemory
 
 logger = logging.getLogger(__name__)
@@ -109,6 +112,14 @@ class TradingAgent(BaseAgent):
             database_tool=database_tool,
         )
 
+        # Initialize plan tool
+        self.plan_tool = PlanTool(
+            agent_id=agent_id,
+            agent_uuid=agent_uuid,
+            tournament_uuid=tournament_uuid,
+            database_tool=database_tool,
+        )
+
         # Track if we need to recover state
         if recover_from_crash and database_tool and agent_uuid and tournament_uuid:
             logger.info(f"Attempting crash recovery for agent={agent_id}")
@@ -163,6 +174,37 @@ class TradingAgent(BaseAgent):
                     "Research a token for news and any market sentiments, "
                     "Input: token symbol and recency (e.g., 'ETH 7d' for last 7 days)"
                 ),
+              Tool(
+                name="create_plan_step",
+                func=self._create_plan_step_wrapper,
+                description=(
+                    "Schedule a future action. Format: 'ACTION_TYPE EXECUTE_AT PAYLOAD_JSON'. "
+                    "ACTION_TYPE: RESEARCH, OPEN_POSITION, or CLOSE_POSITION. "
+                    "EXECUTE_AT: ISO-8601 datetime (e.g. 2025-06-15T15:00:00Z). "
+                    "PAYLOAD_JSON: JSON object with action details. "
+                    "Example: 'OPEN_POSITION 2025-06-15T15:00:00Z {\"token\": \"ETH\", \"amount\": 100, \"reason\": \"bullish breakout\"}'"
+                ),
+            ),
+            Tool(
+                name="list_plan_steps",
+                func=self._list_plan_steps_wrapper,
+                description="List all scheduled plan steps for this agent. Input: empty string",
+            ),
+            Tool(
+                name="cancel_plan_step",
+                func=self._cancel_plan_step_wrapper,
+                description=(
+                    "Cancel a scheduled plan step. Format: 'PLAN_ITEM_ID [REASON]'. "
+                    "PLAN_ITEM_ID is the UUID of the plan step. REASON is optional."
+                ),
+            ),
+            Tool(
+                name="reschedule_plan_step",
+                func=self._reschedule_plan_step_wrapper,
+                description=(
+                    "Reschedule a plan step to a new time. Format: 'PLAN_ITEM_ID NEW_EXECUTE_AT_ISO'. "
+                    "Example: 'abc123-uuid 2025-06-16T10:00:00Z'"
+                ),
             ),
         ]
 
@@ -184,7 +226,17 @@ Total Portfolio Value: ${total_value}
 Market Context:
 {market_context}
 
+Pending Scheduled Plans:
+{pending_plans}
+
 Your goal is to maximize returns while respecting your risk tolerance.
+
+PLANNING (required every decision cycle):
+1. Review your pending plans above.
+2. If you have fewer than 4 plans, create new ones so you always maintain at least 4 scheduled steps covering short-term (hours), medium-term (days), and long-term (weeks) actions.
+3. If you act on a plan NOW (e.g., execute a trade it describes), cancel that plan step immediately so it does not remain as stale/duplicate.
+4. Revise or cancel any plans that are outdated or no longer relevant.
+5. After updating your plans, decide whether to execute any trades NOW based on current conditions.
 
 Guidelines:
 - For BUY trades: amount is USDC to spend (e.g., BUY ETH 50 means spend $50 USDC to buy ETH)
@@ -240,7 +292,7 @@ Thought:{agent_scratchpad}"""
             tools=tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=15,
+            max_iterations=25,
             max_execution_time=60,
         )
 
@@ -255,6 +307,7 @@ Thought:{agent_scratchpad}"""
             Result message
         """
         try:
+            trade_input = trade_input.strip().strip("'\"")
             parts = trade_input.split(maxsplit=4)
             if len(parts) < 5:
                 return f"Error: Invalid trade format. Expected 'ACTION TOKEN AMOUNT CONFIDENCE SUMMARY', got: {trade_input}"
@@ -336,6 +389,78 @@ Thought:{agent_scratchpad}"""
             logger.error(f"Research tool error: {e}")
             return f"Research tool error: {str(e)}"
 
+
+    def _create_plan_step_wrapper(self, input_str: str) -> str:
+        """Parse: 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"""
+        try:
+            input_str = input_str.strip().strip("'\"")
+            parts = input_str.split(maxsplit=2)
+            if len(parts) < 3:
+                return "Error: Expected 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"
+            action_type = parts[0].upper()
+            execute_at = parts[1]
+            payload_str = parts[2].replace('\\"', '"')
+            payload = json.loads(payload_str)
+            result = self._run_async(
+                self.plan_tool.create_plan_step(
+                    action_type=action_type,
+                    execute_at=execute_at,
+                    payload=payload,
+                )
+            )
+            return json.dumps(result)
+        except Exception as e:
+            error_msg = f"Error creating plan step: {e}"
+            logger.error(error_msg)
+            return error_msg
+
+    def _list_plan_steps_wrapper(self, _input: str) -> str:
+        """List all plan steps for this agent."""
+        try:
+            result = self._run_async(self.plan_tool.list_plan_steps())
+            return json.dumps(result, indent=2) if result else "No plan steps found."
+        except Exception as e:
+            error_msg = f"Error listing plan steps: {e}"
+            logger.error(error_msg)
+            return error_msg
+
+    def _cancel_plan_step_wrapper(self, input_str: str) -> str:
+        """Parse: 'PLAN_ITEM_ID [REASON]'"""
+        try:
+            parts = input_str.strip().strip("'\"").split(maxsplit=1)
+            plan_item_id = UUID(parts[0])
+            reason = parts[1] if len(parts) > 1 else None
+            result = self._run_async(
+                self.plan_tool.cancel_plan_step(
+                    plan_item_id=plan_item_id,
+                    reason=reason,
+                )
+            )
+            return f"Plan step cancelled: {result}"
+        except Exception as e:
+            error_msg = f"Error cancelling plan step: {e}"
+            logger.error(error_msg)
+            return error_msg
+
+    def _reschedule_plan_step_wrapper(self, input_str: str) -> str:
+        """Parse: 'PLAN_ITEM_ID NEW_EXECUTE_AT_ISO'"""
+        try:
+            parts = input_str.strip().strip("'\"").split(maxsplit=1)
+            if len(parts) < 2:
+                return "Error: Expected 'PLAN_ITEM_ID NEW_EXECUTE_AT_ISO'"
+            plan_item_id = UUID(parts[0])
+            new_execute_at = parts[1]
+            result = self._run_async(
+                self.plan_tool.reschedule_plan_step(
+                    plan_item_id=plan_item_id,
+                    new_execute_at=new_execute_at,
+                )
+            )
+            return json.dumps(result)
+        except Exception as e:
+            error_msg = f"Error rescheduling plan step: {e}"
+            logger.error(error_msg)
+            return error_msg
 
     def _run_async(self, coro):
         """Run an async coroutine from sync code, handling event loop properly."""
@@ -490,11 +615,11 @@ Thought:{agent_scratchpad}"""
         """
         if task is None:
             task = (
-                "Before making any trade decisions, research any tokens you are considering  "
-                "using the research_token tool to check recent news and market sentiment "
-                "if you do not already have recent research. "
-                "Then decide if any trades should be executed based on your personality and risk tolerance. "
-                "If you decide to trade, execute it. If not, explain why."
+                "1. Analyze current market conditions and your portfolio state. "
+                "2. Check your pending scheduled plans. If any are due or relevant, decide whether to act on, revise, or cancel them. "
+                "If you have no plans, create a strategy with scheduled steps for now and the future using create_plan_step. "
+                "3. Based on your personality and risk tolerance, decide whether to execute any trades now. "
+                "If you trade, execute it. If not, explain your reasoning."
             )
 
         # Update portfolio values before making decision
@@ -503,6 +628,15 @@ Thought:{agent_scratchpad}"""
         # Get market context
         sentiment = self.market_tool.get_market_sentiment()
         market_context = f"Market sentiment: {sentiment}"
+
+        # Fetch pending plans for context
+        if self.plan_tool.db_configured:
+            pending_plans = self._run_async(
+                self.plan_tool.list_plan_steps(statuses=["planned"])
+            )
+        else:
+            pending_plans = []
+        pending_plans_text = json.dumps(pending_plans, indent=2) if pending_plans else "None"
 
         # Run agent
         try:
@@ -516,6 +650,7 @@ Thought:{agent_scratchpad}"""
                     "holdings": self.portfolio.holdings,
                     "total_value": self.portfolio.total_value,
                     "market_context": market_context,
+                    "pending_plans": pending_plans_text,
                 }
             )
 
