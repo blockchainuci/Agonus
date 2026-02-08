@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, Literal
 
 # import os  # TAAPI integration (disabled)
@@ -88,7 +89,6 @@ class MathTool:
             "atr": 14,
             "volatility": 20,
         }
-        self.cache = TTLCache(maxsize=cache_maxsize, ttl=60)
         self.cache_ttl_by_timeframe = cache_ttl_by_timeframe or {
             "1m": 30,
             "5m": 60,
@@ -97,6 +97,9 @@ class MathTool:
             "4h": 900,
             "1d": 3600,
         }
+        max_ttl = max(self.cache_ttl_by_timeframe.values())
+        self.cache = TTLCache(maxsize=cache_maxsize, ttl=max_ttl)
+        self._cache_expiry: Dict[str, float] = {}
         # TAAPI integration (disabled)
         # self._taapi_base_url = taapi_base_url or "https://api.taapi.io"
         # self._taapi_key_env = taapi_key_env
@@ -911,6 +914,11 @@ class MathTool:
         Returns:
             Cached value if present and not expired, otherwise None.
         """
+        expiry = self._cache_expiry.get(key)
+        if expiry is not None and time.time() >= expiry:
+            self.cache.pop(key, None)
+            self._cache_expiry.pop(key, None)
+            return None
         return self.cache.get(key)
 
     def _cache_set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
@@ -926,6 +934,8 @@ class MathTool:
         Returns:
             None
         """
-        if ttl is not None:
-            self.cache.ttl = ttl
         self.cache[key] = value
+        if ttl is not None:
+            self._cache_expiry[key] = time.time() + ttl
+        else:
+            self._cache_expiry.pop(key, None)
