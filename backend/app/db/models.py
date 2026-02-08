@@ -28,6 +28,12 @@ class ActionEnum(str, enum.Enum):
     hold = "hold"
 
 
+class OpinionEnum(str, enum.Enum):
+    positive = "positive"
+    neutral = "neutral"
+    negative = "negative"
+
+
 # MODELS
 class Tournament(Base):
     __tablename__ = "tournament"
@@ -146,7 +152,8 @@ class AgentResearchArtifact(Base):
         Index("ix_research_agent_created", "agent_id", "created_at"),
     )
 
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    crypto_token: Mapped[String] = mapped_column(primary_key = True, default="BTC")
+    id: Mapped[Integer] = mapped_column(autoincrement=True, unique=True)
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agent.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -158,3 +165,4 @@ class AgentResearchArtifact(Base):
     citations: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)  # [{title, url, date}]
     raw_results: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, default=None)
     related_tokens: Mapped[Optional[list[str]]] = mapped_column(JSON, default=None)
+    agent_opinion: Mapped[OpinionEnum] = mapped_column(SQLEnum(OpinionEnum, native_enum = False))
