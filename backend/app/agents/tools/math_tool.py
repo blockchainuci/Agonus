@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, Literal
 
+# import os  # TAAPI integration (disabled)
 from cachetools import TTLCache
-import requests
+# import requests  # TAAPI integration (disabled)
 import numpy as np
 
 from .market_data_tool import MarketDataTool
@@ -28,7 +28,7 @@ IndicatorValue = Union[float, Dict[str, float]]
 IndicatorSeriesPoint = Dict[str, float]
 IndicatorSeries = List[IndicatorSeriesPoint]
 SignalSummary = Dict[str, Any]
-TaapiResponse = Dict[str, Any]
+# TaapiResponse = Dict[str, Any]
 
 
 class MathToolError(Exception):
@@ -52,10 +52,6 @@ class MathTool:
         default_periods: Optional[Dict[str, int]] = None,
         cache_maxsize: int = 1024,
         cache_ttl_by_timeframe: Optional[Dict[Timeframe, int]] = None,
-        taapi_base_url: Optional[str] = None,
-        taapi_key_env: str = "TAAPI_API_KEY",
-        taapi_key: Optional[str] = None,
-        taapi_timeout: int = 15,
     ) -> None:
         """
         Initialize MathTool.
@@ -72,11 +68,6 @@ class MathTool:
             cache_maxsize: Max number of cached entries kept in memory.
             cache_ttl_by_timeframe: Mapping of timeframe -> TTL seconds for
                 cached indicator results. If None, defaults are used.
-            taapi_base_url: Base URL for TAAPI indicator endpoints.
-            taapi_key_env: Environment variable name used to look up the TAAPI key.
-            taapi_key: Optional explicit TAAPI key override. If None, the value
-                is pulled from the environment variable.
-            taapi_timeout: HTTP timeout (seconds) for TAAPI requests.
 
         Returns:
             None
@@ -106,10 +97,11 @@ class MathTool:
             "4h": 900,
             "1d": 3600,
         }
-        self._taapi_base_url = taapi_base_url or "https://api.taapi.io"
-        self._taapi_key_env = taapi_key_env
-        self._taapi_key = taapi_key or os.getenv(taapi_key_env)
-        self._taapi_timeout = taapi_timeout
+        # TAAPI integration (disabled)
+        # self._taapi_base_url = taapi_base_url or "https://api.taapi.io"
+        # self._taapi_key_env = taapi_key_env
+        # self._taapi_key = taapi_key or os.getenv(taapi_key_env)
+        # self._taapi_timeout = taapi_timeout
 
         logger.info("MathTool initialized")
 
@@ -163,18 +155,22 @@ class MathTool:
         }
 
         if indicator_lower not in local_indicators:
-            exchange = params.pop("exchange", "binance")
-            symbol = params.pop("symbol", None)
-            response = self._fetch_taapi_indicator(
-                indicator=indicator_lower,
-                token=token_upper,
-                exchange=exchange,
-                interval=timeframe,
-                symbol=symbol,
-                **params,
+            raise MathToolError(
+                f"Unsupported indicator without TAAPI enabled: {indicator}"
             )
-            self._cache_set(cache_key, response, self.cache_ttl_by_timeframe.get(timeframe))
-            return response
+            # TAAPI integration (disabled)
+            # exchange = params.pop("exchange", "binance")
+            # symbol = params.pop("symbol", None)
+            # response = self._fetch_taapi_indicator(
+            #     indicator=indicator_lower,
+            #     token=token_upper,
+            #     exchange=exchange,
+            #     interval=timeframe,
+            #     symbol=symbol,
+            #     **params,
+            # )
+            # self._cache_set(cache_key, response, self.cache_ttl_by_timeframe.get(timeframe))
+            # return response
 
         timeframe_minutes = {
             "1m": 1,
@@ -736,8 +732,11 @@ class MathTool:
         window = log_returns[-period:]
         return float(np.std(window, ddof=0))
 
+    """
+    # TAAPI integration (disabled). Restore when ready.
+
     def _ensure_taapi_configured(self) -> None:
-        """
+        '''
         Ensure TAAPI credentials are available before making API calls.
 
         This method checks whether a TAAPI API key is configured either via
@@ -752,14 +751,14 @@ class MathTool:
 
         Raises:
             MathToolError: If TAAPI credentials are not configured.
-        """
+        '''
         if not self._taapi_key:
             raise MathToolError(
                 f"TAAPI API key not configured. Set {self._taapi_key_env} or pass taapi_key."
             )
 
     def _taapi_endpoint_for_indicator(self, indicator: str) -> str:
-        """
+        '''
         Resolve a user-requested indicator name into a TAAPI endpoint slug.
 
         This method normalizes user input (case/spacing) and maps common
@@ -775,12 +774,12 @@ class MathTool:
 
         Raises:
             MathToolError: If the indicator string is empty.
-        """
+        '''
         normalized = indicator.strip().lower()
         if not normalized:
             raise MathToolError("Indicator name cannot be empty.")
 
-        #dict of common TAAPI indicators that won't be implemented by us in the previous helper methods
+        # dict of common TAAPI indicators that won't be implemented locally
         alias_map = {
             "average directional index": "adx",
             "adx": "adx",
@@ -827,7 +826,7 @@ class MathTool:
         return slug
 
     def _taapi_request(self, endpoint: str, params: Mapping[str, Any]) -> TaapiResponse:
-        """
+        '''
         Perform a GET request to a TAAPI endpoint.
 
         This method adds authentication parameters, sends the HTTP request,
@@ -844,7 +843,7 @@ class MathTool:
         Raises:
             MathToolError: If TAAPI is not configured, the request fails,
                 or the response cannot be parsed.
-        """
+        '''
         self._ensure_taapi_configured()
         url = f"{self._taapi_base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         query = dict(params)
@@ -868,7 +867,7 @@ class MathTool:
         symbol: Optional[str] = None,
         **params: Any,
     ) -> TaapiResponse:
-        """
+        '''
         Fetch a technical indicator from TAAPI for a given token.
 
         This method resolves a user-requested indicator name to a TAAPI
@@ -890,7 +889,7 @@ class MathTool:
         Raises:
             MathToolError: If indicator resolution fails, TAAPI is not
                 configured, or the request fails.
-        """
+        '''
         endpoint = self._taapi_endpoint_for_indicator(indicator)
         pair = symbol or f"{token.upper()}/USDT"
         query_params = {
@@ -900,6 +899,7 @@ class MathTool:
         }
         query_params.update(params)
         return self._taapi_request(endpoint=endpoint, params=query_params)
+    """
 
     def _cache_get(self, key: str) -> Optional[Any]:
         """
