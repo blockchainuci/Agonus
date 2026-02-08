@@ -22,6 +22,7 @@ from .base import BaseAgent
 from .data_classes import Trade, Portfolio, MarketData
 from .tools.market_data_tool import MarketDataTool
 from .tools.make_trade_tool import MakeTradeTool
+from .tools.math_tool import MathTool
 from .tools.database_tool import DatabaseTool
 from .tools.plan_tool import PlanTool
 from .memory import AgentMemory
@@ -89,6 +90,9 @@ class TradingAgent(BaseAgent):
         # Initialize market data tool
         self.market_tool = MarketDataTool()
 
+        # Initialize math tool (technical indicators)
+        self.math_tool = MathTool(market_tool=self.market_tool)
+
         # Initialize simulated trade tool
         self.make_trade_tool = MakeTradeTool(
             agent_id=agent_id,
@@ -145,6 +149,17 @@ class TradingAgent(BaseAgent):
                 name="get_market_sentiment",
                 func=lambda _: self.market_tool.get_market_sentiment(),
                 description="Get overall market sentiment (bullish/bearish/neutral). Input: empty string",
+            ),
+            Tool(
+                name="get_technical_indicator",
+                func=self._get_technical_indicator_wrapper,
+                description=(
+                    "Compute a technical indicator using MathTool. "
+                    "Input JSON: {\"token\":\"BTC\",\"indicator\":\"rsi\",\"timeframe\":\"1h\","
+                    "\"period\":14,\"lookback\":null,\"params\":{}}. "
+                    "Supported indicators: rsi, sma, ema, macd, bbands, atr, volatility. "
+                    "For macd params: fast, slow, signal. For bbands params: stddev."
+                ),
             ),
             Tool(
                 name="get_portfolio_status",
@@ -225,6 +240,11 @@ PLANNING (required every decision cycle):
 3. If you act on a plan NOW (e.g., execute a trade it describes), cancel that plan step immediately so it does not remain as stale/duplicate.
 4. Revise or cancel any plans that are outdated or no longer relevant.
 5. After updating your plans, decide whether to execute any trades NOW based on current conditions.
+
+Required indicator check (every decision cycle):
+- You MUST call get_technical_indicator at least once before any trade decision.
+- Use it for BTC and any tokens you are considering trading.
+- If you do not call it, your response is invalid.
 
 Guidelines:
 - For BUY trades: amount is USDC to spend (e.g., BUY ETH 50 means spend $50 USDC to buy ETH)
@@ -328,6 +348,56 @@ Thought:{agent_scratchpad}"""
 
         except Exception as e:
             error_msg = f"Trade execution error: {str(e)}"
+            logger.error(error_msg)
+            return error_msg
+
+    def _get_technical_indicator_wrapper(self, input_str: str) -> str:
+        """
+        Wrapper for MathTool.get_indicator.
+
+        Accepts JSON input with keys: token, indicator, timeframe, period, lookback, params.
+        """
+        try:
+            input_str = input_str.strip().strip("'\"")
+            payload: Dict[str, Any]
+            if input_str.startswith("{") and input_str.endswith("}"):
+                payload = json.loads(input_str)
+            else:
+                parts = input_str.split()
+                if len(parts) < 2:
+                    return "Error: Expected JSON or 'TOKEN INDICATOR [TIMEFRAME] [PERIOD] [LOOKBACK]'"
+                payload = {
+                    "token": parts[0],
+                    "indicator": parts[1],
+                }
+                if len(parts) >= 3:
+                    payload["timeframe"] = parts[2]
+                if len(parts) >= 4:
+                    payload["period"] = int(parts[3])
+                if len(parts) >= 5:
+                    payload["lookback"] = int(parts[4])
+
+            token = payload.get("token")
+            indicator = payload.get("indicator")
+            timeframe = payload.get("timeframe")
+            period = payload.get("period")
+            lookback = payload.get("lookback")
+            params = payload.get("params") or {}
+
+            if not token or not indicator:
+                return "Error: 'token' and 'indicator' are required."
+
+            result = self.math_tool.get_indicator(
+                token=token,
+                indicator=indicator,
+                timeframe=timeframe,
+                period=period,
+                lookback=lookback,
+                **params,
+            )
+            return json.dumps(result) if isinstance(result, dict) else str(result)
+        except Exception as e:
+            error_msg = f"Error computing indicator: {e}"
             logger.error(error_msg)
             return error_msg
 
