@@ -24,6 +24,8 @@ from .tools.market_data_tool import MarketDataTool
 from .tools.make_trade_tool import MakeTradeTool
 from .tools.math_tool import MathTool
 from .tools.database_tool import DatabaseTool
+from .tools.research_tool import ResearchTool
+
 from .tools.plan_tool import PlanTool
 from .memory import AgentMemory
 
@@ -92,6 +94,8 @@ class TradingAgent(BaseAgent):
 
         # Initialize math tool (technical indicators)
         self.math_tool = MathTool(market_tool=self.market_tool)
+        # Intilialize research tool
+        self.research_tool = ResearchTool()
 
         # Initialize simulated trade tool
         self.make_trade_tool = MakeTradeTool(
@@ -178,6 +182,14 @@ class TradingAgent(BaseAgent):
                 ),
             ),
             Tool(
+                name="research_token",
+                func=self._execute_research_token_wrapper,
+                description=(
+                    "Research a token for news and any market sentiments, "
+                    "Input: token symbol and recency (e.g., 'ETH 7d' for last 7 days)"
+                ),
+            ),
+            Tool(
                 name="create_plan_step",
                 func=self._create_plan_step_wrapper,
                 description=(
@@ -185,7 +197,7 @@ class TradingAgent(BaseAgent):
                     "ACTION_TYPE: RESEARCH, OPEN_POSITION, or CLOSE_POSITION. "
                     "EXECUTE_AT: ISO-8601 datetime (e.g. 2025-06-15T15:00:00Z). "
                     "PAYLOAD_JSON: JSON object with action details. "
-                    "Example: 'OPEN_POSITION 2025-06-15T15:00:00Z {\"token\": \"ETH\", \"amount\": 100, \"reason\": \"bullish breakout\"}'"
+                    'Example: \'OPEN_POSITION 2025-06-15T15:00:00Z {"token": "ETH", "amount": 100, "reason": "bullish breakout"}\''
                 ),
             ),
             Tool(
@@ -250,7 +262,8 @@ Guidelines:
 - Aggressive agents can take larger positions
 - Always provide reasoning in your summary
 - This is a simulation - trades are not executed on-chain
-- Do not create duplicate plans — cancel outdated ones first
+- Before making significant trades, research tokens using the research_token tool to check recent news and sentiment
+- If recent research already exists, you may reuse it instead of researching again
 
 TOOLS:
 ------
@@ -395,6 +408,50 @@ Thought:{agent_scratchpad}"""
             error_msg = f"Error computing indicator: {e}"
             logger.error(error_msg)
             return error_msg
+    def _execute_research_token_wrapper(self, input_str: str) -> str:
+        """
+        Wrapper for executing research token from LangChain tool.
+
+        Args:
+            input_str: "ETH" or "ETH 7d"
+
+        Returns:
+            Research summary string
+        """
+        from .tools.research_tool import research_result_to_dict
+
+        try:
+            parts = input_str.split()
+            if len(parts) < 1:
+                return "Error: Invalid format. Expected 'TOKEN' or 'TOKEN RECENCY'"
+
+            token = parts[0].upper()
+            recency = parts[1] if len(parts) > 1 else "7d"
+
+            # Call sync research method
+            research_result = self.research_tool.research_token(
+                token_symbol=token,
+                recency=recency,
+            )
+
+            # Persist result to DB (convert dataclass to dict)
+            if self.database_tool and self.agent_uuid:
+                result_dict = research_result_to_dict(research_result)
+                self._run_async(
+                    self.database_tool.save_research_result(
+                        agent_uuid=self.agent_uuid,
+                        query=f"Research {token}",
+                        result=result_dict,
+                        recency=recency,
+                        related_tokens=[token],
+                    )
+                )
+
+            return research_result.summary_markdown
+
+        except Exception as e:
+            logger.error(f"Research tool error: {e}")
+            return f"Research tool error: {str(e)}"
 
     def _create_plan_step_wrapper(self, input_str: str) -> str:
         """Parse: 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"""
@@ -480,6 +537,7 @@ Thought:{agent_scratchpad}"""
         if loop is not None:
             # Already in async context - use nest_asyncio
             import nest_asyncio
+
             nest_asyncio.apply()
             return loop.run_until_complete(coro)
         else:
@@ -642,7 +700,9 @@ Thought:{agent_scratchpad}"""
             )
         else:
             pending_plans = []
-        pending_plans_text = json.dumps(pending_plans, indent=2) if pending_plans else "None"
+        pending_plans_text = (
+            json.dumps(pending_plans, indent=2) if pending_plans else "None"
+        )
 
         # Run agent
         try:
