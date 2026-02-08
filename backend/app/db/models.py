@@ -152,8 +152,8 @@ class AgentResearchArtifact(Base):
         Index("ix_research_agent_created", "agent_id", "created_at"),
     )
 
-    crypto_token: Mapped[String] = mapped_column(primary_key = True, default="BTC")
-    id: Mapped[Integer] = mapped_column(autoincrement=True, unique=True)
+    crypto_token: Mapped[str] = mapped_column(primary_key = True, default="BTC")
+    id: Mapped[int] = mapped_column(autoincrement=True, unique=True)
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agent.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
