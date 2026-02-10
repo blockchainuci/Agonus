@@ -4,11 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
-# ❗ FIXED: remove "backend."
-from app.db.database import get_db
-from app.db.models import Bet
-from app.schemas.bet import BetCreate, BetUpdate, BetResponse
-from app.api.deps import get_current_user
+from ...db.database import get_db
+from ...db.models import Bet
+from ...schemas.bet import BetCreate, BetUpdate, BetResponse
+from ..deps import get_current_user
 
 router = APIRouter()
 

@@ -34,7 +34,7 @@ export function useTournament(tournamentId: ID) {
   return useQuery<Tournament>({
     queryKey: ["tournaments", tournamentId],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/tournaments/${tournamentId}`);
+      const res = await fetch(`${API_URL}/tournaments/${tournamentId}/`);
       if (!res.ok) throw new Error("Tournament not found");
       return res.json();
     },
@@ -139,7 +139,7 @@ export function useTournamentLeaderboard(tournamentId: ID) {
     queryKey: ["tournaments", tournamentId, "leaderboard"],
     queryFn: async () => {
       const res = await fetch(
-        `${API_URL}/tournaments/${tournamentId}/leaderboard`,
+        `${API_URL}/tournaments/${tournamentId}/leaderboard/`,
       );
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
       return res.json();

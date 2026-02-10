@@ -28,7 +28,7 @@ export async function apiFetch<T>(path: string, opts: ApiOptions = {}): Promise<
       ...(opts.headers ?? {}),
     },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
-    credentials: opts.credentials ?? "include",
+    credentials: opts.credentials ?? "omit",
   });
 
   if (!res.ok) {

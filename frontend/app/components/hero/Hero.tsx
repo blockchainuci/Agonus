@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef, useState, useMemo, memo } from 'react';
+import { useRef, useState, memo } from 'react';
 import PlayRoutes from './PlayRoutes';
 import NetworkNode, {
   AgentIcon,

@@ -178,7 +178,7 @@ function LiveStatusDisplay({ agents }: { agents?: Tournament['agents'] }) {
 
 // Upcoming status — shows countdown when active, or "Starting Soon" when expired
 function UpcomingStatusDisplay({ targetDate }: { targetDate: string }) {
-  const { days, hours, minutes, seconds, expired } = useCountdown(targetDate);
+  const { expired } = useCountdown(targetDate);
 
   if (expired) {
     return (

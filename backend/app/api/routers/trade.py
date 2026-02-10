@@ -3,10 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
-# ❗ FIXED: remove "backend."
-from app.db.database import get_db
-from app.db.models import Trade
-from app.schemas.trade import TradeCreate, TradeResponse
+from ...db.database import get_db
+from ...db.models import Trade
+from ...schemas.trade import TradeCreate, TradeResponse
 
 router = APIRouter()
 

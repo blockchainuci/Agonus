@@ -6,8 +6,7 @@ from eth_account.messages import encode_defunct
 from web3 import Web3
 import os
 
-# Add prefix + tags for consistency
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
 ALGORITHM = "HS256"

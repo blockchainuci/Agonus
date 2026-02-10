@@ -3,10 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
+from datetime import datetime, timezone
 
-from app.db.database import get_db
-from app.db.models import Tournament, AgentState, Agent
-from app.schemas.tournament import (
+from ...agents.data_classes import Portfolio
+from ...db.database import AsyncSessionLocal, get_db
+from ...db.models import Tournament, Agent, AgentState, StatusEnum
+from ...agents.tools import DatabaseTool
+
+from ...schemas.tournament import (
     TournamentCreate,
     TournamentUpdate,
     TournamentResponse,
@@ -14,13 +18,13 @@ from app.schemas.tournament import (
     TournamentOnchainCreate,
     TournamentOnchainSettle,
 )
-from app.schemas.agent_state import AgentStateResponse
-from app.api.deps import require_admin
-from app.agents.scheduler import (
+from ...schemas.agent_state import AgentStateResponse
+from ..deps import require_admin
+from ...agents.scheduler import (
     run_agent_decision,
     _initialize_tournament_agents_async,
 )
-from app.onchain.agonus_betting import get_agonus_client
+from ...onchain.agonus_betting import get_agonus_client
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +32,8 @@ logger = logging.getLogger(__name__)
 def _extract_revert_reason(exc: Exception) -> str | None:
     """Extract a human-readable revert reason from a web3 exception."""
     msg = str(exc)
-    # web3 ContractLogicError includes the revert reason string
     if "execution reverted" in msg.lower():
         return msg
-    # Some providers include the reason in a nested dict
     if hasattr(exc, "args") and exc.args:
         for arg in exc.args:
             if isinstance(arg, dict) and "message" in arg:
@@ -92,21 +94,73 @@ async def get_tournament_agents(
     return result.scalars().all()
 
 
+async def initialize_agents_for_tournament(
+    session: AsyncSession,
+    tournament_id: UUID,
+    agent_ids: list[UUID],
+):
+    db = DatabaseTool(session)
+
+    for agent_id in agent_ids:
+
+        # Load the agent
+        result = await session.execute(select(Agent).where(Agent.id == agent_id))
+        agent = result.scalar_one_or_none()
+
+        if not agent:
+            raise ValueError(f"Agent not found: {agent_id}")
+
+        # Create initial portfolio
+        portfolio = Portfolio(
+            agent_id=str(agent_id),
+            cash=500.0,
+            holdings={},
+            starting_val=500.0,
+            total_value=500.0,
+        )
+
+        # Save agent-state entry in DB
+        await db.save_agent_state(
+            agent_uuid=agent_id,
+            tournament_uuid=tournament_id,
+            portfolio=portfolio,
+            rank=0,
+            last_decision="Tournament initialized",
+        )
+
+
 @router.post("/", response_model=TournamentResponse, status_code=201)
 async def create_tournament(
-    tournament_data: TournamentCreate,
+    data: TournamentCreate,
     session: AsyncSession = Depends(get_db),
-    admin: dict = Depends(require_admin),
 ):
-    """POST create a new tournament"""
-    tournament_dict = tournament_data.model_dump(exclude={"agent_ids"})
-    tournament = Tournament(**tournament_dict)
+    # Create the tournament row
+    tournament = Tournament(
+        name=data.name,
+        start_date=data.start_date,
+        end_date=data.end_date,
+        prize_pool=data.prize_pool,
+        status=StatusEnum.upcoming,
+    )
 
     session.add(tournament)
+    await session.flush()  # ensures tournament.id exists without commit
+
+    # Initialize agent states
+    await initialize_agents_for_tournament(
+        session=session,
+        tournament_id=tournament.id,
+        agent_ids=data.agent_ids,
+    )
+
+    # Commit the whole transaction atomically
     await session.commit()
     await session.refresh(tournament)
 
     return tournament
+
+
+# ── On-chain smart contract endpoints (admin-gated) ──
 
 
 @router.post(
@@ -163,7 +217,7 @@ async def start_tournament(
     session: AsyncSession = Depends(get_db),
     admin: dict = Depends(require_admin),
 ):
-    """Start tournament — initializes agent states via background task."""
+    """Start tournament -- initializes agent states via background task."""
     tournament = await session.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament Not Found")

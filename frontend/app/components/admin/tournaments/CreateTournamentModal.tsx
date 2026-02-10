@@ -153,12 +153,7 @@ export default function CreateTournamentModal({
                   {/* Date Range */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Start Date */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-3">
-                        <span className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                        </span>
-                      </label>
+                    <div className="relative">
                       <DatePicker
                         selected={formData.start_date}
                         onChange={(date: Date | null) => date && setFormData({ ...formData, start_date: date })}
@@ -171,16 +166,14 @@ export default function CreateTournamentModal({
                         calendarClassName="dark-calendar"
                         wrapperClassName="w-full"
                       />
+                      <label className="absolute left-4 -top-2.5 px-1 bg-slate-900 text-sm font-medium text-gray-300 flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        Start Date
+                      </label>
                     </div>
 
                     {/* End Date */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-3">
-                        <span className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          
-                        </span>
-                      </label>
+                    <div className="relative">
                       <DatePicker
                         selected={formData.end_date}
                         onChange={(date: Date | null) => date && setFormData({ ...formData, end_date: date })}
@@ -195,6 +188,10 @@ export default function CreateTournamentModal({
                         calendarClassName="dark-calendar"
                         wrapperClassName="w-full"
                       />
+                      <label className="absolute left-4 -top-2.5 px-1 bg-slate-900 text-sm font-medium text-gray-300 flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        End Date
+                      </label>
                       {errors.end_date && (
                         <p className="text-red-400 text-xs mt-2">{errors.end_date}</p>
                       )}

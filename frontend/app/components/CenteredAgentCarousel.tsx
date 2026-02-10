@@ -51,7 +51,9 @@ export default function CenteredAgentCarousel({
   }, [items.length]);
 
   // Keep ref in sync
-  goNextRef.current = goNext;
+  useEffect(() => {
+    goNextRef.current = goNext;
+  }, [goNext]);
 
   // -------------------------
   // Autorotation Animation

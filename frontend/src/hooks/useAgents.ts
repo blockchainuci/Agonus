@@ -19,7 +19,7 @@ export function useAgent(agentId: string) {
   return useQuery<Agent>({
     queryKey: ['agents', agentId],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/agents/${agentId}`)
+      const res = await fetch(`${API_URL}/agents/${agentId}/`)
       if (!res.ok) throw new Error('Agent not found')
       return res.json()
     },

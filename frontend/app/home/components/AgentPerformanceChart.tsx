@@ -271,6 +271,7 @@ export default function AgentPerformanceChart({
       }
       if (container) container.innerHTML = '';
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [performanceLines, isFullscreen, chartMode]);
 
   // Update visibility when visibleAgents changes

@@ -3,12 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
-# FIXED IMPORT PATHS ↓↓↓↓↓↓↓↓
-from app.db.database import get_db
-from app.db.models import Agent
-from app.schemas.agent import AgentCreate, AgentUpdate, AgentResponse
-from app.api.deps import require_admin
-# ↑↑↑↑↑↑ FIXED IMPORT PATHS
+from ...db.database import get_db
+from ...db.models import Agent
+from ...schemas.agent import AgentCreate, AgentUpdate, AgentResponse
+from ..deps import require_admin
 
 router = APIRouter()
 

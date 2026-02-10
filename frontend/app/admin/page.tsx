@@ -15,6 +15,7 @@ import {
   useSettleTournamentOnchain,
   useCancelTournamentOnchain,
 } from "@/src/hooks/useAdminOnchain";
+import { useAuthStore } from "@/src/store/useAuthStore";
 
 // Helper to format dates
 const formatDate = (date: string) => {
@@ -46,6 +47,7 @@ const getAvatarUrl = (name: string) =>
   `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`;
 
 export default function AdminDashboard() {
+  const { isAuthenticated, role } = useAuthStore();
   const [agentSearch, setAgentSearch] = useState("");
   const [tournamentFilter, setTournamentFilter] = useState<"all" | "upcoming" | "live" | "completed">("all");
   const [selectedTournamentId, setSelectedTournamentId] = useState<string | null>(null);
@@ -199,6 +201,19 @@ export default function AdminDashboard() {
     return colors[statusLower] || colors.upcoming;
   };
 
+  // Auth gate - only admins can access this page
+  if (!isAuthenticated || role !== "admin") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
+        <div className="text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto" />
+          <h1 className="text-2xl font-bold">Admin Access Required</h1>
+          <p className="text-gray-400">Please sign in with an admin wallet to access this page.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -270,7 +285,7 @@ export default function AdminDashboard() {
 
         {/* Tournament Cards */}
         <div className="grid gap-4">
-          {filteredTournaments.map((tournament, index) => {
+          {filteredTournaments.map((tournament) => {
             const agentCount = tournament.agent_contract_mapping
               ? Object.keys(tournament.agent_contract_mapping).length
               : 0;

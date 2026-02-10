@@ -1,6 +1,7 @@
 "use client";
 
 import AdminSidebar from "@/app/components/admin/layout/AdminSidebar";
+import Link from "next/link";
 import { useState } from "react";
 import CreateTournamentModal, { TournamentFormData } from "@/app/components/admin/tournaments/CreateTournamentModal";
 import CreateAgentModal, { AgentFormData } from "@/app/components/admin/agents/CreateAgentModal";
@@ -107,9 +108,9 @@ export default function AdminLayout({
           <p className="text-gray-400">
             Wallet <span className="text-white font-mono text-sm">{address}</span> does not have admin privileges.
           </p>
-          <a href="/" className="inline-block px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition">
+          <Link href="/" className="inline-block px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition">
             Back to Home
-          </a>
+          </Link>
         </div>
       </div>
     );

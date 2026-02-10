@@ -8,14 +8,14 @@ by saving all agent context to the database.
 import logging
 from typing import Optional, Dict, Any, List
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from ...db.models import Agent, AgentState, Trade, Tournament, ActionEnum
+from ...db.models import Agent, AgentState, Trade, Tournament, ActionEnum, PlanActionEnum, PlanStatusEnum, PlanItem
 from ..data_classes import Trade as TradeData, Portfolio
 
 logger = logging.getLogger(__name__)
@@ -401,3 +401,214 @@ class DatabaseTool:
             await self.session.rollback()
             logger.error(f"Failed to create agent: {e}")
             raise
+
+    async def save_research_result(
+            self, 
+            agent_uuid: UUID, 
+            query: str, 
+            result: Dict, 
+            recency: Optional[str] = None, 
+            related_tokens: Optional[List[str]] = None
+    ) -> None: 
+        #Saving the research to Postgres (agent_research_artifact table)
+        try:
+            stmt = insert(AgentResearchArtifact).values(
+                agent_id=agent_uuid,
+                query=query,
+                recency=recency,
+                provider=result.get("provider", "perplexity"),
+                summary_markdown=result["summary_markdown"],
+                citations=result.get("citations", []),
+                raw_results=result.get("raw_results", {}),
+                related_tokens=related_tokens or [],
+                created_at=datetime.now(timezone.utc),
+            )
+            await self.session.execute(stmt)
+            await self.session.commit() 
+            logger.info(f"Research result saved for agent={agent_uuid}, query='{query}'")
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"Failed to save research result: {e}")
+            raise 
+        
+    async def get_recent_research_results(
+            self,
+            agent_uuid: UUID,
+            token: Optional[str] = None,
+            days: int = 7
+    ) -> List[Dict]: 
+        #Fetch the recent research data for an agent from Postgres
+        try:
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            stmt = select(AgentResearchArtifact).where(
+                AgentResearchArtifact.agent_id == agent_uuid,
+                AgentResearchArtifact.created_at >= cutoff_date
+            )
+            if token:
+                stmt = stmt.where(AgentResearchArtifact.related_tokens.contains([token]))
+            
+            result = await self.session.execute(stmt)
+            artifacts = result.scalars().all()
+            
+            research_results = []
+            for artifact in artifacts:
+                research_results.append({
+                    "query": artifact.query,
+                    "recency": artifact.recency,
+                    "provider": artifact.provider,
+                    "summary_markdown": artifact.summary_markdown,
+                    "citations": artifact.citations,
+                    "raw_results": artifact.raw_results,
+                    "created_at": artifact.created_at.isoformat(),
+                })
+            
+            logger.info(f"Retrieved {len(research_results)} research results for agent={agent_uuid}")
+            return research_results
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve research results: {e}")
+            raise
+    async def create_plan_item(self, agent_uuid: UUID, tournament_uuid: UUID, action_type: PlanActionEnum,
+                                execute_at: datetime, payload, idempotency_key: str, max_attempts: int = 3) -> PlanItem:
+        stmt = (insert(PlanItem).values(agent_id = agent_uuid, 
+                                       tournament_id = tournament_uuid,
+                                       action_type=action_type,
+                                       execute_at=execute_at,
+                                       payload = payload,
+                                       idempotency_key = idempotency_key,
+                                       status = PlanStatusEnum.planned,
+                                       attempts = 0,
+                                       max_attempts = max_attempts).on_conflict_do_nothing(
+                                           index_elements=[
+                                               PlanItem.agent_id,
+                                               PlanItem.tournament_id, 
+                                               PlanItem.idempotency_key
+                                           ]
+                                       ).returning(PlanItem))
+        result = await self.session.execute(stmt)
+        plan_item = result.scalar_one_or_none()
+
+        if plan_item is not None:
+            await self.session.commit()
+            return plan_item
+
+        result = await self.session.execute(
+            select(PlanItem).where(
+                PlanItem.agent_id == agent_uuid,
+                PlanItem.tournament_id == tournament_uuid,
+                PlanItem.idempotency_key == idempotency_key
+            )
+        )
+        return result.scalar_one()
+
+
+    async def list_plan_items(self, agent_uuid: UUID, tournament_uuid: UUID, 
+                              statuses: list[str] = None, limit: int = None) -> list[PlanItem]:
+        stmt = (
+            select(PlanItem).where(
+                PlanItem.agent_id == agent_uuid,
+                PlanItem.tournament_id == tournament_uuid,
+            ).order_by(
+                PlanItem.execute_at.asc(),
+                PlanItem.created_at.asc()
+            )
+        )
+
+        if statuses:
+            stmt = stmt.where(PlanItem.status.in_(statuses))
+        
+        if limit:
+            stmt = stmt.limit(limit)
+
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+    
+    async def cancel_plan_item(self, plan_item_id: UUID, reason: str | None = None) -> None:
+        values = {
+        "status": PlanStatusEnum.cancelled,
+        "updated_at": datetime.utcnow(),
+        }
+
+        if reason:
+            values["last_error"] = reason
+
+        stmt = (
+            update(PlanItem)
+            .where(PlanItem.id == plan_item_id)
+            .values(**values)
+        )
+
+        await self.session.execute(stmt)
+        await self.session.commit()
+    
+    async def reschedule_plan_item(self, plan_item_id: UUID, new_execute_at: datetime,) -> PlanItem:
+
+        stmt = (
+            update(PlanItem)
+            .where(
+                PlanItem.id == plan_item_id,
+                PlanItem.status.in_(
+                    [PlanStatusEnum.planned, PlanStatusEnum.skipped]
+                ),
+            )
+            .values(
+                execute_at=new_execute_at,
+                updated_at=datetime.utcnow(),
+            )
+            .returning(PlanItem)
+        )
+
+        result = await self.session.execute(stmt)
+        plan_item = result.scalar_one_or_none()
+
+        if plan_item is None:
+            await self.session.rollback()
+            raise ValueError(
+                "Plan item cannot be rescheduled: "
+                "not found or status is not planned/skipped"
+            )
+
+        await self.session.commit()
+        return plan_item
+
+    async def mark_plan_item_executed(self, plan_item_id: UUID) -> None:
+        stmt = (
+            update(PlanItem)
+            .where(PlanItem.id == plan_item_id)
+            .values(
+                status=PlanStatusEnum.executed,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await self.session.execute(stmt)
+        await self.session.commit()
+
+    async def mark_plan_item_failed(self, plan_item_id: UUID, error: str) -> None:
+        stmt = (
+            update(PlanItem)
+            .where(PlanItem.id == plan_item_id)
+            .values(
+                status=PlanStatusEnum.failed,
+                last_error=error,
+                attempts=PlanItem.attempts + 1,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await self.session.execute(stmt)
+        await self.session.commit()
+
+    async def get_due_plan_items(self, now: datetime = None) -> list[PlanItem]:
+        if now is None:
+            now = datetime.now(timezone.utc)
+        stmt = (
+            select(PlanItem)
+            .where(
+                PlanItem.status == PlanStatusEnum.planned,
+                PlanItem.execute_at <= now,
+                PlanItem.attempts < PlanItem.max_attempts,
+            )
+            .order_by(PlanItem.execute_at.asc())
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+

@@ -4,15 +4,8 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 
-# 2. SYS PATH HACK: Allows running script directly from anywhere
-import sys
-from pathlib import Path
-
-# Add the project root (agonus/) to sys.path
-sys.path.append(str(Path(__file__).resolve().parents[3]))
-
 # 3. Correct Import: 'Bet', not 'Bets'
-from backend.app.db.models import Base, Tournament, Agent, AgentState, Trade, Bet
+from ..db.models import Base, Tournament, Agent, AgentState, Trade, Bet
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env")
 
