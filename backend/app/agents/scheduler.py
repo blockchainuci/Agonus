@@ -24,7 +24,7 @@ from ..db.database import AsyncSessionLocal
 from ..db.models import Tournament, Agent, AgentState, StatusEnum
 from .executor import TradingAgent
 from .tools.database_tool import DatabaseTool
-
+ 
 logger = logging.getLogger(__name__)
 
 # Redis client for distributed locking
