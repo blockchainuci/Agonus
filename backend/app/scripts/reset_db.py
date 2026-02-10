@@ -9,7 +9,6 @@ from ..db.models import Base, Tournament, Agent, AgentState, Trade, Bet
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env")
 
-# 4. Correct Method: os.getenv (not get_env)
 DATABASE_URL = os.getenv("DATABASE_URL")
 DB_DISABLE_SSL = os.getenv("DB_DISABLE_SSL", "false").lower() == "true"
 
@@ -19,7 +18,7 @@ async def reset_database():
         print("Error: DATABASE_URL not found in environment.")
         return
 
-    print("Connecting to database...")
+    print("⚡ Connecting to database...")
 
     connect_args = {} if DB_DISABLE_SSL else {"ssl": "require"}
 
