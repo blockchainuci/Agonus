@@ -34,6 +34,8 @@ redis_client = redis.from_url(REDIS_URL)
 # Lock settings
 AGENT_LOCK_TIMEOUT = 300  # 5 minutes - max time an agent can hold a lock
 AGENT_LOCK_PREFIX = "agent_lock:"
+TOURNAMENT_ORCHESTRATOR_LOCK = "tournament_orchestrator_running"
+ORCHESTRATOR_LOCK_TIMEOUT = 600  # 10 minutes - longer than schedule interval (5 min)
 
 
 # ============================================================================
@@ -249,17 +251,41 @@ def run_all_live_tournament_agents() -> Dict[str, Any]:
     Run decision loops for all agents in live tournaments.
 
     This is a periodic task that orchestrates all active agents.
+    Uses a singleton lock to prevent overlapping executions.
 
     Returns:
         Dict with summary of tasks launched
     """
     logger.info("Running all live tournament agents")
 
+    # Acquire singleton lock to prevent overlapping tournament orchestrations
+    acquired = redis_client.set(
+        TOURNAMENT_ORCHESTRATOR_LOCK,
+        "running",
+        nx=True,
+        ex=ORCHESTRATOR_LOCK_TIMEOUT
+    )
+
+    if not acquired:
+        logger.warning(
+            "Tournament orchestrator already running, skipping this cycle. "
+            "This is normal if the previous run is still processing agents."
+        )
+        return {
+            "status": "skipped",
+            "reason": "orchestrator_already_running",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
     try:
         return asyncio.run(_run_all_live_tournament_agents_async())
     except Exception as e:
         logger.error(f"Failed to run live tournament agents: {e}")
         raise
+    finally:
+        # Always release the orchestrator lock
+        redis_client.delete(TOURNAMENT_ORCHESTRATOR_LOCK)
+        logger.debug("Tournament orchestrator lock released")
 
 
 async def _run_all_live_tournament_agents_async() -> Dict[str, Any]:

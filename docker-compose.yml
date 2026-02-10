@@ -38,7 +38,8 @@ services:
       - ./backend/.env
     volumes:
       - ./backend:/app
-    command: celery -A app.agents.scheduler worker --loglevel=info
+    # Use threads pool with 20 concurrent workers for 20x performance improvement
+    command: celery -A app.celery_config worker --pool=threads --concurrency=20 --loglevel=info
 
   celery-beat:
     build: ./backend

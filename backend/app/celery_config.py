@@ -43,10 +43,10 @@ celery_app.conf.update(
     task_max_retries=3,
     task_default_retry_delay=60,  # 60 seconds between retries
     # Worker settings
-    worker_prefetch_multiplier=1,  # Fetch one task at a time
+    worker_prefetch_multiplier=4,  # Fetch 4 tasks at a time for better parallelism
     worker_max_tasks_per_child=100,  # Restart worker after 100 tasks
-    # Use solo pool to avoid multiprocessing issues with async SQLAlchemy
-    worker_pool="solo",  # Single-threaded execution, safe for async
+    # Worker pool and concurrency are set via command line (see docker-compose.yml)
+    # Default to solo for backwards compatibility if not specified
     # Time limits
     task_soft_time_limit=300,  # 5 minutes soft limit
     task_time_limit=600,  # 10 minutes hard limit
