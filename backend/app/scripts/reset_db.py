@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine
 
 # 3. Correct Import: 'Bet', not 'Bets'
-from ..db.models import Base, Tournament, Agent, AgentState, Trade, Bet
+from ..db.models import Base, Tournament, Agent, AgentState, Trade, Bet, PlanItem, AgentResearchArtifact
 
 load_dotenv()
 
