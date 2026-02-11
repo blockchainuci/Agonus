@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.db.database import AsyncSessionLocal
-from app.agents.tools.research_tool import ResearchTool, research_result_to_dict, derive_opinion
+from app.agents.tools.research_tool import ResearchTool, research_result_to_dict
 from app.agents.tools.database_tool import DatabaseTool
 
 async def test_research_flow():
@@ -19,41 +19,28 @@ async def test_research_flow():
     result_dict = research_result_to_dict(result)
     print(f"2. Converted to dict: {list(result_dict.keys())}")
 
-    # Derive opinion
-    opinion = derive_opinion(result.summary_markdown)
-    print(f"   Derived opinion: {opinion}")
-
-    # Testing the DB upsert
-    print("3. Testing DB upsert...")
-    agent_uuid = UUID("22693db3-f7ec-4d5d-a6f2-e9c48a2ac3dc")
-
+    # Testing the DB save
+    print("3. Testing DB save...")
     async with AsyncSessionLocal() as session:
         db_tool = DatabaseTool(session)
 
-        await db_tool.upsert_research_result(
-            crypto_token="ETH",
+        agent_uuid = UUID("22693db3-f7ec-4d5d-a6f2-e9c48a2ac3dc")
+
+        await db_tool.save_research_result(
+            agent_uuid=agent_uuid,
             query="Research ETH",
-            summary_markdown=result_dict["summary_markdown"],
-            citations=result_dict["citations"],
+            result=result_dict,
             recency="7d",
-            provider=result_dict.get("provider", "perplexity"),
-            raw_results=result_dict.get("raw_results"),
             related_tokens=["ETH"],
-            agent_opinion=opinion,
-            last_researched_by=agent_uuid,
         )
-        print("   Upserted to DB!")
+        print("   Saved to DB!")
 
-    # Testing the cache fetch
-    print("4. Fetching from cache...")
+    # Testing the DB fetch
+    print("4. Fetching from DB...")
     async with AsyncSessionLocal() as session:
         db_tool = DatabaseTool(session)
-        cached = await db_tool.get_fresh_research("ETH", "7d")
-        if cached:
-            print(f"   Cache HIT: {cached['summary_markdown'][:80]}...")
-            print(f"   Opinion: {cached['agent_opinion']}")
-        else:
-            print("   Cache MISS (unexpected)")
+        results = await db_tool.get_recent_research_results(agent_uuid)
+        print(f"   Found {len(results)} research results")
 
 if __name__ == "__main__":
     asyncio.run(test_research_flow())

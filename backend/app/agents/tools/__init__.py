@@ -17,7 +17,6 @@ from .make_trade_tool import MakeTradeTool
 from .tweet_post_tool import TweetPostTool
 from .database_tool import DatabaseTool
 from .plan_tool import PlanTool
-from .research_tool import ResearchTool
 
 # Deprecated: These tools are kept for backwards compatibility
 # Use MakeTradeTool instead for simulated trading
@@ -30,7 +29,6 @@ __all__ = [
     "TweetPostTool",
     "DatabaseTool",
     "PlanTool",
-    "ResearchTool",
     # Deprecated
     "TradeTool",
     "PortfolioTool",
