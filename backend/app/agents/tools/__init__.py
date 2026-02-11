@@ -4,6 +4,7 @@ This module re-exports tool classes for convenient imports like
 `from app.agents.tools import MarketDataTool`.
 """
 import logging
+from .plan_tool import PlanTool
 
 # Configure logging for the tools package
 logging.basicConfig(
@@ -16,7 +17,6 @@ from .market_data_tool import MarketDataTool
 from .make_trade_tool import MakeTradeTool
 from .tweet_post_tool import TweetPostTool
 from .database_tool import DatabaseTool
-from .plan_tool import PlanTool
 
 # Deprecated: These tools are kept for backwards compatibility
 # Use MakeTradeTool instead for simulated trading
@@ -28,8 +28,8 @@ __all__ = [
     "MakeTradeTool",
     "TweetPostTool",
     "DatabaseTool",
-    "PlanTool",
     # Deprecated
     "TradeTool",
     "PortfolioTool",
+     "PlanTool"
 ]
