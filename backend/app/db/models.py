@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional, Any
 import enum
 
-from sqlalchemy import String, Numeric, Integer, Enum as SQLEnum, Index, DateTime, Text, UniqueConstraint
+from sqlalchemy import String, Numeric, Integer, Enum as SQLEnum, Index, DateTime, Text, UniqueConstraint, Identity
 from sqlalchemy import ForeignKey, JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -166,7 +166,7 @@ class AgentResearchArtifact(Base):
     )
 
     crypto_token: Mapped[str] = mapped_column(primary_key=True)
-    id: Mapped[int] = mapped_column(autoincrement=True, unique=True)
+    id: Mapped[int] = mapped_column(Identity(), unique=True)
     last_researched_by: Mapped[Optional[UUID]] = mapped_column(ForeignKey("agent.id"), index=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
