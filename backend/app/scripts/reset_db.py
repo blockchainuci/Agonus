@@ -2,7 +2,7 @@ import asyncio
 import os  # <--- 1. Was missing
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine
-
+from sqlalchemy import text
 # 3. Correct Import: 'Bet', not 'Bets'
 from ..db.models import Base, Tournament, Agent, AgentState, Trade, Bet, PlanItem, AgentResearchArtifact
 
@@ -29,8 +29,12 @@ async def reset_database():
 
     async with engine.begin() as conn:
         print("🔥 Dropping all tables...")
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
 
+        await conn.execute(text("GRANT ALL ON SCHEMA public TO neondb_owner"))
+        await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+        
         print("🏗️  Creating new tables...")
         await conn.run_sync(Base.metadata.create_all)
 

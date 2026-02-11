@@ -2,7 +2,6 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from dotenv import load_dotenv
-
 # Load environment variables
 load_dotenv()
 
@@ -54,9 +53,8 @@ else:
     )
 
 from sqlalchemy import create_engine
-
-# sync engine to populate database
-SYNC_DATABASE_URL = DATABASE_URL.replace("+asyncpg", "")
+#sync engine to populate database
+SYNC_DATABASE_URL = DATABASE_URL.replace('+asyncpg','')
 sync_engine = create_engine(
     SYNC_DATABASE_URL,
     echo=DB_ECHO,
