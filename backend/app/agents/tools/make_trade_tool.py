@@ -242,7 +242,7 @@ class MakeTradeTool:
             logger.info(
                 f"SELL completed: sold {token_qty:.6f} {token}, "
                 f"received ${usdc_received:.2f} at ${actual_price:.2f}, "
-                f"realized_pnl=${realized_pnl:.2f if realized_pnl else 0}"
+                f"realized_pnl=${realized_pnl or 0:.2f}"
             )
 
         # Update portfolio metrics

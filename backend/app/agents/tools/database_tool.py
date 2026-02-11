@@ -8,14 +8,14 @@ by saving all agent context to the database.
 import logging
 from typing import Optional, Dict, Any, List
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from ...db.models import Agent, AgentState, Trade, Tournament, ActionEnum, PlanActionEnum, PlanStatusEnum, PlanItem
+from ...db.models import Agent, AgentState, Trade, Tournament, ActionEnum, PlanActionEnum, PlanStatusEnum, PlanItem, AgentResearchArtifact
 from ..data_classes import Trade as TradeData, Portfolio
 
 logger = logging.getLogger(__name__)
@@ -402,6 +402,72 @@ class DatabaseTool:
             logger.error(f"Failed to create agent: {e}")
             raise
 
+    async def save_research_result(
+            self, 
+            agent_uuid: UUID, 
+            query: str, 
+            result: Dict, 
+            recency: Optional[str] = None, 
+            related_tokens: Optional[List[str]] = None
+    ) -> None: 
+        #Saving the research to Postgres (agent_research_artifact table)
+        try:
+            stmt = insert(AgentResearchArtifact).values(
+                agent_id=agent_uuid,
+                query=query,
+                recency=recency,
+                provider=result.get("provider", "perplexity"),
+                summary_markdown=result["summary_markdown"],
+                citations=result.get("citations", []),
+                raw_results=result.get("raw_results", {}),
+                related_tokens=related_tokens or [],
+                created_at=datetime.now(timezone.utc),
+            )
+            await self.session.execute(stmt)
+            await self.session.commit() 
+            logger.info(f"Research result saved for agent={agent_uuid}, query='{query}'")
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"Failed to save research result: {e}")
+            raise 
+        
+    async def get_recent_research_results(
+            self,
+            agent_uuid: UUID,
+            token: Optional[str] = None,
+            days: int = 7
+    ) -> List[Dict]: 
+        #Fetch the recent research data for an agent from Postgres
+        try:
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            stmt = select(AgentResearchArtifact).where(
+                AgentResearchArtifact.agent_id == agent_uuid,
+                AgentResearchArtifact.created_at >= cutoff_date
+            )
+            if token:
+                stmt = stmt.where(AgentResearchArtifact.related_tokens.contains([token]))
+            
+            result = await self.session.execute(stmt)
+            artifacts = result.scalars().all()
+            
+            research_results = []
+            for artifact in artifacts:
+                research_results.append({
+                    "query": artifact.query,
+                    "recency": artifact.recency,
+                    "provider": artifact.provider,
+                    "summary_markdown": artifact.summary_markdown,
+                    "citations": artifact.citations,
+                    "raw_results": artifact.raw_results,
+                    "created_at": artifact.created_at.isoformat(),
+                })
+            
+            logger.info(f"Retrieved {len(research_results)} research results for agent={agent_uuid}")
+            return research_results
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve research results: {e}")
+            raise
     async def create_plan_item(self, agent_uuid: UUID, tournament_uuid: UUID, action_type: PlanActionEnum,
                                 execute_at: datetime, payload, idempotency_key: str, max_attempts: int = 3) -> PlanItem:
         stmt = (insert(PlanItem).values(agent_id = agent_uuid, 
@@ -546,3 +612,69 @@ class DatabaseTool:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
+    async def save_research_result(
+            self, 
+            agent_uuid: UUID, 
+            query: str, 
+            result: Dict, 
+            recency: Optional[str] = None, 
+            related_tokens: Optional[List[str]] = None
+    ) -> None: 
+        #Saving the research to Postgres (agent_research_artifact table)
+        try:
+            stmt = insert(AgentResearchArtifact).values(
+                agent_id=agent_uuid,
+                query=query,
+                recency=recency,
+                provider=result.get("provider", "perplexity"),
+                summary_markdown=result["summary_markdown"],
+                citations=result.get("citations", []),
+                raw_results=result.get("raw_results", {}),
+                related_tokens=related_tokens or [],
+                created_at=datetime.now(timezone.utc),
+            )
+            await self.session.execute(stmt)
+            await self.session.commit() 
+            logger.info(f"Research result saved for agent={agent_uuid}, query='{query}'")
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"Failed to save research result: {e}")
+            raise 
+        
+    async def get_recent_research_results(
+            self,
+            agent_uuid: UUID,
+            token: Optional[str] = None,
+            days: int = 7
+    ) -> List[Dict]: 
+        #Fetch the recent research data for an agent from Postgres
+        try:
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            stmt = select(AgentResearchArtifact).where(
+                AgentResearchArtifact.agent_id == agent_uuid,
+                AgentResearchArtifact.created_at >= cutoff_date
+            )
+            if token:
+                stmt = stmt.where(AgentResearchArtifact.related_tokens.contains([token]))
+            
+            result = await self.session.execute(stmt)
+            artifacts = result.scalars().all()
+            
+            research_results = []
+            for artifact in artifacts:
+                research_results.append({
+                    "query": artifact.query,
+                    "recency": artifact.recency,
+                    "provider": artifact.provider,
+                    "summary_markdown": artifact.summary_markdown,
+                    "citations": artifact.citations,
+                    "raw_results": artifact.raw_results,
+                    "created_at": artifact.created_at.isoformat(),
+                })
+            
+            logger.info(f"Retrieved {len(research_results)} research results for agent={agent_uuid}")
+            return research_results
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve research results: {e}")
+            raise

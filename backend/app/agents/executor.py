@@ -22,8 +22,12 @@ from .base import BaseAgent
 from .data_classes import Trade, Portfolio, MarketData
 from .tools.market_data_tool import MarketDataTool
 from .tools.make_trade_tool import MakeTradeTool
+from .tools.math_tool import MathTool
 from .tools.database_tool import DatabaseTool
+from .tools.research_tool import ResearchTool
+
 from .tools.plan_tool import PlanTool
+from .tools.research_tool import ResearchTool
 from .memory import AgentMemory
 
 logger = logging.getLogger(__name__)
@@ -89,6 +93,11 @@ class TradingAgent(BaseAgent):
         # Initialize market data tool
         self.market_tool = MarketDataTool()
 
+        # Initialize math tool (technical indicators)
+        self.math_tool = MathTool(market_tool=self.market_tool)
+        # Intilialize research tool
+        self.research_tool = ResearchTool()
+
         # Initialize simulated trade tool
         self.make_trade_tool = MakeTradeTool(
             agent_id=agent_id,
@@ -147,6 +156,17 @@ class TradingAgent(BaseAgent):
                 description="Get overall market sentiment (bullish/bearish/neutral). Input: empty string",
             ),
             Tool(
+                name="get_technical_indicator",
+                func=self._get_technical_indicator_wrapper,
+                description=(
+                    "Compute a technical indicator using MathTool. "
+                    "Input JSON: {\"token\":\"BTC\",\"indicator\":\"rsi\",\"timeframe\":\"1h\","
+                    "\"period\":14,\"lookback\":null,\"params\":{}}. "
+                    "Supported indicators: rsi, sma, ema, macd, bbands, atr, volatility. "
+                    "For macd params: fast, slow, signal. For bbands params: stddev."
+                ),
+            ),
+            Tool(
                 name="get_portfolio_status",
                 func=lambda _: self.make_trade_tool.get_portfolio_status(),
                 description="Get current portfolio status including cash, holdings, and performance. Input: empty string",
@@ -163,6 +183,14 @@ class TradingAgent(BaseAgent):
                 ),
             ),
             Tool(
+                name="research_token",
+                func=self._execute_research_token_wrapper,
+                description=(
+                    "Research a token for news and any market sentiments, "
+                    "Input: token symbol and recency (e.g., 'ETH 7d' for last 7 days)"
+                ),
+            ),
+            Tool(
                 name="create_plan_step",
                 func=self._create_plan_step_wrapper,
                 description=(
@@ -170,7 +198,7 @@ class TradingAgent(BaseAgent):
                     "ACTION_TYPE: RESEARCH, OPEN_POSITION, or CLOSE_POSITION. "
                     "EXECUTE_AT: ISO-8601 datetime (e.g. 2025-06-15T15:00:00Z). "
                     "PAYLOAD_JSON: JSON object with action details. "
-                    "Example: 'OPEN_POSITION 2025-06-15T15:00:00Z {\"token\": \"ETH\", \"amount\": 100, \"reason\": \"bullish breakout\"}'"
+                    'Example: \'OPEN_POSITION 2025-06-15T15:00:00Z {"token": "ETH", "amount": 100, "reason": "bullish breakout"}\''
                 ),
             ),
             Tool(
@@ -194,6 +222,14 @@ class TradingAgent(BaseAgent):
                     "Example: 'abc123-uuid 2025-06-16T10:00:00Z'"
                 ),
             ),
+            Tool(
+                name="research_token",
+                func=self._execute_research_token_wrapper,
+                description=(
+                    "Research a token for news and any market sentiments, "
+                    "Input: token symbol and recency (e.g., 'ETH 7d' for last 7 days)"
+                ),
+            ),
         ]
 
         # Create OpenAI LLM
@@ -211,6 +247,8 @@ Current Cash: ${cash}
 Current Holdings: {holdings}
 Total Portfolio Value: ${total_value}
 
+CURRENT TIME: {current_time}
+
 Market Context:
 {market_context}
 
@@ -219,23 +257,107 @@ Pending Scheduled Plans:
 
 Your goal is to maximize returns while respecting your risk tolerance.
 
-PLANNING (required every decision cycle):
-1. Review your pending plans above.
-2. If you have fewer than 4 plans, create new ones so you always maintain at least 4 scheduled steps covering short-term (hours), medium-term (days), and long-term (weeks) actions.
-3. If you act on a plan NOW (e.g., execute a trade it describes), cancel that plan step immediately so it does not remain as stale/duplicate.
-4. Revise or cancel any plans that are outdated or no longer relevant.
-5. After updating your plans, decide whether to execute any trades NOW based on current conditions.
+CRITICAL: Call ONE tool per response, but you can make MULTIPLE responses per cycle.
+Example: response 1 → research_token, response 2 → cancel_plan_step, response 3 → Final Answer
 
-Guidelines:
+=== TIME HORIZON DEFINITIONS (you are prompted every 5 minutes) ===
+- IMMEDIATE: 5-15 minutes (1-3 decision cycles) - react to current price action
+- SHORT-TERM: 15-60 minutes (3-12 cycles) - intraday momentum plays
+- MEDIUM-TERM: 1-6 hours - session-based setups, news reactions
+- LONG-TERM: 6-24 hours - overnight/next-day positioning
+
+=== DECISION WORKFLOW (choose ONE path per cycle) ===
+
+**PATH A - PLANNING MODE** (if you have fewer than 3 pending plans):
+You MUST create more plans until you have at least 3 total.
+1. Count your current plans. If < 3, create new ones until you reach 3. 
+2. RESEARCH FIRST BEFORE BUYING OR SELLING
+3. Each plan should be at a different time horizon (short, medium, long)
+4. Plans must be scheduled in the FUTURE (execute_at > CURRENT TIME)
+5. After reaching 3+ plans, give Final Answer - do NOT execute trades this cycle
+
+**PATH B - EXECUTION MODE** (if you have 3+ pending plans):
+1. Check if any plans have execute_at <= CURRENT TIME (they are DUE)
+2. If plans are due, execute them and cancel the executed plan
+IMPORTANT - CANCEL THE PLANS AS SOON AS YOU EXECUTE IT
+3. If no plans are due, you may take no action - that's fine
+4. Do NOT create new plans in execution mode
+
+**PATH C - MAINTENANCE MODE** (if >=3 plans exist but need cleanup):
+1. Cancel outdated plans (>2 hours old, conditions changed)
+2. Give Final Answer after cleanup
+
+IMPORTANT: Do NOT mix planning and execution in the same cycle. Pick one path.
+
+=== MARGINAL PLANNING PRINCIPLES ===
+- Think in percentages: "add 5-10% to position" not "buy $100"
+- Scale in/out gradually: multiple small entries are better than one large one
+- Set conditional triggers: "if price drops 2%, add to position"
+- Stagger exits: take partial profits at multiple levels
+- Always have both bullish AND bearish contingency plans
+
+=== PLAN CANCELLATION CRITERIA ===
+Cancel a plan when ANY of the following apply:
+- Market sentiment has reversed from the plan's thesis
+- Price has moved >3% against the plan's direction since creation
+- The plan is >2 hours old and conditions have changed
+- A newer plan supersedes this one for the same token
+- You just executed a similar action (avoid duplicate trades)
+
+=== PLAN ACTION TYPES (only these 3 are valid) ===
+- RESEARCH: Schedule research before key decisions
+- OPEN_POSITION: Schedule a BUY entry
+- CLOSE_POSITION: Schedule a SELL/exit
+
+=== HOW TO EXECUTE DUE PLANS ===
+When a plan's execute_at time has passed, execute it using the correct tool:
+- RESEARCH plan → use research_token tool (e.g., "ETH 1d") → THEN cancel the plan
+- OPEN_POSITION plan → use execute_trade tool (e.g., "BUY ETH 50 0.8 reason") → THEN cancel the plan
+- CLOSE_POSITION plan → use execute_trade tool (e.g., "SELL ETH 0.05 0.8 reason") → THEN cancel the plan
+
+CRITICAL: After executing ANY plan (including RESEARCH), your NEXT action MUST be cancel_plan_step.
+Do NOT give Final Answer until you have cancelled the executed plan.
+
+=== PLAN TIMESTAMPS ===
+Use CURRENT TIME above to calculate future times. Add minutes/hours to create valid future ISO-8601 timestamps.
+Example: If current time is 2026-02-07T19:20:00Z, then:
+- +10 min = 2026-02-07T19:30:00Z
+- +1 hour = 2026-02-07T20:20:00Z
+- +6 hours = 2026-02-08T01:20:00Z
+
+=== PLAN PAYLOAD EXAMPLES ===
+RESEARCH plan:
+'RESEARCH 2026-02-07T19:30:00Z {{"token": "ETH", "reason": "check sentiment before adding", "recency": "1d"}}'
+
+OPEN_POSITION plan (bullish):
+'OPEN_POSITION 2026-02-07T19:35:00Z {{"token": "ETH", "amount": 25, "action": "BUY", "reason": "scale in 5% if price holds support"}}'
+
+OPEN_POSITION plan (bearish contingency):
+'OPEN_POSITION 2026-02-07T19:40:00Z {{"token": "ETH", "amount": 25, "action": "BUY", "reason": "add on dip if price drops 2%"}}'
+
+CLOSE_POSITION plan:
+'CLOSE_POSITION 2026-02-07T20:30:00Z {{"token": "ETH", "portion": 0.25, "reason": "take 25% profit at resistance"}}'
+
+=== RESEARCH WORKFLOW ===
+- Before opening significant positions, use research_token to check news and sentiment
+- Schedule RESEARCH plans ahead of known events (upgrades, earnings, unlocks)
+- If you have recent research (<24h), you may skip re-researching the same token
+- Use research findings to inform your OPEN_POSITION and CLOSE_POSITION decisions 
+
+=== TRADING GUIDELINES ===
 - For BUY trades: amount is USDC to spend (e.g., BUY ETH 50 means spend $50 USDC to buy ETH)
 - For SELL trades: amount is quantity of token to sell
-- Only trade with these tokens: (use token symbols: ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK)
-- Check portfolio before trading
+- Only trade with these tokens: ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK
+- CHECK YOUR CASH FIRST: Don't plan or execute BUY trades for more than your available cash
+- If cash is low, consider SELL trades to free up capital, or wait
 - Conservative agents should trade less frequently
 - Aggressive agents can take larger positions
 - Always provide reasoning in your summary
 - This is a simulation - trades are not executed on-chain
-- Do not create duplicate plans — cancel outdated ones first
+- Do not create duplicate plans - cancel outdated ones first
+- DOING NOTHING IS VALID: If no plans are due and market conditions don't warrant action, it's perfectly fine to take no action this cycle. Don't trade just to trade.
+- Before making significant trades, research tokens using the research_token tool to check recent news and sentiment
+- If recent research already exists, you may reuse it instead of researching again
 
 TOOLS:
 ------
@@ -245,23 +367,52 @@ You have access to the following tools:
 
 RESPONSE FORMAT:
 ----------------
-Use the following format EXACTLY:
+Thought: your reasoning
+Action: tool name ONLY (no parentheses, no quotes, no input here)
+Action Input: the input string
 
-Thought: Think about what you need to do
-Action: the tool name, must be one of [{tool_names}]
-Action Input: the input to the tool
-Observation: the result of the tool
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now have enough information to provide a final answer
-Final Answer: your final response summarizing the decision made
+CORRECT EXAMPLES:
+Thought: I need to check the market sentiment.
+Action: get_market_sentiment
+Action Input: ""
+
+Thought: I need to list my plans.
+Action: list_plan_steps
+Action Input: ""
+
+Thought: I need the price of ETH.
+Action: get_market_price
+Action Input: ETH
+
+Thought: I need to create a plan.
+Action: create_plan_step
+Action Input: OPEN_POSITION 2026-02-07T20:10:00Z {{"token": "ETH", "amount": 50, "action": "BUY", "reason": "bullish momentum"}}
+
+WRONG (do NOT do this):
+Action: get_market_sentiment("")  <-- WRONG: no parentheses on Action line
+Action: list_plan_steps("")  <-- WRONG: input goes on Action Input line
+
+The system will respond with "Observation:" containing the tool result.
+After seeing the Observation, continue with another Thought/Action/Action Input,
+or end with "Final Answer:" when done.
 
 IMPORTANT RULES:
 - ALWAYS start with "Thought:"
-- ALWAYS use "Action:" followed by ONE tool name from the list
+- Call exactly ONE tool per response - never multiple Action/Action Input pairs
+- ALWAYS use "Action:" followed by ONE tool name from [{tool_names}]
 - ALWAYS use "Action Input:" followed by the input
+- STOP IMMEDIATELY after "Action Input:" - do NOT continue writing
+- NEVER include "Final Answer" in the same response as an Action
+- Wait for the Observation (tool result) before writing your next Thought
+- Only use "Final Answer:" when you are completely done with all tool calls
 - DO NOT skip any steps in the format
 - DO NOT use markdown code blocks
-- DO NOT add extra text between format elements
+- When creating plans, create them ONE AT A TIME across multiple turns
+
+=== BEFORE GIVING FINAL ANSWER ===
+In your Final Answer, briefly summarize:
+- What action you took this cycle (planned, executed, or nothing)
+- Your current pending plans (if any)
 
 Begin!
 
@@ -279,8 +430,8 @@ Thought:{agent_scratchpad}"""
             tools=tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=25,
-            max_execution_time=60,
+            max_iterations=40,
+            max_execution_time=120,
         )
 
     def _execute_trade_wrapper(self, trade_input: str) -> str:
@@ -330,6 +481,146 @@ Thought:{agent_scratchpad}"""
             error_msg = f"Trade execution error: {str(e)}"
             logger.error(error_msg)
             return error_msg
+        
+    def _execute_research_token_wrapper(self, input_str: str) -> str:
+        """
+        Wrapper for executing research token from LangChain tool.
+
+        Args:
+            input_str: "ETH" or "ETH 7d"
+
+        Returns:
+            Research summary string
+        """
+        from .tools.research_tool import research_result_to_dict
+
+        try:
+            parts = input_str.split()
+            if len(parts) < 1:
+                return "Error: Invalid format. Expected 'TOKEN' or 'TOKEN RECENCY'"
+
+            token = parts[0].upper()
+            recency = parts[1] if len(parts) > 1 else "7d"
+
+            # Call sync research method
+            research_result = self.research_tool.research_token(
+                token_symbol=token,
+                recency=recency,
+            )
+
+            # Persist result to DB (convert dataclass to dict)
+            if self.database_tool and self.agent_uuid:
+                result_dict = research_result_to_dict(research_result)
+                self._run_async(
+                    self.database_tool.save_research_result(
+                        agent_uuid=self.agent_uuid,
+                        query=f"Research {token}",
+                        result=result_dict,
+                        recency=recency,
+                        related_tokens=[token],
+                    )
+                )
+
+            return research_result.summary_markdown
+
+        except Exception as e:
+            logger.error(f"Research tool error: {e}")
+            return f"Research tool error: {str(e)}"
+
+
+    def _get_technical_indicator_wrapper(self, input_str: str) -> str:
+        """
+        Wrapper for MathTool.get_indicator.
+
+        Accepts JSON input with keys: token, indicator, timeframe, period, lookback, params.
+        """
+        try:
+            input_str = input_str.strip().strip("'\"")
+            payload: Dict[str, Any]
+            if input_str.startswith("{") and input_str.endswith("}"):
+                payload = json.loads(input_str)
+            else:
+                parts = input_str.split()
+                if len(parts) < 2:
+                    return "Error: Expected JSON or 'TOKEN INDICATOR [TIMEFRAME] [PERIOD] [LOOKBACK]'"
+                payload = {
+                    "token": parts[0],
+                    "indicator": parts[1],
+                }
+                if len(parts) >= 3:
+                    payload["timeframe"] = parts[2]
+                if len(parts) >= 4:
+                    payload["period"] = int(parts[3])
+                if len(parts) >= 5:
+                    payload["lookback"] = int(parts[4])
+
+            token = payload.get("token")
+            indicator = payload.get("indicator")
+            timeframe = payload.get("timeframe")
+            period = payload.get("period")
+            lookback = payload.get("lookback")
+            params = payload.get("params") or {}
+
+            if not token or not indicator:
+                return "Error: 'token' and 'indicator' are required."
+
+            result = self.math_tool.get_indicator(
+                token=token,
+                indicator=indicator,
+                timeframe=timeframe,
+                period=period,
+                lookback=lookback,
+                **params,
+            )
+            return json.dumps(result) if isinstance(result, dict) else str(result)
+        except Exception as e:
+            error_msg = f"Error computing indicator: {e}"
+            logger.error(error_msg)
+            return error_msg
+    def _execute_research_token_wrapper(self, input_str: str) -> str:
+        """
+        Wrapper for executing research token from LangChain tool.
+
+        Args:
+            input_str: "ETH" or "ETH 7d"
+
+        Returns:
+            Research summary string
+        """
+        from .tools.research_tool import research_result_to_dict
+
+        try:
+            parts = input_str.split()
+            if len(parts) < 1:
+                return "Error: Invalid format. Expected 'TOKEN' or 'TOKEN RECENCY'"
+
+            token = parts[0].upper()
+            recency = parts[1] if len(parts) > 1 else "7d"
+
+            # Call sync research method
+            research_result = self.research_tool.research_token(
+                token_symbol=token,
+                recency=recency,
+            )
+
+            # Persist result to DB (convert dataclass to dict)
+            if self.database_tool and self.agent_uuid:
+                result_dict = research_result_to_dict(research_result)
+                self._run_async(
+                    self.database_tool.save_research_result(
+                        agent_uuid=self.agent_uuid,
+                        query=f"Research {token}",
+                        result=result_dict,
+                        recency=recency,
+                        related_tokens=[token],
+                    )
+                )
+
+            return research_result.summary_markdown
+
+        except Exception as e:
+            logger.error(f"Research tool error: {e}")
+            return f"Research tool error: {str(e)}"
 
     def _create_plan_step_wrapper(self, input_str: str) -> str:
         """Parse: 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"""
@@ -356,9 +647,9 @@ Thought:{agent_scratchpad}"""
             return error_msg
 
     def _list_plan_steps_wrapper(self, _input: str) -> str:
-        """List all plan steps for this agent."""
+        """List active (planned) plan steps for this agent."""
         try:
-            result = self._run_async(self.plan_tool.list_plan_steps())
+            result = self._run_async(self.plan_tool.list_plan_steps(statuses=["planned"]))
             return json.dumps(result, indent=2) if result else "No plan steps found."
         except Exception as e:
             error_msg = f"Error listing plan steps: {e}"
@@ -415,6 +706,7 @@ Thought:{agent_scratchpad}"""
         if loop is not None:
             # Already in async context - use nest_asyncio
             import nest_asyncio
+
             nest_asyncio.apply()
             return loop.run_until_complete(coro)
         else:
@@ -561,6 +853,11 @@ Thought:{agent_scratchpad}"""
                 "If you have no plans, create a strategy with scheduled steps for now and the future using create_plan_step. "
                 "3. Based on your personality and risk tolerance, decide whether to execute any trades now. "
                 "If you trade, execute it. If not, explain your reasoning."
+                "Before making any trade decisions, research any tokens you are considering  "
+                "using the research_token tool to check recent news and market sentiment "
+                "if you do not already have recent research. "
+                "Then decide if any trades should be executed based on your personality and risk tolerance. "
+                "If you decide to trade, execute it. If not, explain why."
             )
 
         # Update portfolio values before making decision
@@ -577,10 +874,13 @@ Thought:{agent_scratchpad}"""
             )
         else:
             pending_plans = []
-        pending_plans_text = json.dumps(pending_plans, indent=2) if pending_plans else "None"
+        pending_plans_text = (
+            json.dumps(pending_plans, indent=2) if pending_plans else "None"
+        )
 
         # Run agent
         try:
+            current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             result = self.executor.invoke(
                 {
                     "input": task,
@@ -592,6 +892,7 @@ Thought:{agent_scratchpad}"""
                     "total_value": self.portfolio.total_value,
                     "market_context": market_context,
                     "pending_plans": pending_plans_text,
+                    "current_time": current_time,
                 }
             )
 

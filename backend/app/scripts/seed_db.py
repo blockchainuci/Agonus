@@ -2,13 +2,17 @@
 from uuid import UUID, uuid4
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from sqlmodel import Session
 
 from ..db.database import sync_engine, engine
 from ..db.models import Tournament, Agent, Trade, Bet, StatusEnum, ActionEnum, AgentState
 
+load_dotenv()
 
-def seed_database():
+DATABASE_URL = os.getenv("DATABASE_URL")
+DB_DISABLE_SSL = os.getenv("DB_DISABLE_SSL", "false").lower() == "true"
+
+
+async def seed_database():
     """Seed the database with test data"""
 
     with Session(sync_engine) as session:
@@ -17,8 +21,8 @@ def seed_database():
             id=uuid4(),
             name="Q4 2025 Championship",
             status=StatusEnum.live,
-            start_date=datetime.utcnow(),
-            end_date=datetime.utcnow() + timedelta(days=30),
+            start_date=now,
+            end_date=now + timedelta(days=30),
             prize_pool=Decimal("10000.00"),
             created_at=datetime.now(timezone.utc),
         )
@@ -27,8 +31,8 @@ def seed_database():
             id=uuid4(),
             name="Spring Series",
             status=StatusEnum.upcoming,
-            start_date=datetime.utcnow() + timedelta(days=7),
-            end_date=datetime.utcnow() + timedelta(days=37),
+            start_date=now + timedelta(days=7),
+            end_date=now + timedelta(days=37),
             prize_pool=Decimal("5000.00"),
             created_at=datetime.now(timezone.utc),
         )
@@ -39,8 +43,8 @@ def seed_database():
         # Create Agents
         agent1 = Agent(
             id=uuid4(),
-            name="Alpha Trader",
-            personality="Aggressive risk-taker",
+            name="AlphaBot",
+            personality="aggressive",
             strategy_type="momentum",
             avatar_url="https://example.com/avatar1.png",
             stats={"win_rate": 0.65, "total_trades": 150},
@@ -50,8 +54,8 @@ def seed_database():
 
         agent2 = Agent(
             id=uuid4(),
-            name="Beta Analyst",
-            personality="Conservative value investor",
+            name="BetaBot",
+            personality="conservative",
             strategy_type="value",
             avatar_url="https://example.com/avatar2.png",
             stats={"win_rate": 0.58, "total_trades": 200},
@@ -61,8 +65,8 @@ def seed_database():
 
         agent3 = Agent(
             id=uuid4(),
-            name="Gamma Quant",
-            personality="Data-driven algorithmic trader",
+            name="GammaBot",
+            personality="balanced",
             strategy_type="quantitative",
             avatar_url="https://example.com/avatar3.png",
             stats={"win_rate": 0.72, "total_trades": 500},
@@ -74,6 +78,44 @@ def seed_database():
         session.add(agent2)
         session.add(agent3)
 
+        await session.commit()
+
+        agent_state1 = AgentState(
+            agent_id=agent1.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},  # Starting cash
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=1,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        agent_state2 = AgentState(
+            agent_id=agent2.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=2,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        agent_state3 = AgentState(
+            agent_id=agent3.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=3,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        session.add(agent_state1)
+        session.add(agent_state2)
+        session.add(agent_state3)
         session.commit()
 
         agent_state1 = AgentState(
@@ -178,7 +220,7 @@ def seed_database():
         session.add(bet1)
         session.add(bet2)
 
-        session.commit()
+        await session.commit()
 
         print("✅ Database seeded successfully!")
         print(f"   - Created 2 tournaments")
@@ -186,6 +228,8 @@ def seed_database():
         print(f"   - Created 3 trades")
         print(f"   - Created 2 bets")
 
+    await engine.dispose()
+
 
 if __name__ == "__main__":
-    seed_database()
+    asyncio.run(seed_database())
