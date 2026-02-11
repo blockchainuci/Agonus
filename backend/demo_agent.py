@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app.agents.data_classes import Portfolio
 from app.agents.tools.market_data_tool import MarketDataTool
 from app.agents.tools.make_trade_tool import MakeTradeTool
+from app.agents.tools.math_tool import MathTool
 
 
 def print_header(text: str):
@@ -177,6 +178,17 @@ def demo_trading_agent():
             starting_cash=500.0,
             model_name="gpt-4o-mini",
         )
+
+        # Show MathTool indicators before decision
+        math_tool = MathTool(market_tool=agent.market_tool)
+        indicators = ["rsi", "sma", "ema", "macd", "bbands", "atr", "volatility"]
+        print("\n  Indicators (BTC):")
+        for indicator in indicators:
+            try:
+                value = math_tool.get_indicator("BTC", indicator)
+                print(f"    {indicator}: {value}")
+            except Exception as e:
+                print(f"    {indicator}: error: {e}")
 
         print(f"\n  Initial portfolio: ${agent.portfolio.total_value:.2f}")
         print(f"  Making decision...\n")

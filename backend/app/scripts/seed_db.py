@@ -1,36 +1,51 @@
 # backend/app/scripts/seed_db.py
+import asyncio
+import os
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from sqlmodel import Session
 
-from ..db.database import engine
+from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+
 from ..db.models import Tournament, Agent, Trade, Bet, StatusEnum, ActionEnum
 
+load_dotenv()
 
-def seed_database():
+DATABASE_URL = os.getenv("DATABASE_URL")
+DB_DISABLE_SSL = os.getenv("DB_DISABLE_SSL", "false").lower() == "true"
+
+
+async def seed_database():
     """Seed the database with test data"""
 
-    with Session(engine) as session:
+    connect_args = {} if DB_DISABLE_SSL else {"ssl": "require"}
+    engine = create_async_engine(DATABASE_URL, connect_args=connect_args)
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with async_session() as session:
+        now = datetime.now(timezone.utc)
+
         # Create Tournaments
         tournament1 = Tournament(
             id=uuid4(),
-            name="Q4 2024 Championship",
+            name="Crypto Trading Championship #1",
             status=StatusEnum.live,
-            start_date=datetime.utcnow(),
-            end_date=datetime.utcnow() + timedelta(days=30),
+            start_date=now,
+            end_date=now + timedelta(days=30),
             prize_pool=Decimal("10000.00"),
-            created_at=datetime.utcnow(),
+            created_at=now,
         )
 
         tournament2 = Tournament(
             id=uuid4(),
-            name="Winter Series",
+            name="Spring Series",
             status=StatusEnum.upcoming,
-            start_date=datetime.utcnow() + timedelta(days=7),
-            end_date=datetime.utcnow() + timedelta(days=37),
+            start_date=now + timedelta(days=7),
+            end_date=now + timedelta(days=37),
             prize_pool=Decimal("5000.00"),
-            created_at=datetime.utcnow(),
+            created_at=now,
         )
 
         session.add(tournament1)
@@ -39,41 +54,79 @@ def seed_database():
         # Create Agents
         agent1 = Agent(
             id=uuid4(),
-            name="Alpha Trader",
-            personality="Aggressive risk-taker",
+            name="AlphaBot",
+            personality="aggressive",
             strategy_type="momentum",
             avatar_url="https://example.com/avatar1.png",
-            stats={"win_rate": 0.65, "total_trades": 150},
-            memory={"last_analysis": "Bullish on tech stocks"},
-            created_at=datetime.utcnow(),
+            stats={},
+            memory={},
+            created_at=now,
         )
 
         agent2 = Agent(
             id=uuid4(),
-            name="Beta Analyst",
-            personality="Conservative value investor",
+            name="BetaBot",
+            personality="conservative",
             strategy_type="value",
             avatar_url="https://example.com/avatar2.png",
-            stats={"win_rate": 0.58, "total_trades": 200},
-            memory={"last_analysis": "Focus on fundamentals"},
-            created_at=datetime.utcnow(),
+            stats={},
+            memory={},
+            created_at=now,
         )
 
         agent3 = Agent(
             id=uuid4(),
-            name="Gamma Quant",
-            personality="Data-driven algorithmic trader",
+            name="GammaBot",
+            personality="balanced",
             strategy_type="quantitative",
             avatar_url="https://example.com/avatar3.png",
-            stats={"win_rate": 0.72, "total_trades": 500},
-            memory={"last_analysis": "Pattern detected in BTC"},
-            created_at=datetime.utcnow(),
+            stats={},
+            memory={},
+            created_at=now,
         )
 
         session.add(agent1)
         session.add(agent2)
         session.add(agent3)
 
+        await session.commit()
+
+        agent_state1 = AgentState(
+            agent_id=agent1.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},  # Starting cash
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=1,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        agent_state2 = AgentState(
+            agent_id=agent2.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=2,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        agent_state3 = AgentState(
+            agent_id=agent3.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=3,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        session.add(agent_state1)
+        session.add(agent_state2)
+        session.add(agent_state3)
         session.commit()
 
         # Create Trades
@@ -85,7 +138,7 @@ def seed_database():
             asset="BTC",
             amount=Decimal("0.5"),
             price=Decimal("45000.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=now,
         )
 
         trade2 = Trade(
@@ -96,7 +149,7 @@ def seed_database():
             asset="ETH",
             amount=Decimal("5.0"),
             price=Decimal("3000.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=now,
         )
 
         trade3 = Trade(
@@ -107,7 +160,7 @@ def seed_database():
             asset="BTC",
             amount=Decimal("0.25"),
             price=Decimal("46000.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=now,
         )
 
         session.add(trade1)
@@ -122,7 +175,7 @@ def seed_database():
             tournament_id=tournament1.id,
             amount=Decimal("100.00"),
             odds=Decimal("2.5"),
-            placed_at=datetime.utcnow(),
+            placed_at=now,
             settled=False,
         )
 
@@ -133,14 +186,14 @@ def seed_database():
             tournament_id=tournament1.id,
             amount=Decimal("250.00"),
             odds=Decimal("3.0"),
-            placed_at=datetime.utcnow(),
+            placed_at=now,
             settled=False,
         )
 
         session.add(bet1)
         session.add(bet2)
 
-        session.commit()
+        await session.commit()
 
         print("✅ Database seeded successfully!")
         print(f"   - Created 2 tournaments")
@@ -148,6 +201,8 @@ def seed_database():
         print(f"   - Created 3 trades")
         print(f"   - Created 2 bets")
 
+    await engine.dispose()
+
 
 if __name__ == "__main__":
-    seed_database()
+    asyncio.run(seed_database())

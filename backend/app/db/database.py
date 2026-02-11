@@ -29,6 +29,7 @@ USE_NULL_POOL = os.getenv("USE_NULL_POOL", "False").lower() == "true"
 DB_DISABLE_SSL = os.getenv("DB_DISABLE_SSL", "False").lower() == "true"
 connect_args = {} if DB_DISABLE_SSL else {"ssl": "require"}
 
+
 if USE_NULL_POOL:
     # NullPool: No connection pooling - creates fresh connection each time
     # Use this for Celery workers to avoid asyncpg connection conflicts
@@ -51,6 +52,15 @@ else:
         # 2. Neon / Asyncpg requirements
         connect_args=connect_args,
     )
+
+from sqlalchemy import create_engine
+
+# sync engine to populate database
+SYNC_DATABASE_URL = DATABASE_URL.replace("+asyncpg", "")
+sync_engine = create_engine(
+    SYNC_DATABASE_URL,
+    echo=DB_ECHO,
+)
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
