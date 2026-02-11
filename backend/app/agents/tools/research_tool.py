@@ -34,79 +34,24 @@ class ResearchResult:
     created_at: str
 
 
-_BULLISH_KEYWORDS = [
-    "bullish", "breakout", "growth", "upgrade", "momentum", "rally", "surge",
-    "uptrend", "accumulation", "outperform",
-]
-_BEARISH_KEYWORDS = [
-    "bearish", "decline", "risk", "hack", "crash", "sell-off", "downgrade",
-    "downtrend", "liquidation", "underperform",
-]
-
-
-def derive_opinion(summary_markdown: str) -> str:
-    """Keyword-based sentiment derivation from a research summary.
-
-    Returns one of 'positive', 'negative', or 'neutral' (matches OpinionEnum values).
-    """
-    text_lower = summary_markdown.lower()
-    bull_count = sum(text_lower.count(kw) for kw in _BULLISH_KEYWORDS)
-    bear_count = sum(text_lower.count(kw) for kw in _BEARISH_KEYWORDS)
-
-    if bull_count > bear_count:
-        return "positive"
-    elif bear_count > bull_count:
-        return "negative"
-    return "neutral"
-
-
-def select_recency(context: str) -> str:
-    """Map a context hint to the optimal Perplexity recency filter.
-
-    Args:
-        context: One of 'breaking', 'trading', 'analysis', 'background'.
-    """
-    mapping = {
-        "breaking": "1d",
-        "trading": "1d",
-        "analysis": "7d",
-        "background": "30d",
-    }
-    return mapping.get(context, "7d")
-
-
 class ResearchTool:
-    """Fetching and summarizing external research via Perplexity API.
-
-    Provides structured prompts, opinion derivation, and recency selection
-    so every agent gets consistent, cache-friendly research output.
+    """ fetching and summarizing external research via Perplexity API.
+    
+    get info ab tokens, protocols,
+    market narratives, and crypto news with citations.
     """
 
     def __init__(self, api_key: str = None):
         self.api_key = api_key or PERPLEXITY_API_KEY
         if not self.api_key:
             raise ResearchError("PERPLEXITY_API_KEY not found in environment")
-
+        
         self.api_base_url = "https://api.perplexity.ai"
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
         logger.info("ResearchTool initialized")
-
-    @staticmethod
-    def _build_system_prompt(token_symbol: str) -> str:
-        """Return a structured system prompt that forces consistent sections."""
-        return (
-            f"You are a crypto research assistant. Organize your response about "
-            f"{token_symbol} using exactly these markdown sections:\n\n"
-            f"## {token_symbol} Market Overview\n"
-            f"## Recent Developments\n"
-            f"## Sentiment & Narrative\n"
-            f"## Risks & Catalysts\n"
-            f"## Summary\n\n"
-            f"Be concise and factual. Always cite your sources."
-        )
 
     def _map_recency_filter(self, recency: str) -> Optional[str]:
         """Map our recency format to Perplexity's search_recency_filter."""
@@ -122,27 +67,24 @@ class ResearchTool:
         self,
         query: str,
         recency: Optional[Literal["1d", "7d", "30d", "365d"]] = None,
-        sources: Optional[List[Literal["web", "news", "docs"]]] = None,
-        max_results: Optional[int] = None,
-        system_prompt: Optional[str] = None,
+        sources: Optional[List[Literal["web", "news", "docs"]]] = None, 
+        max_results: Optional[int] = None
     ) -> ResearchResult:
 
         logger.info(f"Research query: {query}")
-
-        default_system = (
-            "You are a crypto research assistant. Provide concise, factual summaries "
-            "about tokens, protocols, market conditions, and crypto news. "
-            "Focus on key facts, recent developments, risks, and catalysts. "
-            "Always cite your sources."
-        )
-
+        
         # request payload
         payload = {
             "model": "sonar",  # mayb switch to "sonar-pro" for more better results
             "messages": [
                 {
                     "role": "system",
-                    "content": system_prompt or default_system,
+                    "content": (
+                        "You are a crypto research assistant. Provide concise, factual summaries "
+                        "about tokens, protocols, market conditions, and crypto news. "
+                        "Focus on key facts, recent developments, risks, and catalysts. "
+                        "Always cite your sources."
+                    )
                 },
                 {
                     "role": "user",
@@ -226,14 +168,16 @@ class ResearchTool:
         return result
 
     def research_token(self, token_symbol: str, recency: str = "7d") -> ResearchResult:
-        """Research a specific token with a structured system prompt."""
+        """
+         method for researching a specific token.
+        
+        """
         query = (
             f"What are the latest news, developments, and market sentiment for {token_symbol} "
             f"cryptocurrency? Include any recent catalysts, risks, protocol updates, "
             f"and narrative shifts."
         )
-        system_prompt = self._build_system_prompt(token_symbol)
-        return self.research(query, recency=recency, system_prompt=system_prompt)
+        return self.research(query, recency=recency)
 
 
 # Helper function to convert ResearchResult to dict (for JSON serialization)
