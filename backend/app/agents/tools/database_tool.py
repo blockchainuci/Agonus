@@ -8,17 +8,30 @@ by saving all agent context to the database.
 import logging
 from typing import Optional, Dict, Any, List
 from uuid import UUID
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from ...db.models import Agent, AgentState, Trade, Tournament, ActionEnum, PlanActionEnum, PlanStatusEnum, PlanItem
+from ...db.models import Agent, AgentState, Trade, Tournament, ActionEnum, PlanActionEnum, PlanStatusEnum, PlanItem, AgentResearchArtifact
 from ..data_classes import Trade as TradeData, Portfolio
 
 logger = logging.getLogger(__name__)
+
+# Freshness thresholds per recency tier (seconds)
+FRESHNESS_THRESHOLDS = {
+    "1d":   2 * 3600,    # 2 hours
+    "7d":   6 * 3600,    # 6 hours
+    "30d":  24 * 3600,   # 24 hours
+    "365d": 72 * 3600,   # 72 hours
+}
+DEFAULT_FRESHNESS = 6 * 3600  # 6 hours
+
+# Tightness ordering — lower = tighter (more recent Perplexity search window).
+# A cache row fetched with "7d" should NOT satisfy a "1d" request.
+_RECENCY_TIGHTNESS = {"1d": 0, "7d": 1, "30d": 2, "365d": 3}
 
 
 class DatabaseTool:
@@ -402,72 +415,139 @@ class DatabaseTool:
             logger.error(f"Failed to create agent: {e}")
             raise
 
-    async def save_research_result(
-            self, 
-            agent_uuid: UUID, 
-            query: str, 
-            result: Dict, 
-            recency: Optional[str] = None, 
-            related_tokens: Optional[List[str]] = None
-    ) -> None: 
-        #Saving the research to Postgres (agent_research_artifact table)
+    # ── Shared research cache ──────────────────────────────────────────
+
+    async def get_fresh_research(
+        self, crypto_token: str, recency: str = "7d"
+    ) -> Optional[Dict]:
+        """
+        Return cached research for *crypto_token* if it is still fresh.
+
+        Freshness is determined by comparing the row's `updated_at` against
+        the threshold for the requested *recency* tier.
+
+        Returns:
+            Dict with cached research data if fresh, None if stale/missing.
+        """
         try:
-            stmt = insert(AgentResearchArtifact).values(
-                agent_id=agent_uuid,
-                query=query,
-                recency=recency,
-                provider=result.get("provider", "perplexity"),
-                summary_markdown=result["summary_markdown"],
-                citations=result.get("citations", []),
-                raw_results=result.get("raw_results", {}),
-                related_tokens=related_tokens or [],
-                created_at=datetime.now(timezone.utc),
+            stmt = select(AgentResearchArtifact).where(
+                AgentResearchArtifact.crypto_token == crypto_token
             )
+            result = await self.session.execute(stmt)
+            artifact = result.scalar_one_or_none()
+
+            if artifact is None:
+                logger.info(f"Research cache MISS for {crypto_token} (no row)")
+                return None
+
+            # Tightness check: cached "7d" data can't satisfy a "1d" request
+            cached_tight = _RECENCY_TIGHTNESS.get(artifact.recency, 99)
+            requested_tight = _RECENCY_TIGHTNESS.get(recency, 1)
+            if cached_tight > requested_tight:
+                logger.info(
+                    f"Research cache MISS for {crypto_token} "
+                    f"(cached recency={artifact.recency} too loose for requested={recency})"
+                )
+                return None
+
+            age_seconds = (
+                datetime.now(timezone.utc) - artifact.updated_at
+            ).total_seconds()
+            threshold = FRESHNESS_THRESHOLDS.get(recency, DEFAULT_FRESHNESS)
+
+            if age_seconds > threshold:
+                logger.info(
+                    f"Research cache STALE for {crypto_token} "
+                    f"(age={age_seconds:.0f}s, threshold={threshold}s)"
+                )
+                return None
+
+            logger.info(
+                f"Research cache HIT for {crypto_token} "
+                f"(age={age_seconds:.0f}s, threshold={threshold}s)"
+            )
+            return {
+                "crypto_token": artifact.crypto_token,
+                "query": artifact.query,
+                "recency": artifact.recency,
+                "provider": artifact.provider,
+                "summary_markdown": artifact.summary_markdown,
+                "citations": artifact.citations,
+                "related_tokens": artifact.related_tokens,
+                "agent_opinion": artifact.agent_opinion,
+                "updated_at": artifact.updated_at.isoformat(),
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to check research cache: {e}")
+            raise
+
+    async def upsert_research_result(
+        self,
+        crypto_token: str,
+        query: str,
+        summary_markdown: str,
+        citations: List[Dict],
+        recency: Optional[str] = None,
+        provider: str = "perplexity",
+        raw_results: Optional[Dict] = None,
+        related_tokens: Optional[List[str]] = None,
+        agent_opinion: Optional[str] = None,
+        last_researched_by: Optional[UUID] = None,
+    ) -> None:
+        """
+        Insert or update the shared research row for *crypto_token*.
+
+        Uses INSERT ... ON CONFLICT (crypto_token) DO UPDATE so every token
+        has exactly one row that gets refreshed in place.
+        """
+        now = datetime.now(timezone.utc)
+        try:
+            stmt = (
+                insert(AgentResearchArtifact)
+                .values(
+                    crypto_token=crypto_token,
+                    last_researched_by=last_researched_by,
+                    query=query,
+                    recency=recency,
+                    provider=provider,
+                    summary_markdown=summary_markdown,
+                    citations=citations,
+                    raw_results=raw_results,
+                    related_tokens=related_tokens,
+                    agent_opinion=agent_opinion,
+                    created_at=now,
+                    updated_at=now,
+                )
+                .on_conflict_do_update(
+                    index_elements=["crypto_token"],
+                    set_={
+                        "last_researched_by": last_researched_by,
+                        "query": query,
+                        "recency": recency,
+                        "provider": provider,
+                        "summary_markdown": summary_markdown,
+                        "citations": citations,
+                        "raw_results": raw_results,
+                        "related_tokens": related_tokens,
+                        "agent_opinion": agent_opinion,
+                        "updated_at": now,
+                    },
+                )
+            )
+
             await self.session.execute(stmt)
-            await self.session.commit() 
-            logger.info(f"Research result saved for agent={agent_uuid}, query='{query}'")
+            await self.session.commit()
+            logger.info(
+                f"Research upserted for {crypto_token} "
+                f"(by={last_researched_by}, opinion={agent_opinion})"
+            )
+
         except Exception as e:
             await self.session.rollback()
-            logger.error(f"Failed to save research result: {e}")
-            raise 
-        
-    async def get_recent_research_results(
-            self,
-            agent_uuid: UUID,
-            token: Optional[str] = None,
-            days: int = 7
-    ) -> List[Dict]: 
-        #Fetch the recent research data for an agent from Postgres
-        try:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
-            stmt = select(AgentResearchArtifact).where(
-                AgentResearchArtifact.agent_id == agent_uuid,
-                AgentResearchArtifact.created_at >= cutoff_date
-            )
-            if token:
-                stmt = stmt.where(AgentResearchArtifact.related_tokens.contains([token]))
-            
-            result = await self.session.execute(stmt)
-            artifacts = result.scalars().all()
-            
-            research_results = []
-            for artifact in artifacts:
-                research_results.append({
-                    "query": artifact.query,
-                    "recency": artifact.recency,
-                    "provider": artifact.provider,
-                    "summary_markdown": artifact.summary_markdown,
-                    "citations": artifact.citations,
-                    "raw_results": artifact.raw_results,
-                    "created_at": artifact.created_at.isoformat(),
-                })
-            
-            logger.info(f"Retrieved {len(research_results)} research results for agent={agent_uuid}")
-            return research_results
-            
-        except Exception as e:
-            logger.error(f"Failed to retrieve research results: {e}")
+            logger.error(f"Failed to upsert research result: {e}")
             raise
+
     async def create_plan_item(self, agent_uuid: UUID, tournament_uuid: UUID, action_type: PlanActionEnum,
                                 execute_at: datetime, payload, idempotency_key: str, max_attempts: int = 3) -> PlanItem:
         stmt = (insert(PlanItem).values(agent_id = agent_uuid, 
@@ -526,7 +606,7 @@ class DatabaseTool:
     async def cancel_plan_item(self, plan_item_id: UUID, reason: str | None = None) -> None:
         values = {
         "status": PlanStatusEnum.cancelled,
-        "updated_at": datetime.utcnow(),
+        "updated_at": datetime.now(timezone.utc),
         }
 
         if reason:
@@ -553,7 +633,7 @@ class DatabaseTool:
             )
             .values(
                 execute_at=new_execute_at,
-                updated_at=datetime.utcnow(),
+                updated_at=datetime.now(timezone.utc),
             )
             .returning(PlanItem)
         )

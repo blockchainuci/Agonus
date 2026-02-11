@@ -171,8 +171,9 @@ class TradingAgent(BaseAgent):
                 name="research_token",
                 func=self._execute_research_token_wrapper,
                 description=(
-                    "Research a token for news and any market sentiments, "
-                    "Input: token symbol and recency (e.g., 'ETH 7d' for last 7 days)"
+                    "Research a token for news and market sentiment. Uses a shared cache — "
+                    "calling it is cheap, so use it whenever you need research. "
+                    "Input: token symbol and optional recency (e.g., 'ETH 7d' for last 7 days)"
                 ),
             ),
             Tool(
@@ -249,7 +250,7 @@ Guidelines:
 - Always provide reasoning in your summary
 - This is a simulation - trades are not executed on-chain
 - Before making significant trades, research tokens using the research_token tool to check recent news and sentiment
-- If recent research already exists, you may reuse it instead of researching again
+- The research_token tool uses a shared cache automatically. Just call it when you need research.
 
 TOOLS:
 ------
@@ -347,15 +348,14 @@ Thought:{agent_scratchpad}"""
 
     def _execute_research_token_wrapper(self, input_str: str) -> str:
         """
-        Wrapper for executing research token from LangChain tool.
+        Cache-first research wrapper.
 
-        Args:
-            input_str: "ETH" or "ETH 7d"
-
-        Returns:
-            Research summary string
+        1. Parse input -> token + recency
+        2. Check shared cache via database_tool.get_fresh_research()
+        3. Cache HIT  -> return cached summary (zero API cost)
+        4. Cache MISS -> call Perplexity, derive opinion, upsert to cache
         """
-        from .tools.research_tool import research_result_to_dict
+        from .tools.research_tool import research_result_to_dict, derive_opinion
 
         try:
             parts = input_str.split()
@@ -363,24 +363,42 @@ Thought:{agent_scratchpad}"""
                 return "Error: Invalid format. Expected 'TOKEN' or 'TOKEN RECENCY'"
 
             token = parts[0].upper()
-            recency = parts[1] if len(parts) > 1 else "7d"
+            _valid_recencies = {"1d", "7d", "30d", "365d"}
+            raw_recency = parts[1] if len(parts) > 1 else "7d"
+            recency = raw_recency if raw_recency in _valid_recencies else "7d"
 
-            # Call sync research method
+            # ── Cache check ──────────────────────────────────────────
+            if self.database_tool:
+                cached = self._run_async(
+                    self.database_tool.get_fresh_research(token, recency)
+                )
+                if cached is not None:
+                    logger.info(f"Research cache HIT for {token} — skipping API call")
+                    return cached["summary_markdown"]
+
+            # ── Cache MISS — call Perplexity ─────────────────────────
             research_result = self.research_tool.research_token(
                 token_symbol=token,
                 recency=recency,
             )
 
-            # Persist result to DB (convert dataclass to dict)
-            if self.database_tool and self.agent_uuid:
+            # Derive opinion from summary
+            opinion = derive_opinion(research_result.summary_markdown)
+
+            # Persist to shared cache (skip raw_results to keep rows lean)
+            if self.database_tool:
                 result_dict = research_result_to_dict(research_result)
                 self._run_async(
-                    self.database_tool.save_research_result(
-                        agent_uuid=self.agent_uuid,
+                    self.database_tool.upsert_research_result(
+                        crypto_token=token,
                         query=f"Research {token}",
-                        result=result_dict,
+                        summary_markdown=result_dict["summary_markdown"],
+                        citations=result_dict["citations"],
                         recency=recency,
+                        provider=result_dict.get("provider", "perplexity"),
                         related_tokens=[token],
+                        agent_opinion=opinion,
+                        last_researched_by=self.agent_uuid,
                     )
                 )
 
