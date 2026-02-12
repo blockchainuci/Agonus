@@ -44,6 +44,8 @@ async def migrate():
 
     async with engine.begin() as conn:
         try:
+            print("🗑️  Dropping existing agent_research_artifact table...")
+            await conn.execute(text("DROP TABLE IF EXISTS agent_research_artifact CASCADE"))
             print("🏗️  Creating agent_research_artifact table...")
             await conn.execute(text(create_table_sql))
             await conn.execute(text(create_index_sql))
