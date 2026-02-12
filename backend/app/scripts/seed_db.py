@@ -40,7 +40,7 @@ async def seed_database():
 
         tournament2 = Tournament(
             id=uuid4(),
-            name="Winter Series",
+            name="Spring Series",
             status=StatusEnum.upcoming,
             start_date=now + timedelta(days=7),
             end_date=now + timedelta(days=37),
@@ -90,6 +90,44 @@ async def seed_database():
         session.add(agent3)
 
         await session.commit()
+
+        agent_state1 = AgentState(
+            agent_id=agent1.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},  # Starting cash
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=1,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        agent_state2 = AgentState(
+            agent_id=agent2.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=2,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        agent_state3 = AgentState(
+            agent_id=agent3.id,
+            tournament_id=tournament1.id,
+            portfolio={"USD": 10000.0},
+            portfolio_value_usd=Decimal("10000.00"),
+            rank=3,
+            trades_count=0,
+            last_decision="Initial state",
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        session.add(agent_state1)
+        session.add(agent_state2)
+        session.add(agent_state3)
+        session.commit()
 
         # Create Trades
         trade1 = Trade(

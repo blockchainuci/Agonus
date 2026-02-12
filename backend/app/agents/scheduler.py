@@ -2,7 +2,7 @@
 Celery-based agent scheduler for orchestration, recovery, and tournament management.
 
 This module provides distributed task execution for:
-- Running agent decision loops
+- Running agent decision loops (concurrently with ThreadPoolExecutor)
 - Managing tournament lifecycles
 - Crash recovery
 - Ranking updates
@@ -12,7 +12,9 @@ This module provides distributed task execution for:
 import logging
 import asyncio
 import redis
-from typing import List, Dict, Any
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Dict, Any, Tuple
 from uuid import UUID
 from datetime import datetime, timezone, timedelta
 
@@ -21,7 +23,15 @@ from sqlalchemy import select
 
 from ..celery_config import celery_app
 from ..db.database import AsyncSessionLocal
-from ..db.models import Tournament, Agent, AgentState, StatusEnum, PlanItem, PlanStatusEnum, PlanActionEnum
+from ..db.models import (
+    Tournament,
+    Agent,
+    AgentState,
+    StatusEnum,
+    PlanItem,
+    PlanStatusEnum,
+    PlanActionEnum,
+)
 from .executor import TradingAgent
 from .tools.database_tool import DatabaseTool
 
@@ -34,6 +44,9 @@ redis_client = redis.from_url(REDIS_URL)
 # Lock settings
 AGENT_LOCK_TIMEOUT = 300  # 5 minutes - max time an agent can hold a lock
 AGENT_LOCK_PREFIX = "agent_lock:"
+
+# Concurrent execution settings
+MAX_CONCURRENT_AGENTS = int(os.getenv("MAX_CONCURRENT_AGENTS", "10"))
 
 
 # ============================================================================
@@ -130,7 +143,9 @@ class AgentTask(Task):
 # ============================================================================
 
 
-@celery_app.task(base=AgentTask, bind=True, name="app.agents.scheduler.run_agent_decision")
+@celery_app.task(
+    base=AgentTask, bind=True, name="app.agents.scheduler.run_agent_decision"
+)
 def run_agent_decision(
     self, agent_uuid: str, tournament_uuid: str, recover_from_crash: bool = True
 ) -> Dict[str, Any]:
@@ -192,7 +207,9 @@ async def _run_agent_decision_async(
                 raise ValueError(f"Agent not found: {agent_uuid}")
 
             # Get risk score from agent stats, default to 0.5
-            risk_score = agent_model.stats.get("risk_score", 0.5) if agent_model.stats else 0.5
+            risk_score = (
+                agent_model.stats.get("risk_score", 0.5) if agent_model.stats else 0.5
+            )
 
             # Create database tool
             db_tool = DatabaseTool(session)
@@ -243,7 +260,9 @@ async def _run_agent_decision_async(
             raise
 
 
-@celery_app.task(base=AgentTask, name="app.agents.scheduler.run_all_live_tournament_agents")
+@celery_app.task(
+    base=AgentTask, name="app.agents.scheduler.run_all_live_tournament_agents"
+)
 def run_all_live_tournament_agents() -> Dict[str, Any]:
     """
     Run decision loops for all agents in live tournaments.
@@ -262,61 +281,162 @@ def run_all_live_tournament_agents() -> Dict[str, Any]:
         raise
 
 
+def _run_single_agent_decision_sync(
+    agent_uuid_str: str, tournament_uuid_str: str
+) -> Dict[str, Any]:
+    """
+    Synchronous wrapper to run a single agent decision in a thread pool.
+
+    This function runs the async agent decision logic in a new event loop
+    within a thread, enabling concurrent execution of multiple agents.
+    Includes distributed locking to prevent duplicate runs.
+
+    Args:
+        agent_uuid_str: Agent UUID string
+        tournament_uuid_str: Tournament UUID string
+
+    Returns:
+        Dict with decision result or error information
+    """
+    if not acquire_agent_lock(agent_uuid_str, tournament_uuid_str):
+        return {
+            "agent_id": agent_uuid_str,
+            "tournament_id": tournament_uuid_str,
+            "status": "skipped",
+            "reason": "Agent already running (locked)",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    try:
+        result = asyncio.run(
+            _run_agent_decision_async(
+                UUID(agent_uuid_str), UUID(tournament_uuid_str), recover_from_crash=True
+            )
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Agent decision failed for {agent_uuid_str}: {e}")
+        return {
+            "agent_id": agent_uuid_str,
+            "tournament_id": tournament_uuid_str,
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    finally:
+        release_agent_lock(agent_uuid_str, tournament_uuid_str)
+
+
 async def _run_all_live_tournament_agents_async() -> Dict[str, Any]:
     """
-    Async implementation of running all live tournament agents.
+    Async implementation of running all live tournament agents with concurrent execution.
+
+    Uses ThreadPoolExecutor to run multiple agent decisions in parallel,
+    significantly reducing total execution time when many agents are active.
+    Each agent runs in its own thread with proper isolation.
     """
     async with AsyncSessionLocal() as session:
-        # Get all live tournaments
         stmt = select(Tournament).where(Tournament.status == StatusEnum.live)
         result = await session.execute(stmt)
         tournaments = result.scalars().all()
 
         logger.info(f"Found {len(tournaments)} live tournaments")
 
-        tasks_launched = []
+        agents_to_process: List[Tuple[str, str]] = []
         tasks_skipped = []
 
         for tournament in tournaments:
-            # Get agents from AgentState (already initialized agents)
             stmt = select(AgentState).where(AgentState.tournament_id == tournament.id)
             result = await session.execute(stmt)
             agent_states = result.scalars().all()
 
             logger.info(f"Tournament '{tournament.name}': {len(agent_states)} agents")
 
-            # Launch async task for each agent
             for agent_state in agent_states:
                 agent_uuid_str = str(agent_state.agent_id)
                 tournament_uuid_str = str(tournament.id)
 
-                # Check if already locked (running)
                 if is_agent_locked(agent_uuid_str, tournament_uuid_str):
                     logger.info(f"Agent {agent_uuid_str} already running, skipping")
-                    tasks_skipped.append({
-                        "agent_id": agent_uuid_str,
-                        "tournament_id": tournament_uuid_str,
-                        "reason": "already_running",
-                    })
+                    tasks_skipped.append(
+                        {
+                            "agent_id": agent_uuid_str,
+                            "tournament_id": tournament_uuid_str,
+                            "reason": "already_running",
+                        }
+                    )
                     continue
 
-                # Launch task
-                task = run_agent_decision.delay(
-                    agent_uuid=agent_uuid_str,
-                    tournament_uuid=tournament_uuid_str,
-                    recover_from_crash=True,
-                )
-                tasks_launched.append({
-                    "task_id": task.id,
-                    "agent_id": agent_uuid_str,
-                    "tournament_id": tournament_uuid_str,
-                })
+                agents_to_process.append((agent_uuid_str, tournament_uuid_str))
+
+        if not agents_to_process:
+            logger.info("No agents to process")
+            return {
+                "tournaments_processed": len(tournaments),
+                "tasks_launched": 0,
+                "tasks_skipped": len(tasks_skipped),
+                "tasks": [],
+                "skipped": tasks_skipped,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+
+        tasks_launched = []
+        tasks_failed = []
+
+        logger.info(
+            f"Processing {len(agents_to_process)} agents concurrently with max {MAX_CONCURRENT_AGENTS} workers"
+        )
+
+        with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_AGENTS) as executor:
+            future_to_agent = {
+                executor.submit(
+                    _run_single_agent_decision_sync, agent_uuid, tournament_uuid
+                ): (agent_uuid, tournament_uuid)
+                for agent_uuid, tournament_uuid in agents_to_process
+            }
+
+            for future in as_completed(future_to_agent):
+                agent_uuid, tournament_uuid = future_to_agent[future]
+                try:
+                    result = future.result(timeout=300)
+                    if result.get("status") == "error":
+                        tasks_failed.append(
+                            {
+                                "agent_id": agent_uuid,
+                                "tournament_id": tournament_uuid,
+                                "error": result.get("error", "Unknown error"),
+                            }
+                        )
+                    else:
+                        tasks_launched.append(
+                            {
+                                "agent_id": agent_uuid,
+                                "tournament_id": tournament_uuid,
+                                "status": result.get("status", "completed"),
+                            }
+                        )
+                except Exception as e:
+                    logger.error(f"Agent {agent_uuid} failed with exception: {e}")
+                    tasks_failed.append(
+                        {
+                            "agent_id": agent_uuid,
+                            "tournament_id": tournament_uuid,
+                            "error": str(e),
+                        }
+                    )
+
+        logger.info(
+            f"Completed processing {len(agents_to_process)} agents: "
+            f"{len(tasks_launched)} succeeded, {len(tasks_failed)} failed, {len(tasks_skipped)} skipped"
+        )
 
         return {
             "tournaments_processed": len(tournaments),
             "tasks_launched": len(tasks_launched),
+            "tasks_failed": len(tasks_failed),
             "tasks_skipped": len(tasks_skipped),
             "tasks": tasks_launched,
+            "failed": tasks_failed,
             "skipped": tasks_skipped,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
@@ -327,7 +447,9 @@ async def _run_all_live_tournament_agents_async() -> Dict[str, Any]:
 # ============================================================================
 
 
-@celery_app.task(base=AgentTask, name="app.agents.scheduler.check_tournament_transitions")
+@celery_app.task(
+    base=AgentTask, name="app.agents.scheduler.check_tournament_transitions"
+)
 def check_tournament_transitions() -> Dict[str, Any]:
     """
     Check and transition tournament statuses (upcoming -> live -> completed).
@@ -392,6 +514,7 @@ async def _check_tournament_transitions_async() -> Dict[str, Any]:
 
                     # Create initial portfolio
                     from .data_classes import Portfolio
+
                     portfolio = Portfolio(
                         agent_id=agent.name,
                         cash=500.0,
@@ -410,17 +533,21 @@ async def _check_tournament_transitions_async() -> Dict[str, Any]:
                     )
 
                     transitions["agents_initialized"] += 1
-                    logger.info(f"Initialized agent: {agent.name} for tournament {tournament.name}")
+                    logger.info(
+                        f"Initialized agent: {agent.name} for tournament {tournament.name}"
+                    )
 
                 except Exception as e:
                     logger.error(f"Failed to initialize agent {agent_uuid_str}: {e}")
                     # Continue with other agents
 
-            transitions["started"].append({
-                "id": str(tournament.id),
-                "name": tournament.name,
-                "agents_count": len(agent_uuids),
-            })
+            transitions["started"].append(
+                {
+                    "id": str(tournament.id),
+                    "name": tournament.name,
+                    "agents_count": len(agent_uuids),
+                }
+            )
             logger.info(f"Tournament started: {tournament.name}")
 
         # =============================================
@@ -451,11 +578,17 @@ async def _check_tournament_transitions_async() -> Dict[str, Any]:
                     f"value=${winner_state.portfolio_value_usd}"
                 )
 
-            transitions["completed"].append({
-                "id": str(tournament.id),
-                "name": tournament.name,
-                "winner_id": str(tournament.winner_agent_id) if tournament.winner_agent_id else None,
-            })
+            transitions["completed"].append(
+                {
+                    "id": str(tournament.id),
+                    "name": tournament.name,
+                    "winner_id": (
+                        str(tournament.winner_agent_id)
+                        if tournament.winner_agent_id
+                        else None
+                    ),
+                }
+            )
             logger.info(f"Tournament completed: {tournament.name}")
 
         # Commit all changes
@@ -583,11 +716,13 @@ async def _recover_crashed_agents_async() -> Dict[str, Any]:
                 logger.info(
                     f"Stale agent {agent_uuid_str} is currently locked, skipping recovery"
                 )
-                skipped.append({
-                    "agent_id": agent_uuid_str,
-                    "tournament_id": tournament_uuid_str,
-                    "reason": "currently_running",
-                })
+                skipped.append(
+                    {
+                        "agent_id": agent_uuid_str,
+                        "tournament_id": tournament_uuid_str,
+                        "reason": "currently_running",
+                    }
+                )
                 continue
 
             logger.warning(
@@ -603,12 +738,14 @@ async def _recover_crashed_agents_async() -> Dict[str, Any]:
                 recover_from_crash=True,
             )
 
-            recovery_tasks.append({
-                "task_id": task.id,
-                "agent_id": agent_uuid_str,
-                "tournament_id": tournament_uuid_str,
-                "last_updated": agent_state.updated_at.isoformat(),
-            })
+            recovery_tasks.append(
+                {
+                    "task_id": task.id,
+                    "agent_id": agent_uuid_str,
+                    "tournament_id": tournament_uuid_str,
+                    "last_updated": agent_state.updated_at.isoformat(),
+                }
+            )
 
         return {
             "stale_agents_found": len(stale_agents),
@@ -649,7 +786,9 @@ def cleanup_old_results() -> Dict[str, Any]:
     }
 
 
-@celery_app.task(base=AgentTask, name="app.agents.scheduler.initialize_tournament_agents")
+@celery_app.task(
+    base=AgentTask, name="app.agents.scheduler.initialize_tournament_agents"
+)
 def initialize_tournament_agents(
     tournament_uuid: str, agent_uuids: List[str]
 ) -> Dict[str, Any]:
@@ -779,7 +918,9 @@ async def _db_health_check():
 # ============================================================================
 
 
-@celery_app.task(base=AgentTask, bind=True, name="app.agents.scheduler.execute_due_plans")
+@celery_app.task(
+    base=AgentTask, bind=True, name="app.agents.scheduler.execute_due_plans"
+)
 def execute_due_plans(self) -> Dict[str, Any]:
     """
     Poll for due plan items and execute them.
