@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useAccount, useSignMessage, useDisconnect } from "wagmi";
 import { useAuthStore } from "@/src/store/useAuthStore";
 import { API_URL } from "./api";
@@ -23,6 +23,14 @@ export function useWalletAuth() {
   const signOut = useAuthStore((s) => s.signOut);
 
   const isAdmin = role === "admin";
+
+  // Track whether wagmi has had a chance to reconnect after page load
+  const hasHydrated = useRef(false);
+  useEffect(() => {
+    if (isConnected) {
+      hasHydrated.current = true;
+    }
+  }, [isConnected]);
 
   // Check if user needs to sign in (wallet connected but not authenticated)
   const needsSignIn = isConnected && !isAuthenticated && !isSigningIn;
@@ -81,9 +89,10 @@ export function useWalletAuth() {
     disconnect();
   }, [signOut, disconnect]);
 
-  // Clear auth when wallet disconnects
+  // Clear auth when wallet disconnects (but not during initial hydration
+  // when wagmi hasn't reconnected yet — that would wipe the stored token)
   useEffect(() => {
-    if (!isConnected && isAuthenticated) {
+    if (!isConnected && isAuthenticated && hasHydrated.current) {
       signOut();
     }
   }, [isConnected, isAuthenticated, signOut]);

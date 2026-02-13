@@ -195,25 +195,39 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                         </>
                       )}
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (tournamentStatus !== 'LIVE') return;
-                        openBetModal({
-                          tournament_id: tournamentId,
-                          tournament_name: tournament?.name,
-                          agent_id: agentState.agent_id,
-                          agent_name: agentName,
-                          contract_tournament_id: tournament?.contract_tournament_id ?? null,
-                          contract_agent_id:
-                            tournament?.agent_contract_mapping?.[agentState.agent_id] ?? null,
-                        });
-                      }}
-                      disabled={tournamentStatus !== 'LIVE'}
-                      className="mt-2 inline-flex items-center justify-center rounded-lg bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/30 transition disabled:opacity-50 disabled:hover:bg-cyan-500/20 disabled:cursor-not-allowed"
-                    >
-                      {tournamentStatus === 'LIVE' ? 'Place Bet' : tournamentStatus === 'UPCOMING' ? 'Betting Opens Soon' : 'Tournament Ended'}
-                    </button>
+                    {tournamentStatus === 'LIVE' && !tournament?.betting_closed ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openBetModal({
+                            tournament_id: tournamentId,
+                            tournament_name: tournament?.name,
+                            agent_id: agentState.agent_id,
+                            agent_name: agentName,
+                            contract_tournament_id: tournament?.contract_tournament_id ?? null,
+                            contract_agent_id:
+                              tournament?.agent_contract_mapping?.[agentState.agent_id] ?? null,
+                          });
+                        }}
+                        className="mt-2 inline-flex items-center justify-center rounded-lg bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/30 transition"
+                      >
+                        Place Bet
+                      </button>
+                    ) : (
+                      <span className={`mt-2 inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
+                        tournamentStatus === 'ENDED'
+                          ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                          : tournament?.betting_closed
+                            ? 'bg-orange-500/10 border border-orange-500/20 text-orange-400'
+                            : 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400'
+                      }`}>
+                        {tournamentStatus === 'ENDED'
+                          ? 'Tournament Ended'
+                          : tournament?.betting_closed
+                            ? 'Betting Closed'
+                            : 'Betting Opens Soon'}
+                      </span>
+                    )}
                   </div>
                   </div>
 
