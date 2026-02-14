@@ -8,14 +8,14 @@ import { AgentState, ID } from "../types";
  */
 export function useTournamentAgentStates(tournamentId: ID) {
   return useQuery<AgentState[]>({
-    queryKey: ["tournaments", tournamentId, "agent-states"],
+    queryKey: ["tournaments", tournamentId, "agents"],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/tournaments/${tournamentId}/agents`);
       if (!res.ok) throw new Error("Failed to fetch tournament agent states");
       return res.json();
     },
     enabled: !!tournamentId,
-    refetchInterval: 5000, // Update every 5 seconds for live data
+    refetchInterval: 15000,
   });
 }
 

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { motion } from "framer-motion";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, usePublicClient, useSwitchChain } from "wagmi";
 
 import { useBettingStore } from "@/src/store/useBettingStore";
 import { useTournamentStore } from "@/src/store/useTournamentStore";
@@ -20,6 +20,7 @@ export default function BetModal() {
     (s) => s.selectedTournamentStatus
   );
   const publicClient = usePublicClient({ chainId: AGONUS_CHAIN_ID });
+  const { switchChain } = useSwitchChain();
 
   const placeBetOnchain = usePlaceBetOnchain();
   const {
@@ -47,8 +48,9 @@ export default function BetModal() {
 
   const bettingClosed = tournamentStatus !== "LIVE";
   const amountNum = Number(draft.amount_eth);
+  const MIN_BET = 0.001;
   const amountInvalid =
-    !draft.amount_eth || Number.isNaN(amountNum) || amountNum <= 0;
+    !draft.amount_eth || Number.isNaN(amountNum) || amountNum < MIN_BET;
 
   const canSubmit =
     !!draft.tournament_id &&
@@ -71,7 +73,11 @@ export default function BetModal() {
       return;
     }
     if (chainId && chainId !== AGONUS_CHAIN_ID) {
-      setError(`Switch to Base Sepolia (${AGONUS_CHAIN_ID}) to place a bet.`);
+      try {
+        await switchChain({ chainId: AGONUS_CHAIN_ID });
+      } catch {
+        setError(`Switch to Base Sepolia (${AGONUS_CHAIN_ID}) to place a bet.`);
+      }
       return;
     }
     if (!isAuthenticated) {
@@ -83,7 +89,7 @@ export default function BetModal() {
       return;
     }
     if (amountInvalid) {
-      setError("Enter a valid amount greater than 0.");
+      setError(`Minimum bet is ${MIN_BET} ETH.`);
       return;
     }
     if (!draft.contract_tournament_id || !draft.contract_agent_id) {
@@ -218,7 +224,7 @@ export default function BetModal() {
 
         {amountInvalid && (
           <p className="mt-2 text-xs text-red-400">
-            Amount must be greater than 0.
+            Minimum bet is 0.001 ETH.
           </p>
         )}
 

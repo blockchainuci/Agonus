@@ -266,7 +266,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
                 <div className="pt-3 border-t border-white/5">
                   <p className="text-xs text-gray-400 mb-1">Bet Amount</p>
                   <p className="font-bold text-white text-lg mb-1">
-                    {bet.amount_eth} ETH
+                    {bet.amount_eth || bet.amount || '0'} ETH
                   </p>
                   <p className="text-[10px] text-gray-500">
                     Placed:{' '}
