@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, XCircle, Clock, Zap, RefreshCw } from 'lucide-react';
-import { useAccount } from 'wagmi';
+import { Trophy, XCircle, Clock, Zap, RefreshCw, Gift } from 'lucide-react';
+import { useAccount, useSwitchChain } from 'wagmi';
 
 import { useWalletAuth } from '@/src/hooks/useWalletAuth';
 import { useBettingStore } from '@/src/store/useBettingStore';
 import { useAgents } from '@/src/hooks/useAgents';
 import { useTournament } from '@/src/hooks/useTournaments';
+import { useClaimStatus, useClaimWinningsOnchain } from '@/src/hooks/useOnchainBetting';
+import { AGONUS_CHAIN_ID } from '@/src/lib/agonusContract';
+import { settleBet } from '@/src/lib/api/bets';
 import type { Bet } from '@/src/types/bets';
 
 interface ActiveBetsProps {
@@ -17,16 +20,10 @@ interface ActiveBetsProps {
 
 type UiStatus = 'active' | 'won' | 'lost';
 
-const getUiStatus = (status: Bet['status']): UiStatus => {
-  if (status === 'PENDING' || status === 'CONFIRMED') return 'active';
-  if (status === 'SETTLED') return 'won';
-  return 'lost';
-};
-
 const statusLabel: Record<UiStatus, string> = {
   active: 'Active',
-  won: 'Settled',
-  lost: 'Canceled/Failed',
+  won: 'Won',
+  lost: 'Lost',
 };
 
 const statusIcon = (uiStatus: UiStatus) => {
@@ -48,6 +45,66 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
   const { data: agents } = useAgents();
   const { data: tournament } = useTournament(tournamentId);
 
+  // On-chain claim status
+  const contractTournamentId = tournament?.contract_tournament_id;
+  const isTournamentSettled = tournament?.status === 'completed';
+  const {
+    claimed: alreadyClaimed,
+    payoutEth,
+    hasClaimable,
+    isLoading: claimStatusLoading,
+    refetch: refetchClaimStatus,
+  } = useClaimStatus(isTournamentSettled ? contractTournamentId : null);
+
+  const claimWinningsOnchain = useClaimWinningsOnchain();
+  const [claimState, setClaimState] = useState<'idle' | 'confirming' | 'pending' | 'success' | 'error'>('idle');
+  const [claimError, setClaimError] = useState<string | null>(null);
+
+  const { chainId } = useAccount();
+  const wrongNetwork = isConnected && chainId !== AGONUS_CHAIN_ID;
+  const { switchChain, isPending: isSwitching } = useSwitchChain();
+
+  const handleClaim = useCallback(async () => {
+    if (!contractTournamentId || wrongNetwork) return;
+    try {
+      setClaimState('confirming');
+      setClaimError(null);
+      await claimWinningsOnchain(contractTournamentId);
+      setClaimState('success');
+      refetchClaimStatus();
+
+      // Sync backend: mark bets as settled so they move to "Past"
+      const winnerId = tournament?.winner_agent_id;
+      const totalPayout = parseFloat(payoutEth) || 0;
+      const betsForTournament = myBets.filter(
+        (b) => String(b.tournament_id) === String(tournamentId) && !b.settled
+      );
+      // Calculate total amount bet on the winner to split payout proportionally
+      const winningBets = betsForTournament.filter(
+        (b) => winnerId && String(b.agent_id) === String(winnerId)
+      );
+      const totalWinningAmount = winningBets.reduce(
+        (sum, b) => sum + (parseFloat(String(b.amount_eth ?? b.amount)) || 0), 0
+      );
+
+      await Promise.allSettled(
+        betsForTournament.map((bet) => {
+          const isWinner = winnerId && String(bet.agent_id) === String(winnerId);
+          const betAmount = parseFloat(String(bet.amount_eth ?? bet.amount)) || 0;
+          const betPayout = isWinner && totalWinningAmount > 0
+            ? (betAmount / totalWinningAmount) * totalPayout
+            : 0;
+          return settleBet(String(bet.id), betPayout);
+        })
+      );
+      refreshMyBets(tournamentId);
+    } catch (err: unknown) {
+      console.error('Claim failed:', err);
+      setClaimState('error');
+      setClaimError((err as Error)?.message || 'Claim transaction failed');
+    }
+  }, [contractTournamentId, wrongNetwork, claimWinningsOnchain, refetchClaimStatus, tournament, payoutEth, myBets, tournamentId, refreshMyBets]);
+
   // Create a lookup map: agent_id -> agent data
   const agentMap = useMemo(() => {
     if (!agents) return new Map<string, { name: string; strategy_type: string }>();
@@ -63,8 +120,24 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
     (b) => String(b.tournament_id) === String(tournamentId)
   );
 
-  const active = scopedBets.filter((b) => getUiStatus(b.status) === 'active');
-  const past = scopedBets.filter((b) => getUiStatus(b.status) !== 'active');
+  // Determine bet status based on tournament state, not just backend settled field
+  const winnerId = tournament?.winner_agent_id;
+  const getBetUiStatus = (bet: Bet): UiStatus => {
+    // If tournament is completed, use winner to determine won/lost
+    if (isTournamentSettled) {
+      if (winnerId && String(bet.agent_id) === String(winnerId)) return 'won';
+      return 'lost';
+    }
+    // If bet is already settled in backend
+    if (bet.settled) {
+      return bet.payout && Number(bet.payout) > 0 ? 'won' : 'lost';
+    }
+    if (bet.status === 'CANCELED' || bet.status === 'FAILED') return 'lost';
+    return 'active';
+  };
+
+  const active = scopedBets.filter((b) => getBetUiStatus(b) === 'active');
+  const past = scopedBets.filter((b) => getBetUiStatus(b) !== 'active');
   const displayed = filter === 'active' ? active : past;
 
   return (
@@ -242,7 +315,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
 
                   {/* Status Badge */}
                   {(() => {
-                    const uiStatus = getUiStatus(bet.status);
+                    const uiStatus = getBetUiStatus(bet);
                     const Icon = statusIcon(uiStatus);
                     const color =
                       uiStatus === 'won'
@@ -281,6 +354,87 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* CLAIM WINNINGS BANNER */}
+      {isConnected && isAuthenticated && isTournamentSettled && contractTournamentId && scopedBets.length > 0 && (
+        <div className="mt-4 shrink-0">
+          {claimStatusLoading ? (
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10 text-center">
+              <p className="text-sm text-gray-400">Checking claim status...</p>
+            </div>
+          ) : alreadyClaimed ? (
+            <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-green-400" />
+                <p className="text-sm font-semibold text-green-400">Winnings Claimed</p>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                You have already claimed your winnings for this tournament.
+              </p>
+            </div>
+          ) : hasClaimable ? (
+            <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/30">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Gift className="w-5 h-5 text-green-400" />
+                  <div>
+                    <p className="text-sm font-bold text-white">Claim Your Winnings</p>
+                    <p className="text-xs text-gray-400">Tournament settled</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-green-400">{payoutEth} ETH</p>
+                </div>
+              </div>
+
+              {wrongNetwork && (
+                <button
+                  onClick={() => switchChain({ chainId: AGONUS_CHAIN_ID })}
+                  disabled={isSwitching}
+                  className="w-full bg-red-500/20 border border-red-700 text-red-300 text-sm p-2.5 rounded-lg mb-3 hover:bg-red-500/30 transition font-medium"
+                >
+                  {isSwitching ? 'Switching...' : `Switch to Base Sepolia to claim`}
+                </button>
+              )}
+
+              {claimState === 'error' && claimError && (
+                <div className="bg-red-500/20 border border-red-700 text-red-300 text-xs p-2 rounded-md mb-3">
+                  {claimError}
+                </div>
+              )}
+
+              {claimState === 'success' ? (
+                <div className="bg-green-500/20 border border-green-500/30 text-green-300 text-xs p-2 rounded-md">
+                  Winnings claimed successfully!
+                </div>
+              ) : (
+                <button
+                  onClick={handleClaim}
+                  disabled={wrongNetwork || claimState === 'confirming' || claimState === 'pending'}
+                  className={`w-full px-4 py-2.5 rounded-lg font-semibold text-sm transition ${
+                    wrongNetwork || claimState === 'confirming' || claimState === 'pending'
+                      ? 'bg-gray-600 cursor-not-allowed opacity-50'
+                      : 'bg-green-500 hover:bg-green-400 text-black'
+                  }`}
+                >
+                  {claimState === 'confirming'
+                    ? 'Confirm in Wallet...'
+                    : claimState === 'pending'
+                    ? 'Claiming...'
+                    : 'Claim Winnings'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <div className="flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-gray-500" />
+                <p className="text-sm text-gray-400">No winnings to claim for this tournament.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

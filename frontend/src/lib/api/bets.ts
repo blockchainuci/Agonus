@@ -18,6 +18,12 @@ export async function createBet(req: CreateBetRequest): Promise<Bet> {
   return "bet" in data ? data.bet : data;
 }
 
+export async function settleBet(betId: string, payout: number): Promise<Bet> {
+  return apiFetch<Bet>(`/bets/${betId}/settle?payout=${payout}`, {
+    method: "PATCH",
+  });
+}
+
 export async function getMyBets(params?: {
   tournament_id?: string | number;
 }): Promise<Bet[]> {
