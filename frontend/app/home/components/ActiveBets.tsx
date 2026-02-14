@@ -199,7 +199,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
 
       {/* BETS LIST */}
       <div className="space-y-2 flex-1 overflow-y-auto pr-2">
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {!isConnected ? (
             <motion.div
               key="connect-placeholder"

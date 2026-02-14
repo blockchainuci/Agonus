@@ -249,18 +249,10 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                         animate={{ width: `${percentOfTotal}%` }}
                         transition={{ duration: 1, delay: index * 0.1 }}
                       >
-                        {/* shimmer effect */}
-                        <motion.div
-                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                          animate={{
-                            x: ['-100%', '200%'],
-                          }}
-                          transition={{
-                            duration: 2,
-                            repeat: Infinity,
-                            ease: 'linear',
-                            delay: index * 0.3,
-                          }}
+                        {/* shimmer effect – pure CSS to avoid unmount warnings */}
+                        <div
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"
+                          style={{ animationDelay: `${index * 0.3}s` }}
                         />
                       </motion.div>
                     </div>
