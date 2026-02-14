@@ -26,7 +26,7 @@ load_dotenv()
 
 from sqlalchemy import select, delete
 from app.db.database import AsyncSessionLocal
-from app.db.models import Agent, Tournament, AgentState, Trade, StatusEnum
+from app.db.models import Agent, Tournament, AgentState, Trade, Bet, PlanItem, AgentResearchArtifact, StatusEnum
 
 
 # ============================================================================
@@ -106,7 +106,10 @@ async def clear_existing_data(session):
     """Clear existing data (optional - for clean slate)."""
     print("\n[1/4] Clearing existing data...")
 
-    # Delete in order due to foreign keys
+    # Delete in order due to foreign keys (children before parents)
+    await session.execute(delete(Bet))
+    await session.execute(delete(PlanItem))
+    await session.execute(delete(AgentResearchArtifact))
     await session.execute(delete(Trade))
     await session.execute(delete(AgentState))
     await session.execute(delete(Tournament))

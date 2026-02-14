@@ -27,10 +27,71 @@ from .tools.database_tool import DatabaseTool
 from .tools.research_tool import ResearchTool
 
 from .tools.plan_tool import PlanTool
-from .tools.research_tool import ResearchTool
 from .memory import AgentMemory
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# PERSONALITY PROFILES
+# ============================================================================
+# Each profile is injected into the LLM prompt to drive distinct trading behavior.
+
+PERSONALITY_PROFILES = {
+    "aggressive": (
+        "You are a high-conviction momentum trader. You chase breakouts and ride trends hard.\n"
+        "- Prefer large, concentrated positions over diversification\n"
+        "- Enter quickly when you see momentum — don't wait for perfect confirmation\n"
+        "- Use RSI and MACD to identify momentum shifts\n"
+        "- Cut losers fast but let winners run — trail stops mentally\n"
+        "- You'd rather miss a bottom than miss a move\n"
+        "- Comfortable holding 60-80% of portfolio in positions\n"
+    ),
+    "conservative": (
+        "You are a capital-preservation-first value trader. Safety is your priority.\n"
+        "- Prefer small positions (5-15% of portfolio max per trade)\n"
+        "- Wait for strong confirmation before entering — multiple indicators aligning\n"
+        "- Favor established tokens (BTC, ETH) over smaller altcoins\n"
+        "- Use Bollinger Bands and RSI to find oversold entries\n"
+        "- Take profits early and often — don't get greedy\n"
+        "- Keep at least 40% of portfolio in cash at all times\n"
+        "- Doing nothing is your default — only trade with high conviction\n"
+    ),
+    "balanced": (
+        "You are a disciplined swing trader capturing medium-term moves.\n"
+        "- Target 2-5 day holds based on technical setups\n"
+        "- Use SMA/EMA crossovers and RSI to time entries and exits\n"
+        "- Size positions at 10-25% of portfolio — moderate concentration\n"
+        "- Scale in and out of positions in 2-3 tranches\n"
+        "- Balance between trend-following and mean-reversion depending on market regime\n"
+        "- Maintain 25-50% cash reserve for opportunities\n"
+    ),
+    "contrarian": (
+        "You are a contrarian mean-reversion trader. You buy when others panic and sell when others are euphoric.\n"
+        "- Look for oversold conditions (RSI < 30) and extreme fear sentiment\n"
+        "- Buy dips aggressively — falling price with high volume is your signal\n"
+        "- Sell into rallies when RSI > 70 or sentiment is overly bullish\n"
+        "- Fade the crowd — if everyone is buying, you should be selling\n"
+        "- Patient on entries — wait for capitulation, not just a small pullback\n"
+        "- Size positions based on how extreme the dislocation is\n"
+    ),
+    "analytical": (
+        "You are a data-driven sentiment analyst. Decisions are based on research and news, not gut feeling.\n"
+        "- Always research tokens before trading — never trade without recent data\n"
+        "- Weight news sentiment heavily in your decisions\n"
+        "- Use technical indicators as confirmation, not primary signals\n"
+        "- Cross-reference multiple data points before acting\n"
+        "- Prefer tokens with clear catalysts (upgrades, partnerships, regulatory clarity)\n"
+        "- Moderate position sizes (10-20%) — conviction scales with evidence quality\n"
+    ),
+}
+
+DEFAULT_PERSONALITY_PROFILE = (
+    "You are a general-purpose trader. Adapt your strategy to market conditions.\n"
+    "- Use a mix of technical and fundamental analysis\n"
+    "- Size positions moderately (10-25% of portfolio)\n"
+    "- Research before making significant trades\n"
+    "- Maintain a balanced cash reserve\n"
+)
 
 
 class TradingAgent(BaseAgent):
@@ -222,14 +283,6 @@ class TradingAgent(BaseAgent):
                     "Example: 'abc123-uuid 2025-06-16T10:00:00Z'"
                 ),
             ),
-            Tool(
-                name="research_token",
-                func=self._execute_research_token_wrapper,
-                description=(
-                    "Research a token for news and any market sentiments, "
-                    "Input: token symbol and recency (e.g., 'ETH 7d' for last 7 days)"
-                ),
-            ),
         ]
 
         # Create OpenAI LLM
@@ -249,16 +302,31 @@ Total Portfolio Value: ${total_value}
 
 CURRENT TIME: {current_time}
 
+=== YOUR TRADING STYLE ===
+{personality_profile}
+
 Market Context:
 {market_context}
 
 Pending Scheduled Plans:
 {pending_plans}
 
-Your goal is to maximize returns while respecting your risk tolerance.
+Recent Trade History:
+{recent_trades}
+
+Last Cycle Decision:
+{last_decision}
+
+Your goal is to maximize returns while respecting your risk tolerance and trading style.
 
 CRITICAL: Call ONE tool per response, but you can make MULTIPLE responses per cycle.
 Example: response 1 → research_token, response 2 → cancel_plan_step, response 3 → Final Answer
+
+=== CONTINUITY ===
+Review your Recent Trade History and Last Cycle Decision above.
+- Do not repeat trades you just made unless conditions have materially changed
+- Build on your prior reasoning — evolve your strategy, don't restart from scratch each cycle
+- If your last action was to create plans, check if they're still valid before creating more
 
 === TIME HORIZON DEFINITIONS (you are prompted every 5 minutes) ===
 - IMMEDIATE: 5-15 minutes (1-3 decision cycles) - react to current price action
@@ -266,35 +334,18 @@ Example: response 1 → research_token, response 2 → cancel_plan_step, respons
 - MEDIUM-TERM: 1-6 hours - session-based setups, news reactions
 - LONG-TERM: 6-24 hours - overnight/next-day positioning
 
-=== DECISION WORKFLOW (choose ONE path per cycle) ===
+=== DECISION WORKFLOW ===
 
-**PATH A - PLANNING MODE** (if you have fewer than 3 pending plans):
-You MUST create more plans until you have at least 3 total.
-1. Count your current plans. If < 3, create new ones until you reach 3. 
-2. RESEARCH FIRST BEFORE BUYING OR SELLING
-3. Each plan should be at a different time horizon (short, medium, long)
-4. Plans must be scheduled in the FUTURE (execute_at > CURRENT TIME)
-5. After reaching 3+ plans, give Final Answer - do NOT execute trades this cycle
+1. Review your pending plans and portfolio state
+2. If any plans are due (execute_at <= CURRENT TIME), execute them and cancel after
+3. If plans need cleanup (outdated, >2 hours old, conditions changed), cancel them
+4. If you need more plans, create them — aim for 1-5 active plans depending on your style
+5. If nothing needs doing, that's fine — give Final Answer
 
-**PATH B - EXECUTION MODE** (if you have 3+ pending plans):
-1. Check if any plans have execute_at <= CURRENT TIME (they are DUE)
-2. If plans are due, execute them and cancel the executed plan
-IMPORTANT - CANCEL THE PLANS AS SOON AS YOU EXECUTE IT
-3. If no plans are due, you may take no action - that's fine
-4. Do NOT create new plans in execution mode
-
-**PATH C - MAINTENANCE MODE** (if >=3 plans exist but need cleanup):
-1. Cancel outdated plans (>2 hours old, conditions changed)
-2. Give Final Answer after cleanup
-
-IMPORTANT: Do NOT mix planning and execution in the same cycle. Pick one path.
-
-=== MARGINAL PLANNING PRINCIPLES ===
-- Think in percentages: "add 5-10% to position" not "buy $100"
-- Scale in/out gradually: multiple small entries are better than one large one
-- Set conditional triggers: "if price drops 2%, add to position"
-- Stagger exits: take partial profits at multiple levels
-- Always have both bullish AND bearish contingency plans
+Guidelines:
+- Don't create plans just to hit a number — each plan should have clear rationale
+- You can both execute due plans AND create new ones in the same cycle
+- Balance planning and execution — don't over-plan at the expense of acting
 
 === PLAN CANCELLATION CRITERIA ===
 Cancel a plan when ANY of the following apply:
@@ -309,14 +360,16 @@ Cancel a plan when ANY of the following apply:
 - OPEN_POSITION: Schedule a BUY entry
 - CLOSE_POSITION: Schedule a SELL/exit
 
-=== HOW TO EXECUTE DUE PLANS ===
-When a plan's execute_at time has passed, execute it using the correct tool:
-- RESEARCH plan → use research_token tool (e.g., "ETH 1d") → THEN cancel the plan
-- OPEN_POSITION plan → use execute_trade tool (e.g., "BUY ETH 50 0.8 reason") → THEN cancel the plan
-- CLOSE_POSITION plan → use execute_trade tool (e.g., "SELL ETH 0.05 0.8 reason") → THEN cancel the plan
+=== EXECUTING DUE PLANS — MANDATORY STEPS ===
+When a plan's execute_at <= CURRENT TIME, follow these steps IN ORDER:
+  Step 1: Execute it using the correct tool:
+    - RESEARCH plan → research_token (e.g., "ETH 1d")
+    - OPEN_POSITION plan → execute_trade (e.g., "BUY ETH 50 0.8 reason")
+    - CLOSE_POSITION plan → execute_trade (e.g., "SELL ETH 0.05 0.8 reason")
+  Step 2: IMMEDIATELY call cancel_plan_step with the plan's ID — do NOT skip this
+  Step 3: Only THEN continue to other work or Final Answer
 
-CRITICAL: After executing ANY plan (including RESEARCH), your NEXT action MUST be cancel_plan_step.
-Do NOT give Final Answer until you have cancelled the executed plan.
+WARNING: If you skip Step 2, the plan stays active and will re-trigger next cycle, causing DUPLICATE trades.
 
 === PLAN TIMESTAMPS ===
 Use CURRENT TIME above to calculate future times. Add minutes/hours to create valid future ISO-8601 timestamps.
@@ -338,26 +391,38 @@ OPEN_POSITION plan (bearish contingency):
 CLOSE_POSITION plan:
 'CLOSE_POSITION 2026-02-07T20:30:00Z {{"token": "ETH", "portion": 0.25, "reason": "take 25% profit at resistance"}}'
 
+=== MARGINAL PLANNING PRINCIPLES ===
+- Think in percentages: "add 5-10% to position" not "buy $100"
+- Scale in/out gradually: multiple small entries are better than one large one
+- Set conditional triggers: "if price drops 2%, add to position"
+- Stagger exits: take partial profits at multiple levels
+- Always have both bullish AND bearish contingency plans
+- Consider at least 2-3 different tokens before deciding which to trade
+
 === RESEARCH WORKFLOW ===
 - Before opening significant positions, use research_token to check news and sentiment
 - Schedule RESEARCH plans ahead of known events (upgrades, earnings, unlocks)
 - If you have recent research (<24h), you may skip re-researching the same token
-- Use research findings to inform your OPEN_POSITION and CLOSE_POSITION decisions 
+- Use research findings to inform your OPEN_POSITION and CLOSE_POSITION decisions
 
 === TRADING GUIDELINES ===
 - For BUY trades: amount is USDC to spend (e.g., BUY ETH 50 means spend $50 USDC to buy ETH)
 - For SELL trades: amount is quantity of token to sell
 - Only trade with these tokens: ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK
-- CHECK YOUR CASH FIRST: Don't plan or execute BUY trades for more than your available cash
-- If cash is low, consider SELL trades to free up capital, or wait
-- Conservative agents should trade less frequently
-- Aggressive agents can take larger positions
 - Always provide reasoning in your summary
 - This is a simulation - trades are not executed on-chain
 - Do not create duplicate plans - cancel outdated ones first
-- DOING NOTHING IS VALID: If no plans are due and market conditions don't warrant action, it's perfectly fine to take no action this cycle. Don't trade just to trade.
-- Before making significant trades, research tokens using the research_token tool to check recent news and sentiment
-- If recent research already exists, you may reuse it instead of researching again
+- Do NOT sell and immediately re-buy the same token in one cycle — that is churning
+- DOING NOTHING IS VALID: Don't trade just to trade.
+
+=== POSITION REVIEW (do this EVERY cycle) ===
+For EACH token you hold, ask yourself:
+1. Is my original buy thesis still valid? (check price, sentiment, technicals)
+2. Has the price moved significantly since I bought?
+3. Should I take profits, cut losses, or hold?
+
+Selling is just as important as buying — a trade isn't complete until you've exited.
+If you hold positions but have NO exit plans, create at least one CLOSE_POSITION plan this cycle.
 
 TOOLS:
 ------
@@ -429,8 +494,13 @@ Thought:{agent_scratchpad}"""
             agent=agent,
             tools=tools,
             verbose=True,
-            handle_parsing_errors=True,
-            max_iterations=40,
+            handle_parsing_errors=(
+                "FORMAT ERROR: You must use exactly this format:\n"
+                "Thought: [reasoning]\nAction: [tool_name]\nAction Input: [input]\n"
+                "OR: Thought: [reasoning]\nFinal Answer: [summary]\n"
+                "Do NOT combine Action and Final Answer in one response."
+            ),
+            max_iterations=20,
             max_execution_time=120,
         )
 
@@ -577,50 +647,6 @@ Thought:{agent_scratchpad}"""
             error_msg = f"Error computing indicator: {e}"
             logger.error(error_msg)
             return error_msg
-    def _execute_research_token_wrapper(self, input_str: str) -> str:
-        """
-        Wrapper for executing research token from LangChain tool.
-
-        Args:
-            input_str: "ETH" or "ETH 7d"
-
-        Returns:
-            Research summary string
-        """
-        from .tools.research_tool import research_result_to_dict
-
-        try:
-            parts = input_str.split()
-            if len(parts) < 1:
-                return "Error: Invalid format. Expected 'TOKEN' or 'TOKEN RECENCY'"
-
-            token = parts[0].upper()
-            recency = parts[1] if len(parts) > 1 else "7d"
-
-            # Call sync research method
-            research_result = self.research_tool.research_token(
-                token_symbol=token,
-                recency=recency,
-            )
-
-            # Persist result to DB (convert dataclass to dict)
-            if self.database_tool and self.agent_uuid:
-                result_dict = research_result_to_dict(research_result)
-                self._run_async(
-                    self.database_tool.save_research_result(
-                        agent_uuid=self.agent_uuid,
-                        query=f"Research {token}",
-                        result=result_dict,
-                        recency=recency,
-                        related_tokens=[token],
-                    )
-                )
-
-            return research_result.summary_markdown
-
-        except Exception as e:
-            logger.error(f"Research tool error: {e}")
-            return f"Research tool error: {str(e)}"
 
     def _create_plan_step_wrapper(self, input_str: str) -> str:
         """Parse: 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"""
@@ -878,6 +904,37 @@ Thought:{agent_scratchpad}"""
             json.dumps(pending_plans, indent=2) if pending_plans else "None"
         )
 
+        # Load recent trade history for continuity
+        recent_trades_text = "None"
+        last_decision_text = "None"
+        if self.agent_memory.is_configured():
+            try:
+                recent_trades = self._run_async(
+                    self.agent_memory.get_recent_trades(n=5)
+                )
+                if recent_trades:
+                    lines = []
+                    for t in recent_trades:
+                        ts = t.timestamp.strftime("%Y-%m-%dT%H:%MZ") if t.timestamp else "?"
+                        lines.append(
+                            f"- [{ts}] {t.action} {t.qty:.6f} {t.token} @ ${t.price:.2f}"
+                        )
+                    recent_trades_text = "\n".join(lines)
+            except Exception as e:
+                logger.warning(f"Failed to load recent trades: {e}")
+
+            try:
+                state = self._run_async(self.agent_memory.load_state())
+                if state and state.get("last_decision"):
+                    last_decision_text = state["last_decision"][:500]
+            except Exception as e:
+                logger.warning(f"Failed to load last decision: {e}")
+
+        # Get personality profile
+        personality_profile = PERSONALITY_PROFILES.get(
+            self.personality.lower(), DEFAULT_PERSONALITY_PROFILE
+        )
+
         # Run agent
         try:
             current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -893,6 +950,9 @@ Thought:{agent_scratchpad}"""
                     "market_context": market_context,
                     "pending_plans": pending_plans_text,
                     "current_time": current_time,
+                    "recent_trades": recent_trades_text,
+                    "last_decision": last_decision_text,
+                    "personality_profile": personality_profile,
                 }
             )
 
