@@ -2,11 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
+import logging
 
 from ...db.database import get_db
 from ...db.models import Agent
 from ...schemas.agent import AgentCreate, AgentUpdate, AgentResponse
 from ..deps import require_admin
+from ...agents.onchain.wallet_utils import generate_wallet, encrypt_private_key
+from ...agents.onchain.tenderly import setup_agent_wallet
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -46,8 +51,12 @@ async def create_agent(
     session: AsyncSession = Depends(get_db),
     admin: dict = Depends(require_admin),
 ):
-    """POST route for creating a new agent (admin only)"""
-    # Create Agent model from schema, excluding None values to use model defaults
+    """
+    POST route for creating a new agent (admin only).
+
+    Automatically generates an Ethereum wallet, encrypts the private key,
+    stores wallet data in the agent's stats, and funds the wallet via Tenderly.
+    """
     agent_dict = agent_data.model_dump(exclude_none=True)
 
     # Ensure stats and memory have default values if not provided
@@ -56,11 +65,41 @@ async def create_agent(
     if 'memory' not in agent_dict:
         agent_dict['memory'] = {}
 
-    agent = Agent(**agent_dict)
+    # Generate new Ethereum wallet for this agent
+    logger.info(f"Generating wallet for agent: {agent_dict.get('name', 'unnamed')}")
+    wallet = generate_wallet()
+    wallet_address = wallet['address']
+    plain_private_key = wallet['private_key']
 
+    # Encrypt private key for secure database storage
+    logger.info(f"Encrypting private key for wallet: {wallet_address}")
+    encrypted_key = encrypt_private_key(plain_private_key)
+
+    # Store wallet credentials in agent stats
+    agent_dict['stats']['wallet_address'] = wallet_address
+    agent_dict['stats']['encrypted_private_key'] = encrypted_key
+    logger.info(f"Wallet credentials stored in agent stats")
+
+    # Create agent with wallet data
+    agent = Agent(**agent_dict)
     session.add(agent)
     await session.commit()
     await session.refresh(agent)
+    logger.info(f"Agent created with ID: {agent.id}")
+
+    # Fund wallet via Tenderly Virtual TestNet
+    try:
+        logger.info(f"Funding wallet via Tenderly: {wallet_address}")
+        setup_agent_wallet(
+            wallet_address=wallet_address,
+            initial_usdc=10000.0,  # Start with 10k USDC
+            initial_eth=1.0        # 1 ETH for gas fees
+        )
+        logger.info(f"Wallet funded successfully: {wallet_address}")
+    except Exception as e:
+        logger.error(f"Failed to fund wallet {wallet_address}: {str(e)}")
+        # Don't fail agent creation if funding fails - wallet can be funded later
+
     return agent
 
 

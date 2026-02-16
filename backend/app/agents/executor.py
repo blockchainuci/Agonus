@@ -3,7 +3,7 @@ TradingAgent executor using LangChain ReAct pattern.
 
 This module implements a complete trading agent that extends BaseAgent and uses
 LangChain's AgentExecutor with tools for market data, portfolio management, and
-simulated trading.
+on-chain trading via Tenderly Virtual TestNet.
 """
 
 import json
@@ -21,13 +21,11 @@ from langchain.prompts import PromptTemplate
 from .base import BaseAgent
 from .data_classes import Trade, Portfolio, MarketData
 from .tools.market_data_tool import MarketDataTool
-from .tools.make_trade_tool import MakeTradeTool
+from .tools.trade_tool import TradeTool
 from .tools.math_tool import MathTool
 from .tools.database_tool import DatabaseTool
 from .tools.research_tool import ResearchTool
-
 from .tools.plan_tool import PlanTool
-from .tools.research_tool import ResearchTool
 from .memory import AgentMemory
 
 logger = logging.getLogger(__name__)
@@ -40,10 +38,18 @@ class TradingAgent(BaseAgent):
     This agent can:
     - Fetch and analyze market data
     - Manage a portfolio with cash and crypto holdings
-    - Execute simulated trades via MakeTradeTool
+    - Execute on-chain trades via TradeTool (Uniswap V3 on Tenderly Virtual TestNet)
     - Make decisions based on market conditions and personality
     - Persist all state to database (no local memory)
     """
+
+    SUPPORTED_TOKENS = ["WETH", "CBBTC"]
+
+    TOKEN_DECIMALS = {
+        "USDC": 6,
+        "WETH": 18,
+        "CBBTC": 8,
+    }
 
     def __init__(
         self,
@@ -93,20 +99,17 @@ class TradingAgent(BaseAgent):
         # Initialize market data tool
         self.market_tool = MarketDataTool()
 
+        # Initialize on-chain trade tool (Tenderly Virtual TestNet)
+        self.trade_tool = TradeTool(
+            agent_id=agent_id,
+            agent_uuid=agent_uuid,
+            database_tool=database_tool,
+        )
+
         # Initialize math tool (technical indicators)
         self.math_tool = MathTool(market_tool=self.market_tool)
-        # Intilialize research tool
+        # Initialize research tool
         self.research_tool = ResearchTool()
-
-        # Initialize simulated trade tool
-        self.make_trade_tool = MakeTradeTool(
-            agent_id=agent_id,
-            portfolio=self.portfolio,
-            market_tool=self.market_tool,
-            database_tool=database_tool,
-            agent_uuid=agent_uuid,
-            tournament_uuid=tournament_uuid,
-        )
 
         # Initialize database-backed memory
         self.agent_memory = AgentMemory(
@@ -123,6 +126,9 @@ class TradingAgent(BaseAgent):
             tournament_uuid=tournament_uuid,
             database_tool=database_tool,
         )
+
+        # Track cost basis for realized PnL (FIFO)
+        self._cost_basis: dict[str, list[dict]] = {}
 
         # Track if we need to recover state
         if recover_from_crash and database_tool and agent_uuid and tournament_uuid:
@@ -168,16 +174,16 @@ class TradingAgent(BaseAgent):
             ),
             Tool(
                 name="get_portfolio_status",
-                func=lambda _: self.make_trade_tool.get_portfolio_status(),
+                func=lambda _: self._get_portfolio_status(),
                 description="Get current portfolio status including cash, holdings, and performance. Input: empty string",
             ),
             Tool(
                 name="execute_trade",
                 func=self._execute_trade_wrapper,
                 description=(
-                    "Execute a simulated trade. Format: 'ACTION TOKEN AMOUNT CONFIDENCE SUMMARY' "
-                    "Example: 'BUY ETH 50 0.8 Bullish momentum detected'. "
-                    "ACTION must be BUY or SELL. TOKEN must be ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK"
+                    "Execute an on-chain trade via Uniswap V3. Format: 'ACTION TOKEN AMOUNT CONFIDENCE SUMMARY' "
+                    "Example: 'BUY WETH 50 0.8 Bullish momentum detected'. "
+                    "ACTION must be BUY or SELL. TOKEN must be WETH or CBBTC. "
                     "AMOUNT is USDC for BUY, token quantity for SELL. "
                     "CONFIDENCE is 0.0-1.0. SUMMARY is brief explanation."
                 ),
@@ -222,14 +228,6 @@ class TradingAgent(BaseAgent):
                     "Example: 'abc123-uuid 2025-06-16T10:00:00Z'"
                 ),
             ),
-            Tool(
-                name="research_token",
-                func=self._execute_research_token_wrapper,
-                description=(
-                    "Research a token for news and any market sentiments, "
-                    "Input: token symbol and recency (e.g., 'ETH 7d' for last 7 days)"
-                ),
-            ),
         ]
 
         # Create OpenAI LLM
@@ -257,6 +255,23 @@ Pending Scheduled Plans:
 
 Your goal is to maximize returns while respecting your risk tolerance.
 
+PLANNING (required every decision cycle):
+1. Review your pending plans above.
+2. If you have fewer than 4 plans, create new ones so you always maintain at least 4 scheduled steps covering short-term (hours), medium-term (days), and long-term (weeks) actions.
+3. If you act on a plan NOW (e.g., execute a trade it describes), cancel that plan step immediately so it does not remain as stale/duplicate.
+4. Revise or cancel any plans that are outdated or no longer relevant.
+5. After updating your plans, decide whether to execute any trades NOW based on current conditions.
+
+Guidelines:
+- For BUY trades: amount is USDC to spend (e.g., BUY WETH 50 means spend $50 USDC to buy WETH)
+- For SELL trades: amount is quantity of token to sell
+- Only trade with these tokens: WETH, CBBTC
+- Check portfolio before trading
+- Conservative agents should trade less frequently
+- Aggressive agents can take larger positions
+- Always provide reasoning in your summary
+- Trades are executed on-chain via Uniswap V3 on Tenderly Virtual TestNet
+- Do not create duplicate plans — cancel outdated ones first
 CRITICAL: Call ONE tool per response, but you can make MULTIPLE responses per cycle.
 Example: response 1 → research_token, response 2 → cancel_plan_step, response 3 → Final Answer
 
@@ -436,7 +451,7 @@ Thought:{agent_scratchpad}"""
 
     def _execute_trade_wrapper(self, trade_input: str) -> str:
         """
-        Wrapper for executing trades from LangChain tool.
+        Wrapper for executing on-chain trades from LangChain tool.
 
         Args:
             trade_input: String format "ACTION TOKEN AMOUNT CONFIDENCE SUMMARY"
@@ -456,23 +471,50 @@ Thought:{agent_scratchpad}"""
             confidence = float(parts[3])
             summary = parts[4]
 
-            # Execute trade - handle async properly
+            # Validate before executing on-chain
+            is_valid, reason = self._validate_trade(action, token, amount)
+            if not is_valid:
+                return f"Trade validation failed: {reason}"
+
+            # Get current price for portfolio tracking
+            price = self.market_tool.get_price(token)
+            if not price or price <= 0:
+                return f"Error: Could not fetch price for {token}"
+
+            # Execute on-chain trade via TradeTool
             trade = self._run_async(
-                self.make_trade_tool.execute_trade(
+                self.trade_tool.execute_trade(
                     action=action,
                     token=token,
-                    amount=amount,
+                    qty=amount,
+                    price=price,
                     confidence=confidence,
                     summary=summary,
-                    risk_score=self.risk_score,
                 )
             )
 
-            logger.info(f"Trade executed successfully: {trade}")
+            # Update local portfolio state from the on-chain result
+            self._update_portfolio_from_trade(trade)
+
+            # Save trade to database
+            if self.database_tool and self.agent_uuid and self.tournament_uuid:
+                try:
+                    self._run_async(
+                        self.database_tool.save_trade(
+                            trade=trade,
+                            agent_uuid=self.agent_uuid,
+                            tournament_uuid=self.tournament_uuid,
+                        )
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to save trade to database: {e}")
+
+            logger.info(f"Trade executed on-chain: {trade}")
 
             return (
-                f"Trade executed successfully! "
+                f"Trade executed on-chain! "
                 f"{action} {trade.qty:.6f} {token} at ${trade.price:.2f}. "
+                f"tx_hash: {trade.tx_hash}. "
                 f"New cash: ${self.portfolio.cash:.2f}, "
                 f"Total value: ${self.portfolio.total_value:.2f}"
             )
@@ -577,50 +619,6 @@ Thought:{agent_scratchpad}"""
             error_msg = f"Error computing indicator: {e}"
             logger.error(error_msg)
             return error_msg
-    def _execute_research_token_wrapper(self, input_str: str) -> str:
-        """
-        Wrapper for executing research token from LangChain tool.
-
-        Args:
-            input_str: "ETH" or "ETH 7d"
-
-        Returns:
-            Research summary string
-        """
-        from .tools.research_tool import research_result_to_dict
-
-        try:
-            parts = input_str.split()
-            if len(parts) < 1:
-                return "Error: Invalid format. Expected 'TOKEN' or 'TOKEN RECENCY'"
-
-            token = parts[0].upper()
-            recency = parts[1] if len(parts) > 1 else "7d"
-
-            # Call sync research method
-            research_result = self.research_tool.research_token(
-                token_symbol=token,
-                recency=recency,
-            )
-
-            # Persist result to DB (convert dataclass to dict)
-            if self.database_tool and self.agent_uuid:
-                result_dict = research_result_to_dict(research_result)
-                self._run_async(
-                    self.database_tool.save_research_result(
-                        agent_uuid=self.agent_uuid,
-                        query=f"Research {token}",
-                        result=result_dict,
-                        recency=recency,
-                        related_tokens=[token],
-                    )
-                )
-
-            return research_result.summary_markdown
-
-        except Exception as e:
-            logger.error(f"Research tool error: {e}")
-            return f"Research tool error: {str(e)}"
 
     def _create_plan_step_wrapper(self, input_str: str) -> str:
         """Parse: 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"""
@@ -713,24 +711,146 @@ Thought:{agent_scratchpad}"""
             # No loop - use asyncio.run()
             return asyncio.run(coro)
 
+    # ============================================================================
+    # PORTFOLIO MANAGEMENT
+    # ============================================================================
+
+    def _validate_trade(
+        self, action: str, token: str, amount: float,
+    ) -> Tuple[bool, str]:
+        """Validate a proposed trade against portfolio constraints."""
+        action = action.upper()
+        token = token.upper()
+
+        if action not in ["BUY", "SELL"]:
+            return False, f"Invalid action: {action}. Must be BUY or SELL"
+
+        if token not in self.SUPPORTED_TOKENS:
+            return False, f"Unsupported token: {token}. Must be one of {self.SUPPORTED_TOKENS}"
+
+        if amount <= 0:
+            return False, f"Invalid amount: {amount}. Must be positive"
+
+        if action == "BUY":
+            if amount > self.portfolio.cash:
+                return False, f"Insufficient cash: have ${self.portfolio.cash:.2f}, need ${amount:.2f}"
+            max_trade_size = self.portfolio.total_value * self.risk_score
+            if amount > max_trade_size:
+                return False, f"Trade size ${amount:.2f} exceeds risk limit ${max_trade_size:.2f}"
+        elif action == "SELL":
+            current_holdings = self.portfolio.holdings.get(token, 0.0)
+            if amount > current_holdings:
+                return False, f"Insufficient {token}: have {current_holdings:.6f}, trying to sell {amount:.6f}"
+
+        return True, "Trade validated"
+
+    def _update_portfolio_from_trade(self, trade: Trade) -> None:
+        """Update local portfolio state after an on-chain trade."""
+        token = trade.token
+        action = trade.action
+
+        if action == "BUY":
+            usdc_spent = trade.qty * trade.price
+            self.portfolio.cash -= usdc_spent
+            self.portfolio.holdings[token] = (
+                self.portfolio.holdings.get(token, 0.0) + trade.qty
+            )
+            # Track cost basis
+            if token not in self._cost_basis:
+                self._cost_basis[token] = []
+            self._cost_basis[token].append({"qty": trade.qty, "price": trade.price})
+
+        elif action == "SELL":
+            usdc_received = trade.qty * trade.price
+            self.portfolio.cash += usdc_received
+            current = self.portfolio.holdings.get(token, 0.0)
+            new_holdings = current - trade.qty
+
+            # Calculate realized PnL via FIFO
+            realized_pnl = self._calculate_realized_pnl(token, trade.qty, trade.price)
+            if realized_pnl is not None:
+                self.portfolio.realized_pnl += realized_pnl
+                if realized_pnl > 0:
+                    self.portfolio.num_winning_trades += 1
+                elif realized_pnl < 0:
+                    self.portfolio.num_losing_trades += 1
+
+            if new_holdings > 0.0001:
+                self.portfolio.holdings[token] = new_holdings
+            else:
+                self.portfolio.holdings.pop(token, None)
+                self._cost_basis.pop(token, None)
+
+        self.portfolio.num_trades += 1
+        self._recalculate_portfolio_metrics()
+
+    def _calculate_realized_pnl(self, token: str, sell_qty: float, sell_price: float) -> float:
+        """Calculate realized PnL using FIFO."""
+        if token not in self._cost_basis or not self._cost_basis[token]:
+            return 0.0
+
+        remaining_qty = sell_qty
+        total_cost = 0.0
+
+        while remaining_qty > 0 and self._cost_basis[token]:
+            lot = self._cost_basis[token][0]
+            if lot["qty"] <= remaining_qty:
+                total_cost += lot["qty"] * lot["price"]
+                remaining_qty -= lot["qty"]
+                self._cost_basis[token].pop(0)
+            else:
+                total_cost += remaining_qty * lot["price"]
+                lot["qty"] -= remaining_qty
+                remaining_qty = 0
+
+        return (sell_qty * sell_price) - total_cost
+
+    def _recalculate_portfolio_metrics(self) -> None:
+        """Recalculate all portfolio metrics from current state."""
+        pf = self.portfolio
+
+        if pf.holdings:
+            holdings_val = 0.0
+            for symbol, qty in pf.holdings.items():
+                price = self.market_tool.get_price(symbol)
+                if price:
+                    holdings_val += qty * price
+            pf.holdings_val = holdings_val
+
+        pf.total_value = pf.holdings_val + pf.cash
+
+        if pf.starting_val > 0:
+            pf.roi = (pf.total_value - pf.starting_val) / pf.starting_val
+        else:
+            pf.roi = 0.0
+
+        if pf.num_trades > 0:
+            pf.win_rate = pf.num_winning_trades / pf.num_trades
+        else:
+            pf.win_rate = 0.0
+
+        pf.unrealized_pnl = (pf.total_value - pf.starting_val) - pf.realized_pnl
+
+    def _get_portfolio_status(self) -> dict:
+        """Get current portfolio status as a dictionary."""
+        self._recalculate_portfolio_metrics()
+        return {
+            "cash": self.portfolio.cash,
+            "holdings": self.portfolio.holdings.copy(),
+            "holdings_val": self.portfolio.holdings_val,
+            "total_value": self.portfolio.total_value,
+            "roi": self.portfolio.roi,
+            "realized_pnl": self.portfolio.realized_pnl,
+            "unrealized_pnl": self.portfolio.unrealized_pnl,
+            "num_trades": self.portfolio.num_trades,
+            "win_rate": self.portfolio.win_rate,
+        }
+
     def validate_trade(
         self, action: str, token: str, amount: float, price: float
     ) -> Tuple[bool, str]:
-        """
-        Validate a proposed trade before execution.
-
-        Args:
-            action: BUY or SELL
-            token: Token symbol
-            amount: Trade amount
-            price: Current price
-
-        Returns:
-            (is_valid, reason)
-        """
-        return self.make_trade_tool.validate_trade(
-            action, token, amount, self.risk_score
-        )
+        """Validate a proposed trade before execution."""
+        return self._validate_trade(action, token, amount)
 
     # Implement BaseAgent abstract methods
 
@@ -745,7 +865,7 @@ Thought:{agent_scratchpad}"""
 
     def get_portfolio_status(self) -> Dict[str, Any]:
         """Get current portfolio snapshot."""
-        return self.make_trade_tool.get_portfolio_status()
+        return self._get_portfolio_status()
 
     def get_tournament_info(self) -> Dict[str, Any]:
         """Get tournament context."""
@@ -760,8 +880,8 @@ Thought:{agent_scratchpad}"""
         return self._run_async(self.agent_memory.get_trade_history(limit))
 
     def update_memory(self, trade: Trade) -> None:
-        """Save trade to database (no-op since MakeTradeTool handles this)."""
-        pass  # MakeTradeTool saves trades directly to database
+        """Save trade to database (no-op since trades are saved in _execute_trade_wrapper)."""
+        pass
 
     def reset_tournament_memory(self) -> None:
         """Reset for new tournament (no-op for database-backed memory)."""
@@ -817,15 +937,17 @@ Thought:{agent_scratchpad}"""
         confidence: float,
         summary: str,
     ) -> Trade:
-        """Execute a simulated trade and update portfolio."""
-        return await self.make_trade_tool.execute_trade(
+        """Execute an on-chain trade and update portfolio."""
+        trade = await self.trade_tool.execute_trade(
             action=action,
             token=token,
-            amount=qty,
+            qty=qty,
+            price=price,
             confidence=confidence,
             summary=summary,
-            risk_score=self.risk_score,
         )
+        self._update_portfolio_from_trade(trade)
+        return trade
 
     def get_personality_response(self, trade: Trade) -> str:
         """Generate personality-driven response for a trade."""
@@ -861,7 +983,7 @@ Thought:{agent_scratchpad}"""
             )
 
         # Update portfolio values before making decision
-        self.make_trade_tool.recalculate_holdings_value()
+        self._recalculate_portfolio_metrics()
 
         # Get market context
         sentiment = self.market_tool.get_market_sentiment()
@@ -906,7 +1028,7 @@ Thought:{agent_scratchpad}"""
     def evaluate_performance(self) -> Dict[str, Any]:
         """Compute performance metrics."""
         # Update portfolio values
-        self.make_trade_tool.recalculate_holdings_value()
+        self._recalculate_portfolio_metrics()
         portfolio = self.portfolio
 
         return {
@@ -972,14 +1094,11 @@ Thought:{agent_scratchpad}"""
             self.portfolio.num_losing_trades = portfolio_data["num_losing_trades"]
             self.portfolio.win_rate = portfolio_data["win_rate"]
 
-            # Recreate make_trade_tool with restored portfolio
-            self.make_trade_tool = MakeTradeTool(
+            # Recreate trade_tool with restored state
+            self.trade_tool = TradeTool(
                 agent_id=self.agent_id,
-                portfolio=self.portfolio,
-                market_tool=self.market_tool,
-                database_tool=self.database_tool,
                 agent_uuid=self.agent_uuid,
-                tournament_uuid=self.tournament_uuid,
+                database_tool=self.database_tool,
             )
 
             logger.info(
