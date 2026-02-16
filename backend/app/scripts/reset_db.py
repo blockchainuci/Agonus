@@ -4,12 +4,12 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine
 
 # 3. Correct Import: 'Bet', not 'Bets'
-from ..db.models import Base, Tournament, Agent, AgentState, Trade, Bet
+from ..db.models import Base, Tournament, Agent, AgentState, Trade, Bet, PlanItem, AgentResearchArtifact
 
 load_dotenv()
 
-# 4. Correct Method: os.getenv (not get_env)
 DATABASE_URL = os.getenv("DATABASE_URL")
+DB_DISABLE_SSL = os.getenv("DB_DISABLE_SSL", "false").lower() == "true"
 
 
 async def reset_database():
@@ -17,12 +17,14 @@ async def reset_database():
         print("❌ Error: DATABASE_URL not found in environment.")
         return
 
-    print("⚡ Connecting to Neon DB...")
+    print("⚡ Connecting to database...")
+
+    connect_args = {} if DB_DISABLE_SSL else {"ssl": "require"}
 
     engine = create_async_engine(
         DATABASE_URL,
         echo=True,
-        connect_args={"ssl": "require"},
+        connect_args=connect_args,
     )
 
     async with engine.begin() as conn:
