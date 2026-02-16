@@ -22,13 +22,10 @@ from .base import BaseAgent
 from .data_classes import Trade, Portfolio, MarketData
 from .tools.market_data_tool import MarketDataTool
 from .tools.trade_tool import TradeTool
-#from .tools.make_trade_tool import MakeTradeTool
 from .tools.math_tool import MathTool
 from .tools.database_tool import DatabaseTool
 from .tools.research_tool import ResearchTool
-
 from .tools.plan_tool import PlanTool
-from .tools.research_tool import ResearchTool
 from .memory import AgentMemory
 
 logger = logging.getLogger(__name__)
@@ -104,19 +101,15 @@ class TradingAgent(BaseAgent):
 
         # Initialize on-chain trade tool (Tenderly Virtual TestNet)
         self.trade_tool = TradeTool(
-        # Initialize math tool (technical indicators)
-        self.math_tool = MathTool(market_tool=self.market_tool)
-        # Intilialize research tool
-        self.research_tool = ResearchTool()
-        
-        '''
-        # Initialize simulated trade tool
-        self.make_trade_tool = MakeTradeTool(
             agent_id=agent_id,
             agent_uuid=agent_uuid,
             database_tool=database_tool,
         )
-        '''
+
+        # Initialize math tool (technical indicators)
+        self.math_tool = MathTool(market_tool=self.market_tool)
+        # Initialize research tool
+        self.research_tool = ResearchTool()
 
         # Initialize database-backed memory
         self.agent_memory = AgentMemory(
@@ -233,14 +226,6 @@ class TradingAgent(BaseAgent):
                 description=(
                     "Reschedule a plan step to a new time. Format: 'PLAN_ITEM_ID NEW_EXECUTE_AT_ISO'. "
                     "Example: 'abc123-uuid 2025-06-16T10:00:00Z'"
-                ),
-            ),
-            Tool(
-                name="research_token",
-                func=self._execute_research_token_wrapper,
-                description=(
-                    "Research a token for news and any market sentiments, "
-                    "Input: token symbol and recency (e.g., 'ETH 7d' for last 7 days)"
                 ),
             ),
         ]
@@ -634,50 +619,6 @@ Thought:{agent_scratchpad}"""
             error_msg = f"Error computing indicator: {e}"
             logger.error(error_msg)
             return error_msg
-    def _execute_research_token_wrapper(self, input_str: str) -> str:
-        """
-        Wrapper for executing research token from LangChain tool.
-
-        Args:
-            input_str: "ETH" or "ETH 7d"
-
-        Returns:
-            Research summary string
-        """
-        from .tools.research_tool import research_result_to_dict
-
-        try:
-            parts = input_str.split()
-            if len(parts) < 1:
-                return "Error: Invalid format. Expected 'TOKEN' or 'TOKEN RECENCY'"
-
-            token = parts[0].upper()
-            recency = parts[1] if len(parts) > 1 else "7d"
-
-            # Call sync research method
-            research_result = self.research_tool.research_token(
-                token_symbol=token,
-                recency=recency,
-            )
-
-            # Persist result to DB (convert dataclass to dict)
-            if self.database_tool and self.agent_uuid:
-                result_dict = research_result_to_dict(research_result)
-                self._run_async(
-                    self.database_tool.save_research_result(
-                        agent_uuid=self.agent_uuid,
-                        query=f"Research {token}",
-                        result=result_dict,
-                        recency=recency,
-                        related_tokens=[token],
-                    )
-                )
-
-            return research_result.summary_markdown
-
-        except Exception as e:
-            logger.error(f"Research tool error: {e}")
-            return f"Research tool error: {str(e)}"
 
     def _create_plan_step_wrapper(self, input_str: str) -> str:
         """Parse: 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"""
