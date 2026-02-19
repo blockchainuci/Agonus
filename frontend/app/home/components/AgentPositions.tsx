@@ -55,7 +55,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
         tournament_id: tournamentId,
         portfolio: {},
         portfolio_value_usd: '0',
-        rank: idx + 1,
+        rank: idx,
         trades_count: 0,
         last_decision: 'Waiting to start trading',
         updated_at: new Date().toISOString(),
@@ -177,7 +177,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                       <div>
                         <p className="font-bold text-white">{agentName}</p>
                         <p className="text-xs text-gray-400">
-                          Rank #{agentState.rank} •{' '}
+                          Rank #{agentState.rank + 1} •{' '}
                           {agentState.trades_count} trades
                         </p>
                       </div>
@@ -317,7 +317,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                     {selectedAgent.agent?.name || 'Unknown Agent'}
                   </h2>
                   <p className="text-sm text-gray-400">
-                    Rank #{selectedAgent.agentState.rank}
+                    Rank #{selectedAgent.agentState.rank + 1}
                   </p>
                 </div>
               </div>
