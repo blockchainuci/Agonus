@@ -132,7 +132,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
               <p className="text-xs text-blue-300">Agents assigned but not yet trading. Data will update once the tournament starts.</p>
             </div>
           )}
-          {displayedStates.map((agentState, index) => {
+          {[...displayedStates].sort((a, b) => a.rank - b.rank).map((agentState, index) => {
             const agent = findAgentById(agents, agentState.agent_id);
             const agentName = agent?.name || `Agent ${index + 1}`;
             const portfolioValue = parseFloat(agentState.portfolio_value_usd);
