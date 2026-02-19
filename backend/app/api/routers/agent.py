@@ -36,7 +36,6 @@ async def get_agent_stats(agent_id: UUID, session: AsyncSession = Depends(get_db
     if not agent:
         raise HTTPException(status_code=404, detail="Agent Not Found")
 
-    # Return the stats JSON field
     return agent.stats
 
 
@@ -47,14 +46,12 @@ async def create_agent(
     admin: dict = Depends(require_admin),
 ):
     """POST route for creating a new agent (admin only)"""
-    # Create Agent model from schema, excluding None values to use model defaults
     agent_dict = agent_data.model_dump(exclude_none=True)
 
-    # Ensure stats and memory have default values if not provided
-    if 'stats' not in agent_dict:
-        agent_dict['stats'] = {}
-    if 'memory' not in agent_dict:
-        agent_dict['memory'] = {}
+    if "stats" not in agent_dict:
+        agent_dict["stats"] = {}
+    if "memory" not in agent_dict:
+        agent_dict["memory"] = {}
 
     agent = Agent(**agent_dict)
 
@@ -76,7 +73,6 @@ async def update_agent(
     if not db_agent:
         raise HTTPException(status_code=404, detail="Agent Not Found")
 
-    # Update only provided fields
     update_data = agent_data.model_dump(exclude_unset=True)
 
     for key, value in update_data.items():
@@ -101,7 +97,6 @@ async def update_agent_stats(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent Not Found")
 
-    # Merge new stats with existing stats
     agent.stats = {**agent.stats, **stats}
 
     session.add(agent)
@@ -123,7 +118,6 @@ async def update_agent_memory(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent Not Found")
 
-    # Merge new memory with existing memory
     agent.memory = {**agent.memory, **memory}
 
     session.add(agent)
@@ -139,15 +133,12 @@ async def delete_agent(
     session: AsyncSession = Depends(get_db),
     admin: dict = Depends(require_admin),
 ):
-    """DELETE route for deleting an agent (admin only - use with caution)"""
+    """DELETE route for deleting an agent (admin only)"""
     agent = await session.get(Agent, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent Not Found")
 
-    # Note: This will fail if agent has related trades/bets due to foreign keys
-    # Consider soft delete instead (add 'active' boolean field)
     await session.delete(agent)
     await session.commit()
 
     return {"message": f"Agent {agent_id} deleted successfully"}
-

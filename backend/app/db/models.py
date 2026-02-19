@@ -9,6 +9,7 @@ from sqlalchemy import (
     String,
     Numeric,
     Integer,
+    Boolean,
     Enum as SQLEnum,
     Index,
     DateTime,
@@ -73,6 +74,7 @@ class Tournament(Base):
     agent_contract_mapping: Mapped[dict] = mapped_column(
         JSON, default=dict
     )  # {"uuid": 1, "uuid2": 2}
+    betting_closed: Mapped[bool] = mapped_column(Boolean, default=False)
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String, index=True)
     status: Mapped[StatusEnum] = mapped_column(
@@ -161,18 +163,19 @@ class Bet(Base):
     user_address: Mapped[str] = mapped_column(String, index=True)
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agent.id"), index=True)
     tournament_id: Mapped[UUID] = mapped_column(ForeignKey("tournament.id"), index=True)
-    amount: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=2))
-    odds: Mapped[Decimal] = mapped_column(Numeric(precision=10, scale=2))
+    amount: Mapped[Decimal] = mapped_column(Numeric(precision=20, scale=8))
+    odds: Mapped[Decimal] = mapped_column(Numeric(precision=10, scale=4))
     placed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     settled: Mapped[bool] = mapped_column(default=False)
     payout: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(precision=20, scale=2), default=None
+        Numeric(precision=20, scale=8), default=None
     )
 
     tournament: Mapped["Tournament"] = relationship(back_populates="bets")
     agent: Mapped["Agent"] = relationship(back_populates="bets")
+
 
 
 class PlanItem(Base):

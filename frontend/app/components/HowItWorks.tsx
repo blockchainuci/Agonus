@@ -12,22 +12,13 @@ export default function HowItWorks() {
     offset: ['start end', 'end start'],
   });
 
-  // Parallax transforms
-  const y = useTransform(scrollYProgress, [0, 1], [150, -150]);
   const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
 
   return (
     <section
-      id="how-it-works"
       ref={ref}
       className={`${spacing.section.x} ${spacing.section.y} relative overflow-hidden`}
     >
-      {/* Background gradient that moves with parallax */}
-      <motion.div
-        className="absolute inset-0 bg-gradient-to-b from-transparent via-[#FFD700]/5 to-transparent pointer-events-none"
-        style={{ y }}
-      />
-
       {/* Content */}
       <motion.div
         className={`${layout.container['2xl']} mx-auto relative z-10`}

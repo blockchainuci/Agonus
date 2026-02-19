@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException, Query
 import requests
 from typing import Optional
 
-router = APIRouter()
+# Add correct prefix + tag so API documentation is clean
+router = APIRouter(prefix="/market-data", tags=["Market Data"])
 
 
 @router.get("/prices")
@@ -15,13 +16,11 @@ async def get_market_prices(
 ):
     """GET route for live cryptocurrency prices from CoinGecko API"""
     try:
-        # Clean up token list
         token_list = [t.strip() for t in tokens.split(",") if t.strip()]
 
         if not token_list:
             raise HTTPException(status_code=400, detail="No tokens specified")
 
-        # Call CoinGecko API
         url = "https://api.coingecko.com/api/v3/simple/price"
         params = {
             "ids": ",".join(token_list),
@@ -36,7 +35,6 @@ async def get_market_prices(
 
         data = response.json()
 
-        # Transform response to be more frontend-friendly
         result = {}
         for token_id in token_list:
             if token_id in data:
@@ -73,7 +71,6 @@ async def get_single_price(
 ):
     """GET route for a single token's current price"""
     try:
-        # Call CoinGecko API
         url = "https://api.coingecko.com/api/v3/simple/price"
         params = {
             "ids": token.lower(),

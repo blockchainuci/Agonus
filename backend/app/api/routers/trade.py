@@ -68,11 +68,9 @@ async def create_trade(
     trade_data: TradeCreate, session: AsyncSession = Depends(get_db)
 ):
     """POST route for creating a new trade"""
-    # Create Trade model from schema
     trade = Trade(**trade_data.model_dump())
 
     session.add(trade)
     await session.commit()
     await session.refresh(trade)
     return trade
-

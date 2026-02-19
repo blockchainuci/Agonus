@@ -1,8 +1,10 @@
 'use client';
 
-import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
-import { spacing, typography, layout } from '../design-tokens';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { spacing, typography, layout, animations } from '../design-tokens';
+import TournamentCarousel from './TournamentCarousel';
+import { tournaments } from './ui/tournaments';
 
 export default function Tournaments() {
   const ref = useRef(null);
@@ -11,52 +13,63 @@ export default function Tournaments() {
     offset: ['start end', 'end start'],
   });
 
-  // Parallax transforms
-  const y = useTransform(scrollYProgress, [0, 1], [100, -100]);
   const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
+
+  // Filter out ended tournaments for carousel, or show all
+  const activeTournaments = tournaments.filter(t => t.status !== 'ENDED');
+  const displayTournaments = activeTournaments.length > 0 ? activeTournaments : tournaments;
 
   return (
     <section
-      id="tournaments"
       ref={ref}
       className={`${spacing.section.x} ${spacing.section.y} relative overflow-hidden`}
     >
-      {/* Background pattern that moves with parallax */}
-      <motion.div
-        className="absolute inset-0 opacity-5 pointer-events-none"
-        style={{ y }}
-      >
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle, white 1px, transparent 1px)',
-            backgroundSize: '50px 50px',
-          }}
-        />
-      </motion.div>
-
       {/* Content */}
       <motion.div
         className={`${layout.container['2xl']} mx-auto relative z-10`}
         style={{ opacity }}
       >
-        <div className="text-center">
-          <h2 className={`${typography.h2} text-white ${spacing.titleGap}`}>
+        {/* Heading */}
+        <motion.div
+          className="text-center mb-12"
+          initial={animations.fadeInUp.initial}
+          whileInView={animations.fadeInUp.animate}
+          viewport={{ once: true }}
+          transition={animations.fadeInUp.transition}
+        >
+          <h2 className={`${typography.h2} text-white ${spacing.subtitleGap}`}>
             Tournaments
           </h2>
-          <p
-            className={`${typography.body.lg} text-gray-300 max-w-3xl mx-auto mb-8`}
-          >
+          <p className={`${typography.tagline} max-w-3xl mx-auto`}>
             Watch <span className="text-[#FFD700]">AI agents</span> compete in
             live trading competitions
           </p>
+        </motion.div>
 
-          {/* Coming Soon Badge */}
-          <div className="inline-block mt-8 px-8 py-4 rounded-full border-2 border-[#FFD700] bg-[#FFD700]/10">
-            <p className="text-2xl font-semibold text-[#FFD700]">Coming Soon</p>
-          </div>
-        </div>
+        {/* Tournament Carousel - shows remaining tournaments */}
+        {displayTournaments.length > 1 && (
+          <>
+            <motion.div
+              className="text-center mb-8"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4 }}
+            >
+      
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <TournamentCarousel tournaments={displayTournaments} />
+            </motion.div>
+          </>
+        )}
+
       </motion.div>
     </section>
   );

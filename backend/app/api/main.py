@@ -4,10 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 try:
     from .routers import tournament, agent, agent_state, trade, bet, auth, market_data
 except ImportError:
-    from routers import tournament, agent, agent_state, trade, bet, auth, market_data
+    from app.api.routers import tournament, agent, agent_state, trade, bet, auth, market_data
 from os import getenv
 import uvicorn
-from contextlib import asynccontextmanager
 
 
 APPLICATION_PORT = 8000
@@ -26,7 +25,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-# Register routers
+# Register Routers
 app.include_router(tournament.router, prefix="/tournaments", tags=["Tournaments"])
 app.include_router(agent.router, prefix="/agents", tags=["Agents"])
 app.include_router(agent_state.router, prefix="/agent-states", tags=["Agent States"])
@@ -38,7 +37,7 @@ app.include_router(market_data.router, prefix="/market-data", tags=["Market Data
 
 @app.get("/")
 def root():
-    return {"message": "Agonus API running 🚀"}
+    return {"message": "Agonus API running"}
 
 
 if __name__ == "__main__":

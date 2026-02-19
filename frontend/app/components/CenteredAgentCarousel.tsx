@@ -21,6 +21,10 @@ export default function CenteredAgentCarousel({
 
   const frameRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
+  const lastProgressUpdate = useRef<number>(0);
+
+  // Use a ref for goNext to avoid re-triggering the RAF effect
+  const goNextRef = useRef<() => void>(() => {});
 
   // -------------------------
   // Navigation Handlers
@@ -30,6 +34,7 @@ export default function CenteredAgentCarousel({
     setActive((prev) => {
       const next = (prev + 1) % items.length;
       startRef.current = performance.now();
+      lastProgressUpdate.current = 0;
       setProgress(0);
       return next;
     });
@@ -39,48 +44,55 @@ export default function CenteredAgentCarousel({
     setActive((prev) => {
       const next = (prev - 1 + items.length) % items.length;
       startRef.current = performance.now();
+      lastProgressUpdate.current = 0;
       setProgress(0);
       return next;
     });
   }, [items.length]);
 
+  // Keep ref in sync
+  useEffect(() => {
+    goNextRef.current = goNext;
+  }, [goNext]);
+
   // -------------------------
   // Autorotation Animation
   // -------------------------
 
-  const animate = useCallback(
-    (now: number) => {
+  useEffect(() => {
+    const animate = (now: number) => {
       const elapsed = now - startRef.current;
       const pct = Math.min(elapsed / autoRotateMs, 1);
 
-      setProgress(pct * 100);
+      // Throttle state updates to ~10fps to reduce re-renders
+      if (now - lastProgressUpdate.current > 100 || pct >= 1) {
+        lastProgressUpdate.current = now;
+        setProgress(pct * 100);
+      }
 
       if (pct < 1) {
         frameRef.current = requestAnimationFrame(animate);
       } else {
-        goNext();
+        goNextRef.current();
       }
-    },
-    [autoRotateMs, goNext]
-  );
+    };
 
-  useEffect(() => {
     startRef.current = performance.now();
+    lastProgressUpdate.current = 0;
     frameRef.current = requestAnimationFrame(animate);
 
-    // ✔ FIXED CLEANUP — always returns void
     return () => {
       if (frameRef.current !== null) {
         cancelAnimationFrame(frameRef.current);
       }
     };
-  }, [active, animate]);
+  }, [active, autoRotateMs]);
 
   // -------------------------
   // Swipe Gesture Navigation
   // -------------------------
 
-  const onSwipeEnd = (_: any, info: PanInfo) => {
+  const onSwipeEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.x > 80 || info.velocity.x > 300) {
       goPrev();
     } else if (info.offset.x < -80 || info.velocity.x < -300) {
@@ -114,7 +126,7 @@ export default function CenteredAgentCarousel({
       {/* -------------------------
            TOP — CENTERED AGENT CARD
          ------------------------- */}
-      <div className="max-w-[420px] w-full perspective-[1400px]">
+      <div className="max-w-[720px] w-full perspective-[1400px]">
         <AnimatePresence mode="wait">
           <motion.div
             key={agent.id}

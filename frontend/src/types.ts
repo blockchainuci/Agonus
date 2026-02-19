@@ -15,8 +15,8 @@ export interface Agent {
   personality: string;
   strategy_type: string;
   avatar_url?: string;
-  stats: Record<string, any>; // Flexible JSON field
-  memory: Record<string, any>; // Flexible JSON field
+  stats: Record<string, unknown>; // Flexible JSON field
+  memory: Record<string, unknown>; // Flexible JSON field
   created_at: ISODate;
 }
 
@@ -41,9 +41,10 @@ export interface Tournament {
   prize_pool: DecimalString;
   winner_agent_id?: ID;
 
-  // Critical for smart contract integration
+  // Smart contract integration
   contract_tournament_id?: number;
   agent_contract_mapping: Record<string, number>; // { "agent_uuid": contract_id }
+  betting_closed: boolean;
 
   created_at: ISODate;
 }
@@ -78,7 +79,7 @@ export interface Bet {
 // --- API ERROR ---
 export interface ApiError {
   message: string;
-  detail?: string | any[]; // FastApi validation errors are arrays
+  detail?: string | unknown[]; // FastApi validation errors are arrays
   status?: number;
 }
 
@@ -92,7 +93,7 @@ export interface CreateAgentData {
 }
 
 export interface UpdateAgentData extends Partial<CreateAgentData> {
-  stats?: Record<string, any>;
+  stats?: Record<string, unknown>;
 }
 
 export interface CreateTournamentData {

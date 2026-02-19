@@ -11,37 +11,56 @@ router = APIRouter()
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
 ALGORITHM = "HS256"
 
+# Load admin addresses from env
 raw_addresses = os.getenv("ADMIN_ADDRESSES", "")
-ADMIN_ADDRESSES = set(addr.strip().lower() for addr in raw_addresses.split(",") if addr.strip())
+ADMIN_ADDRESSES = {
+    addr.strip().lower() for addr in raw_addresses.split(",") if addr.strip()
+}
+
 
 class WalletSignIn(BaseModel):
     address: str
     signature: str
 
-@router.post("/wallet")  # Changed from /wallet-signin
+
+@router.post("/wallet")
 def wallet_auth(data: WalletSignIn) -> dict:
-    """Sign in with wallet and return JWT"""
-    
+    """
+    Verify wallet signature and return JWT.
+    Used for login on the frontend.
+    """
+
     # Verify signature
     message = "Sign in to Agonus"
+
     try:
         w3 = Web3()
         encoded_message = encode_defunct(text=message)
-        recovered_address = w3.eth.account.recover_message(encoded_message, signature=data.signature)
-        
+
+        recovered_address = w3.eth.account.recover_message(
+            encoded_message, signature=data.signature
+        )
+
         if recovered_address.lower() != data.address.lower():
-            raise HTTPException(401, "Invalid signature")
+            raise HTTPException(status_code=401, detail="Invalid signature")
+
     except Exception as e:
-        raise HTTPException(401, f"Signature verification failed: {str(e)}")
-    
-    # Check role and issue JWT
+        raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
+
+    # Determine role
     role = "admin" if data.address.lower() in ADMIN_ADDRESSES else "user"
-    
+    print(f"[AUTH] Wallet: {data.address.lower()}, ADMIN_ADDRESSES: {ADMIN_ADDRESSES}, Role: {role}")
+
+    # Generate JWT
     expire = datetime.utcnow() + timedelta(hours=24)
     token = jwt.encode(
-        {"sub": data.address.lower(), "role": role, "exp": expire},
+        {
+            "sub": data.address.lower(),
+            "role": role,
+            "exp": expire,
+        },
         SECRET_KEY,
-        algorithm=ALGORITHM
+        algorithm=ALGORITHM,
     )
-    
+
     return {"access_token": token, "token_type": "bearer"}

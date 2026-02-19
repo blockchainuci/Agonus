@@ -53,6 +53,7 @@ jobs:
     - name: Test
       env:
         DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
+        PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
       run: pytest -v --cov=app --cov-report=xml
     
     - name: Upload coverage

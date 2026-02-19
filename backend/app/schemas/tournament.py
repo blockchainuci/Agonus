@@ -34,6 +34,16 @@ class TournamentContractLink(BaseModel):
     tx_hash: Optional[str] = None  # For verification/tracking
 
 
+# NEW: Schema for on-chain tournament creation
+class TournamentOnchainCreate(BaseModel):
+    agent_ids: list[UUID]
+
+
+# NEW: Schema for on-chain tournament settlement
+class TournamentOnchainSettle(BaseModel):
+    winner_agent_id: UUID
+
+
 # Schema for responses (GET)
 class TournamentResponse(TournamentBase):
     id: UUID
@@ -41,8 +51,9 @@ class TournamentResponse(TournamentBase):
     created_at: datetime
     winner_agent_id: Optional[UUID] = None
 
-    # NEW: Contract integration fields
+    # Contract integration fields
     contract_tournament_id: Optional[int] = None
     agent_contract_mapping: dict[str, int] = {}  # {"agent-uuid": 1, "agent-uuid2": 2}
+    betting_closed: bool = False
 
     model_config = ConfigDict(from_attributes=True)

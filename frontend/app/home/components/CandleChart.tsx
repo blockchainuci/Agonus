@@ -1,298 +1,315 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Maximize2, Minimize2 } from 'lucide-react';
+
 import {
-  TrendingUp,
-  Maximize2,
-  Minimize2,
-  Plus,
-} from 'lucide-react';
-import { getOhlcvByTournament } from '../data/mockOhlcv';
-import type { UTCTimestamp, ISeriesApi, IChartApi } from 'lightweight-charts';
-import { CandlestickSeries } from 'lightweight-charts';
+  type CandlestickData,
+  type LineData,
+  type Time,
+} from 'lightweight-charts';
 
-/* ----------------------------- Types ----------------------------- */
+import {
+  mockOhlcvById,
+  mockOhlcv,
+  type OhlcCandle,
+} from '@/app/home/data/mockOhlcv';
+import { useTournamentStore } from '@/src/store/useTournamentStore';
 
-// A single OHLC candle in Lightweight Charts format
-export interface OhlcCandle {
-  time: UTCTimestamp; // seconds since epoch
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  // volume is optional in case you add it later
-  volume?: number;
-}
+/* ----------------------------------------
+   TYPES
+----------------------------------------- */
+
+type Timeframe = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
+type IndicatorKey = 'volume' | 'sma' | 'ema' | 'vwap';
 
 interface CandleChartProps {
   tournamentId: string;
 }
 
-/* --------------------- Local aggregation utils ------------------ */
+/* ----------------------------------------
+   RESAMPLE BASE 1m DATA
+----------------------------------------- */
 
-function aggregateOhlc(data: OhlcCandle[], groupSize: number): OhlcCandle[] {
-  if (groupSize <= 1) return data;
+function computeOhlcv(data: OhlcCandle[], timeframe: Timeframe): OhlcCandle[] {
+  if (!data.length) return [];
 
-  const result: OhlcCandle[] = [];
+  const interval: Record<Timeframe, number> = {
+    '1m': 60,
+    '5m': 300,
+    '15m': 900,
+    '1h': 3600,
+    '4h': 14400,
+    '1d': 86400,
+  };
 
-  for (let i = 0; i < data.length; i += groupSize) {
-    const group = data.slice(i, i + groupSize);
-    if (group.length === 0) continue;
+  const sec = interval[timeframe];
+  if (sec === 60) return data;
 
-    const open = group[0].open;
-    const close = group[group.length - 1].close;
-    const high = Math.max(...group.map((c) => c.high));
-    const low = Math.min(...group.map((c) => c.low));
+  const buckets = new Map<number, OhlcCandle[]>();
 
-    result.push({
-      time: group[0].time,
-      open,
-      high,
-      low,
-      close,
-      // If volume exists, sum it:
-      volume: group.reduce((acc, c) => acc + (c.volume ?? 0), 0) || undefined,
-    });
+  for (const c of data) {
+    const bucket = Math.floor(Number(c.time) / sec) * sec;
+    if (!buckets.has(bucket)) buckets.set(bucket, []);
+    buckets.get(bucket)!.push(c);
   }
 
-  return result;
+  return Array.from(buckets.entries())
+    .map(([ts, arr]) => ({
+      time: ts as Time,
+      open: arr[0].open,
+      high: Math.max(...arr.map((x) => x.high)),
+      low: Math.min(...arr.map((x) => x.low)),
+      close: arr[arr.length - 1].close,
+      volume: arr.reduce((s, x) => s + (x.volume || 0), 0),
+    }))
+    .sort((a, b) => Number(a.time) - Number(b.time));
 }
 
-const timeframeMap: Record<string, number> = {
-  '1m': 1,   // mock fallback (still 5m resolution)
-  '5m': 1,
-  '15m': 3,
-  '1h': 12,
-  '4h': 48,
-  '1d': 288,
-};
+/* ----------------------------------------
+   INDICATORS
+----------------------------------------- */
 
-/* --------------------------- Component --------------------------- */
+function calculateSMA(data: OhlcCandle[], period = 20): LineData<Time>[] {
+  return data.map((c, i) => {
+    if (i < period) return { time: c.time, value: c.close };
+    const slice = data.slice(i - period, i);
+    const avg = slice.reduce((s, x) => s + x.close, 0) / period;
+    return { time: c.time, value: avg };
+  });
+}
+
+function calculateEMA(data: OhlcCandle[], period = 20): LineData<Time>[] {
+  let prev = data[0].close;
+  const k = 2 / (period + 1);
+
+  return data.map((c) => {
+    const next = c.close * k + prev * (1 - k);
+    prev = next;
+    return { time: c.time, value: next };
+  });
+}
+
+function calculateVWAP(data: OhlcCandle[]): LineData<Time>[] {
+  let cumulativePV = 0;
+  let cumulativeVol = 0;
+
+  return data.map((c) => {
+    const typical = (c.high + c.low + c.close) / 3;
+    const vol = c.volume || 1;
+    cumulativePV += typical * vol;
+    cumulativeVol += vol;
+    return { time: c.time, value: cumulativePV / cumulativeVol };
+  });
+}
+
+/* ----------------------------------------
+   MAIN COMPONENT
+----------------------------------------- */
 
 export default function CandleChart({ tournamentId }: CandleChartProps) {
-  const chartContainerRef = useRef<HTMLDivElement | null>(null);
-  const [timeframe, setTimeframe] = useState<'1m' | '5m' | '15m' | '1h' | '4h' | '1d'>('1h');
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const chartRef = useRef<HTMLDivElement | null>(null);
 
-  // raw mock data typed
-  const rawData = getOhlcvByTournament(tournamentId) as OhlcCandle[];
-  const groupSize = timeframeMap[timeframe] ?? 1;
-  const ohlcv = aggregateOhlc(rawData, groupSize);
+  const [timeframe, setTimeframe] = useState<Timeframe>('1h');
+  const [fullscreen, setFullscreen] = useState(false);
+  const [toggles, setToggles] = useState<Record<IndicatorKey, boolean>>({
+    volume: true,
+    sma: true,
+    ema: true,
+    vwap: true,
+  });
 
-  // ESC exits fullscreen
+  const storeTournamentId = useTournamentStore(s => s.selectedTournamentId);
+  const storeTournamentName = useTournamentStore(s => s.selectedTournamentName);
+  const finalTournamentId = tournamentId ?? storeTournamentId;
+
+  // Convert string ID to number for mock data lookup
+  const tournamentIdNum = parseInt(finalTournamentId, 10);
+  const baseData = mockOhlcvById[tournamentIdNum] ?? mockOhlcv;
+
+  const ohlcv = useMemo(() => computeOhlcv(baseData, timeframe), [
+    baseData,
+    timeframe,
+  ]);
+
+  /* ----------------------------------------
+     INIT CHART
+  ----------------------------------------- */
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsFullscreen(false);
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, []);
+    const container = chartRef.current;
+    if (!container || !ohlcv.length) return;
 
-  useEffect(() => {
-    const container = chartContainerRef.current;
-    if (!container || ohlcv.length === 0) return;
+    container.innerHTML = '';
 
-    let chart: IChartApi | null = null;
-    let series: ISeriesApi<'Candlestick'> | null = null;
+    (async () => {
+      const { createChart } = await import('lightweight-charts');
 
-    // lightweight-charts dynamically imported only on client
-    import('lightweight-charts').then((LightweightCharts) => {
-      if (!chartContainerRef.current) return;
-
-      const ctn = chartContainerRef.current;
-
-      // clear old canvases (prevents double charts)
-      ctn.innerHTML = '';
-
-      chart = LightweightCharts.createChart(ctn, {
-        width: ctn.clientWidth,
-        height: isFullscreen ? window.innerHeight - 100 : 400,
+      const chart = createChart(container, {
+        width: container.clientWidth,
+        height: fullscreen ? window.innerHeight - 100 : 420,
         layout: {
           background: { color: 'transparent' },
-          textColor: '#9ca3af',
+          textColor: '#ccc',
         },
         grid: {
           vertLines: { color: 'rgba(255,255,255,0.05)' },
           horzLines: { color: 'rgba(255,255,255,0.05)' },
         },
-        timeScale: {
-          timeVisible: true,
-          borderColor: 'rgba(255,255,255,0.1)' as string,
-        },
-        rightPriceScale: {
-          borderColor: 'rgba(255,255,255,0.1)' as string,
-        },
+        timeScale: { timeVisible: true },
       });
 
-      series = chart.addSeries(CandlestickSeries, {
-        upColor: '#10b981',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const candleSeries = (chart as any).addCandlestickSeries({
+        upColor: '#22c55e',
         downColor: '#ef4444',
-        wickUpColor: '#10b981',
+        wickUpColor: '#22c55e',
         wickDownColor: '#ef4444',
         borderVisible: false,
       });
 
-      series.setData(ohlcv);
-      chart.timeScale().fitContent();
+      candleSeries.setData(ohlcv as CandlestickData<Time>[]);
 
-      const handleResize = () => {
-        if (!chart || !chartContainerRef.current) return;
-        chart.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: isFullscreen ? window.innerHeight - 100 : 400,
+      /* ---------------- Volume ---------------- */
+      if (toggles.volume) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const vol = (chart as any).addHistogramSeries({
+          priceScaleId: 'volume',
+          priceFormat: { type: 'volume' },
         });
-      };
 
-      window.addEventListener('resize', handleResize);
+        chart.priceScale('volume').applyOptions({
+          scaleMargins: { top: 0.8, bottom: 0 },
+        });
 
-      // cleanup for this import callback
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        chart?.remove();
-        chart = null;
-        series = null;
-      };
-    });
+        vol.setData(
+          ohlcv.map((c) => ({
+            time: c.time,
+            value: c.volume,
+            color: c.close >= c.open ? '#22c55e' : '#ef4444',
+          }))
+        );
+      }
 
-    // cleanup for the effect itself (if it re-runs before import resolves)
-    return () => {
-      chart?.remove();
-      chart = null;
-      series = null;
-      if (container) container.innerHTML = '';
-    };
-  }, [isFullscreen, timeframe, tournamentId, ohlcv]);
+      /* ---------------- Indicators ---------------- */
+      if (toggles.sma) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (chart as any).addLineSeries({ color: '#60a5fa', lineWidth: 2 }).setData(
+          calculateSMA(ohlcv)
+        );
+      }
 
-  const timeframeButtons: Array<'1m' | '5m' | '15m' | '1h' | '4h' | '1d'> = [
-    '1m', '5m', '15m', '1h', '4h', '1d',
-  ];
+      if (toggles.ema) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (chart as any).addLineSeries({ color: '#fbbf24', lineWidth: 2 }).setData(
+          calculateEMA(ohlcv)
+        );
+      }
 
-  const currentPrice = ohlcv[ohlcv.length - 1]?.close ?? 0;
-  const firstPrice = ohlcv[0]?.close ?? currentPrice;
-  const change24h =
-    firstPrice > 0 ? ((currentPrice - firstPrice) / firstPrice) * 100 : 0;
+      if (toggles.vwap) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (chart as any).addLineSeries({ color: '#a855f7', lineWidth: 2 }).setData(
+          calculateVWAP(ohlcv)
+        );
+      }
+    })();
+  }, [ohlcv, toggles, fullscreen]);
 
-  const volume24h = 1_200_000;
+  /* ----------------------------------------
+     PRICE META
+  ----------------------------------------- */
+
+  const last = ohlcv.at(-1);
+  const first = ohlcv[0];
+  const price = last?.close ?? 0;
+  const pct = first ? ((price - first.close) / first.close) * 100 : 0;
+
+  /* ----------------------------------------
+     UI
+  ----------------------------------------- */
 
   return (
-    <div
-      className={
-        isFullscreen
-          ? 'fixed inset-0 z-50 bg-[#000814]/90 backdrop-blur-xl p-6 flex items-center justify-center'
-          : 'relative'
-      }
-    >
+    <div className={fullscreen ? 'fixed inset-0 z-50 bg-black/90 p-4' : ''}>
       <motion.div
-        className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 
-          backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl 
-          w-full max-w-7xl overflow-hidden"
+        className="relative bg-[#001D3D]/70 border border-white/10 backdrop-blur-xl rounded-xl shadow-xl overflow-hidden"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
       >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center flex-wrap">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#FFD700] to-[#FFC300] flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-[#001D3D]" />
-            </div>
+
+        {/* 🔥 INTERNAL BACKDROP FIX */}
+        <div className="absolute inset-0 bg-[#001528]/80 rounded-xl pointer-events-none" />
+
+        {/* All content above the backdrop */}
+        <div className="relative z-10">
+
+          {/* HEADER */}
+          <div className="p-4 border-b border-white/10 flex justify-between items-center">
             <div>
-              <h3 className="text-xl font-bold text-white">Portfolio Value</h3>
-              <p className="text-xs text-gray-400">Tournament #{tournamentId}</p>
-              <div className="flex items-center gap-3 mt-1">
-                <p className="text-2xl font-bold text-[#FFD700]">
-                  ${currentPrice.toFixed(2)}
-                </p>
-                <span
-                  className={`flex items-center gap-1 text-sm font-semibold ${
-                    change24h >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}
-                >
-                  {change24h >= 0 ? '↗' : '↘'}
-                  {Math.abs(change24h).toFixed(2)}%
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Timeframe + Fullscreen */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1 border border-white/10">
-              {timeframeButtons.map((tf) => (
-                <button
-                  key={tf}
-                  onClick={() => setTimeframe(tf)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    timeframe === tf
-                      ? 'bg-[#FFD700] text-[#001D3D]'
-                      : 'text-gray-400 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {tf}
-                </button>
-              ))}
+              <h2 className="text-lg font-semibold text-white">
+                {storeTournamentName || 'Tournament'}
+              </h2>
+              <p className="text-xl font-bold text-[#FFD700]">
+                ${price.toFixed(2)}
+              </p>
+              <span className={pct >= 0 ? 'text-green-400' : 'text-red-400'}>
+                {pct.toFixed(2)}%
+              </span>
             </div>
 
-            <button
-              onClick={() => setIsFullscreen((v) => !v)}
-              className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 
-                flex items-center justify-center border border-white/10 transition"
-              aria-label="Toggle fullscreen"
-            >
-              {isFullscreen ? (
-                <Minimize2 className="w-4 h-4 text-gray-300" />
-              ) : (
-                <Maximize2 className="w-4 h-4 text-gray-300" />
+            <div className="flex items-center gap-2">
+              {(['1m', '5m', '15m', '1h', '4h', '1d'] as Timeframe[]).map(
+                (tf) => (
+                  <button
+                    key={tf}
+                    className={`px-3 py-1 rounded-md text-xs ${
+                      timeframe === tf
+                        ? 'bg-[#FFD700] text-black'
+                        : 'text-gray-300 hover:bg-white/10'
+                    }`}
+                    onClick={() => setTimeframe(tf)}
+                  >
+                    {tf}
+                  </button>
+                )
               )}
-            </button>
-          </div>
-        </div>
 
-        {/* Chart */}
-        <div
-          ref={chartContainerRef}
-          className={`relative bg-black/20 w-full ${
-            isFullscreen ? 'h-[80vh]' : 'h-[400px]'
-          }`}
-        />
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/10">
-          <div className="flex items-center justify-between flex-wrap gap-6">
-            <div className="flex items-center gap-8">
-              <div>
-                <p className="text-xs text-gray-400 uppercase">Current</p>
-                <p className="text-lg font-bold text-white">
-                  ${currentPrice.toFixed(2)}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-400 uppercase">24h Change</p>
-                <p
-                  className={`text-lg font-bold ${
-                    change24h >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}
-                >
-                  {change24h >= 0 ? '+' : ''}
-                  {change24h.toFixed(2)}%
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-400 uppercase">24h Volume</p>
-                <p className="text-lg font-bold text-white">
-                  ${(volume24h / 1_000_000).toFixed(2)}M
-                </p>
-              </div>
+              <button
+                onClick={() => setFullscreen((v) => !v)}
+                className="p-2 rounded-md bg-white/5 hover:bg-white/10"
+              >
+                {fullscreen ? (
+                  <Minimize2 className="w-4 h-4 text-gray-300" />
+                ) : (
+                  <Maximize2 className="w-4 h-4 text-gray-300" />
+                )}
+              </button>
             </div>
-
-            <button className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm border border-white/10">
-              <Plus className="w-4 h-4 inline-block mr-1" />
-              Add Indicator
-            </button>
           </div>
+
+          {/* INDICATOR TOGGLES */}
+          <div className="p-3 border-b border-white/10 flex gap-6 text-sm text-white">
+            {(['volume', 'sma', 'ema', 'vwap'] as IndicatorKey[]).map((key) => (
+              <label key={key} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={toggles[key]}
+                  onChange={() =>
+                    setToggles((prev) => ({
+                      ...prev,
+                      [key]: !prev[key],
+                    }))
+                  }
+                />
+                {key.toUpperCase()}
+              </label>
+            ))}
+          </div>
+
+          {/* CHART */}
+          <div
+            ref={chartRef}
+            className={fullscreen ? 'h-[85vh]' : 'h-[420px]'}
+          />
         </div>
       </motion.div>
     </div>

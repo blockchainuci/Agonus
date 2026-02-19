@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { API_URL, getAuthHeaders } from './api'
-import { Agent, ID, CreateAgentData, UpdateAgentData, ApiError } from '../types'
+import { Agent } from '../types'
 
 // Public GET - no auth
 export function useAgents() {
@@ -33,7 +33,7 @@ export function useCreateAgent() {
   
   return useMutation<Agent, Error, Partial<Agent>>({
     mutationFn: async (agentData) => {
-      const res = await fetch(`${API_URL}/agents`, {
+      const res = await fetch(`${API_URL}/agents/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -41,7 +41,10 @@ export function useCreateAgent() {
         },
         body: JSON.stringify(agentData)
       })
-      if (!res.ok) throw new Error('Failed to create agent')
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null)
+        throw new Error(errBody?.detail || `Failed to create agent (${res.status})`)
+      }
       return res.json()
     },
     onSuccess: () => {

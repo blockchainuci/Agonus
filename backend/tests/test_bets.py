@@ -94,7 +94,7 @@ async def test_get_bet(client, test_db):
 
     r = await client.get(f"/bets/{bet.id}")
     assert r.status_code == 200
-    assert r.json()["amount"] == "150.00"
+    assert r.json()["amount"] == "150.00000000"
 
 
 @pytest.mark.anyio
@@ -134,7 +134,7 @@ async def test_create_bet(client, test_db, mock_admin):
     r = await client.post("/bets/", json=body)
     assert r.status_code == 201, r.text
     created = r.json()
-    assert created["amount"] == "250.00"
+    assert created["amount"] == "250.00000000"
     assert "id" in created
 
 
@@ -173,7 +173,7 @@ async def test_update_bet(client, test_db):
     r = await client.put(f"/bets/{bet.id}", json={"settled": True, "payout": 200.0})
     assert r.status_code == 200, r.text
     assert r.json()["settled"] is True
-    assert r.json()["payout"] == "200.00"
+    assert r.json()["payout"] == "200.00000000"
 
 
 @pytest.mark.anyio
@@ -211,7 +211,7 @@ async def test_settle_bet(client, test_db):
     r = await client.patch(f"/bets/{bet.id}/settle?payout=250.0")
     assert r.status_code == 200, r.text
     assert r.json()["settled"] is True
-    assert r.json()["payout"] == "250.00"
+    assert r.json()["payout"] == "250.00000000"
 
 
 @pytest.mark.anyio

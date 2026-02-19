@@ -69,7 +69,7 @@ export function useCreateTournament() {
 
   return useMutation<Tournament, ApiError, CreateTournamentData>({
     mutationFn: async (tournamentData) => {
-      const res = await fetch(`${API_URL}/tournaments`, {
+      const res = await fetch(`${API_URL}/tournaments/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -77,7 +77,10 @@ export function useCreateTournament() {
         },
         body: JSON.stringify(tournamentData),
       });
-      if (!res.ok) throw new Error("Failed to create tournament");
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        throw new Error(errBody?.detail || `Failed to create tournament (${res.status})`);
+      }
       return res.json();
     },
     onSuccess: () => {

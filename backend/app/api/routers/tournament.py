@@ -1,36 +1,45 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
+from datetime import datetime, timezone
 
 from ...agents.data_classes import Portfolio
-import logging
-import asyncio
-from typing import List, Dict, Any, Optional
-from uuid import UUID
-from datetime import datetime, timezone, timedelta
-
-from celery import Task, group, chain
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from ...celery_config import celery_app
 from ...db.database import AsyncSessionLocal, get_db
 from ...db.models import Tournament, Agent, AgentState, StatusEnum
-from ...agents.executor import TradingAgent
 from ...agents.tools import DatabaseTool
 
 from ...schemas.tournament import (
     TournamentCreate,
     TournamentUpdate,
     TournamentResponse,
+    TournamentContractLink,
+    TournamentOnchainCreate,
+    TournamentOnchainSettle,
 )
 from ...schemas.agent_state import AgentStateResponse
 from ..deps import require_admin
 from ...agents.scheduler import (
     run_agent_decision,
-    initialize_tournament_agents,
+    _initialize_tournament_agents_async,
 )
+from ...onchain.agonus_betting import get_agonus_client
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_revert_reason(exc: Exception) -> str | None:
+    """Extract a human-readable revert reason from a web3 exception."""
+    msg = str(exc)
+    if "execution reverted" in msg.lower():
+        return msg
+    if hasattr(exc, "args") and exc.args:
+        for arg in exc.args:
+            if isinstance(arg, dict) and "message" in arg:
+                return arg["message"]
+    return None
+
 
 router = APIRouter()
 
@@ -57,146 +66,32 @@ async def get_tournament(tournament_id: UUID, session: AsyncSession = Depends(ge
 async def get_tournament_leaderboard(
     tournament_id: UUID, session: AsyncSession = Depends(get_db)
 ):
-    """GET route for tournament leaderboard - agents ranked by portfolio value"""
-    # Verify tournament exists
+    """GET leaderboard ordered by portfolio value"""
     tournament = await session.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament Not Found")
 
-    # Get all agent states for this tournament, ordered by portfolio value
     statement = (
         select(AgentState)
         .where(AgentState.tournament_id == tournament_id)
         .order_by(AgentState.portfolio_value_usd.desc())
     )
     result = await session.execute(statement)
-    agent_states = result.scalars().all()
-
-    return agent_states
+    return result.scalars().all()
 
 
 @router.get("/{tournament_id}/agents", response_model=list[AgentStateResponse])
 async def get_tournament_agents(
     tournament_id: UUID, session: AsyncSession = Depends(get_db)
 ):
-    """GET route for all agents in a tournament with their current state"""
-    # Verify tournament exists
+    """GET agents participating in tournament"""
     tournament = await session.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament Not Found")
 
-    # Get all agent states for this tournament
     statement = select(AgentState).where(AgentState.tournament_id == tournament_id)
     result = await session.execute(statement)
-    agent_states = result.scalars().all()
-
-    return agent_states
-
-
-# @router.post("/", response_model=TournamentResponse, status_code=201)
-# async def create_tournament(
-#     tournament_data: TournamentCreate,
-#     session: AsyncSession = Depends(get_db),
-#     admin: dict = Depends(require_admin),
-# ):
-#     pass
-
-# def initialize_tournament_agents(
-#     tournament_uuid: str,
-#     agent_uuids: List[str]
-# ) -> Dict[str, Any]:
-#     """
-#     Initialize agent states for a new tournament.
-
-#     Args:
-#         tournament_uuid: Tournament UUID (as string)
-#         agent_uuids: List of agent UUIDs (as strings)
-
-#     Returns:
-#         Dict with initialization results
-#     """
-#     # logger.info(f"Initializing agents for tournament: {tournament_uuid}")
-#     try:
-#         return asyncio.run(
-#             _initialize_tournament_agents_async(
-#                 UUID(tournament_uuid),
-#                 [UUID(uuid) for uuid in agent_uuids]
-#             )
-#         )
-#     except Exception as e:
-#         # logger.error(f"Failed to initialize tournament agents: {e}")
-#         raise
-
-
-# async def _initialize_tournament_agents_async(
-#     tournament_uuid: UUID,
-#     agent_uuids: List[UUID]
-# ) -> Dict[str, Any]:
-#     """
-#     Async implementation of agent initialization.
-#     """
-#     async with AsyncSessionLocal() as session:
-#         db_tool = DatabaseTool(session)
-#         initialized = []
-
-#         for agent_uuid in agent_uuids:
-#             # Load agent
-#             stmt = select(Agent).where(Agent.id == agent_uuid)
-#             result = await session.execute(stmt)
-#             agent = result.scalar_one_or_none()
-
-#             if not agent:
-#                 # logger.warning(f"Agent not found: {agent_uuid}")
-#                 continue
-
-#             # Create initial portfolio
-#             from ...agents.data_classes import Portfolio
-
-#             portfolio = Portfolio(
-#                 agent_id=agent.name,
-#                 cash=500.0,
-#                 holdings={},
-#                 starting_val=500.0,
-#                 total_value=500.0
-#             )
-
-#             # Save initial state
-#             await db_tool.save_agent_state(
-#                 agent_uuid=agent_uuid,
-#                 tournament_uuid=tournament_uuid,
-#                 portfolio=portfolio,
-#                 rank=0,
-#                 last_decision="Tournament initialized"
-#             )
-
-#             initialized.append(str(agent_uuid))
-#             # logger.info(f"Initialized agent: {agent.name}")
-
-#         return {
-#             "tournament_id": str(tournament_uuid),
-#             "agents_initialized": len(initialized),
-#             "agent_ids": initialized,
-#             "timestamp": datetime.now(timezone.utc).isoformat()
-#         }
-
-#     """POST route to create a new tournament"""
-#     # Create tournament from schema, excluding agent_ids (not a Tournament model field)
-#     tournament_dict = tournament_data.model_dump(exclude={"agent_ids"})
-#     tournament = Tournament(**tournament_dict)
-
-#     session.add(tournament)
-#     await session.commit()
-#     await session.refresh(tournament)
-
-#     return tournament
-
-
-# @router.post("/{tournament_id}/start")
-# async def start_tournament(tournament_id: str):
-#     initialize_tournament_agents.delay(
-#         tournament_uuid=tournament_id, agent_uuids=["uuid-1", "uuid-2"]
-#     )
-#     return {"message": "Tournament initialization started"}
+    return result.scalars().all()
 
 
 async def initialize_agents_for_tournament(
@@ -239,7 +134,7 @@ async def create_tournament(
     data: TournamentCreate,
     session: AsyncSession = Depends(get_db),
 ):
-    # 1️⃣ Create the tournament row
+    # Create the tournament row
     tournament = Tournament(
         name=data.name,
         start_date=data.start_date,
@@ -251,27 +146,236 @@ async def create_tournament(
     session.add(tournament)
     await session.flush()  # ensures tournament.id exists without commit
 
-    # 2️⃣ Initialize agent states
+    # Initialize agent states
     await initialize_agents_for_tournament(
         session=session,
         tournament_id=tournament.id,
         agent_ids=data.agent_ids,
     )
 
-    # 3️⃣ Commit the whole transaction atomically
+    # Commit the whole transaction atomically
     await session.commit()
     await session.refresh(tournament)
 
     return tournament
 
 
+# ── On-chain smart contract endpoints (admin-gated) ──
+
+
+@router.post(
+    "/{tournament_id}/onchain/create",
+    response_model=TournamentContractLink,
+    status_code=201,
+)
+async def create_onchain_tournament(
+    tournament_id: UUID,
+    payload: TournamentOnchainCreate,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """Create tournament on-chain and link it to DB record."""
+    tournament = await session.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
+
+    if tournament.contract_tournament_id is not None:
+        raise HTTPException(status_code=400, detail="Tournament already linked on-chain")
+
+    if len(payload.agent_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 agents required")
+
+    try:
+        client = get_agonus_client()
+        result = client.create_tournament(agent_count=len(payload.agent_ids))
+    except (ValueError, ConnectionError) as e:
+        raise HTTPException(status_code=400, detail=f"Configuration error: {e}")
+    except Exception as e:
+        logger.exception("On-chain create failed")
+        detail = _extract_revert_reason(e) or str(e)
+        raise HTTPException(status_code=400, detail=f"On-chain create failed: {detail}")
+
+    # Sort agent IDs deterministically so the mapping is always the same
+    sorted_ids = sorted(str(aid) for aid in payload.agent_ids)
+    mapping = {agent_id: idx + 1 for idx, agent_id in enumerate(sorted_ids)}
+    tournament.contract_tournament_id = result.contract_tournament_id
+    tournament.agent_contract_mapping = mapping
+
+    session.add(tournament)
+    await session.commit()
+    await session.refresh(tournament)
+
+    return TournamentContractLink(
+        contract_tournament_id=result.contract_tournament_id or 0,
+        tx_hash=result.tx_hash,
+    )
+
+
+@router.post("/{tournament_id}/start")
+async def start_tournament(
+    tournament_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """Start tournament -- initializes agent states via background task."""
+    tournament = await session.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
+    if not tournament.agent_contract_mapping:
+        raise HTTPException(status_code=400, detail="No agents mapped. Link on-chain first.")
+
+    agent_uuids = list(tournament.agent_contract_mapping.keys())
+    await _initialize_tournament_agents_async(
+        tournament_id, [UUID(u) for u in agent_uuids]
+    )
+
+    # Update agent stats: increment total_tournaments
+    for uid in agent_uuids:
+        agent = await session.get(Agent, UUID(uid))
+        if agent:
+            stats = dict(agent.stats or {})
+            stats["total_tournaments"] = stats.get("total_tournaments", 0) + 1
+            agent.stats = stats
+            session.add(agent)
+
+    tournament.status = "live"
+    session.add(tournament)
+    await session.commit()
+
+    return {"message": "Tournament started", "agents_count": len(agent_uuids)}
+
+
+@router.post("/{tournament_id}/onchain/close")
+async def close_onchain_betting(
+    tournament_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """Close betting on-chain."""
+    tournament = await session.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
+    if tournament.contract_tournament_id is None:
+        raise HTTPException(status_code=400, detail="Tournament not linked on-chain")
+    if tournament.status == "completed":
+        raise HTTPException(status_code=400, detail="Tournament already completed or cancelled")
+    if tournament.betting_closed:
+        raise HTTPException(status_code=400, detail="Betting already closed")
+    if tournament.winner_agent_id is not None:
+        raise HTTPException(status_code=400, detail="Tournament already settled")
+
+    try:
+        client = get_agonus_client()
+        result = client.close_betting(tournament.contract_tournament_id)
+    except (ValueError, ConnectionError) as e:
+        raise HTTPException(status_code=400, detail=f"Configuration error: {e}")
+    except Exception as e:
+        logger.exception("On-chain close failed")
+        detail = _extract_revert_reason(e) or str(e)
+        raise HTTPException(status_code=400, detail=f"On-chain close failed: {detail}")
+
+    tournament.betting_closed = True
+    session.add(tournament)
+    await session.commit()
+
+    return {"tx_hash": result.tx_hash}
+
+
+@router.post("/{tournament_id}/onchain/settle")
+async def settle_onchain_tournament(
+    tournament_id: UUID,
+    payload: TournamentOnchainSettle,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """Settle tournament on-chain using winner agent mapping."""
+    tournament = await session.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
+    if tournament.contract_tournament_id is None:
+        raise HTTPException(status_code=400, detail="Tournament not linked on-chain")
+    if not tournament.betting_closed:
+        raise HTTPException(status_code=400, detail="Must close betting before settling")
+    if tournament.winner_agent_id is not None:
+        raise HTTPException(status_code=400, detail="Tournament already settled")
+
+    contract_agent_id = tournament.agent_contract_mapping.get(str(payload.winner_agent_id))
+    if not contract_agent_id:
+        raise HTTPException(status_code=400, detail="Winner agent not mapped on-chain")
+
+    try:
+        client = get_agonus_client()
+        result = client.settle_tournament(
+            tournament.contract_tournament_id, contract_agent_id
+        )
+    except (ValueError, ConnectionError) as e:
+        raise HTTPException(status_code=400, detail=f"Configuration error: {e}")
+    except Exception as e:
+        logger.exception("On-chain settle failed")
+        detail = _extract_revert_reason(e) or str(e)
+        raise HTTPException(status_code=400, detail=f"On-chain settle failed: {detail}")
+
+    tournament.winner_agent_id = payload.winner_agent_id
+    tournament.status = "completed"
+    session.add(tournament)
+
+    # Update agent stats: increment wins for winner, recalculate win_rate for all
+    for uid in (tournament.agent_contract_mapping or {}).keys():
+        agent = await session.get(Agent, UUID(uid))
+        if not agent:
+            continue
+        stats = dict(agent.stats or {})
+        if UUID(uid) == payload.winner_agent_id:
+            stats["wins"] = stats.get("wins", 0) + 1
+        total = stats.get("total_tournaments", 0)
+        wins = stats.get("wins", 0)
+        stats["win_rate"] = wins / total if total > 0 else 0
+        agent.stats = stats
+        session.add(agent)
+
+    await session.commit()
+
+    return {"tx_hash": result.tx_hash}
+
+
+@router.post("/{tournament_id}/onchain/cancel")
+async def cancel_onchain_tournament(
+    tournament_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """Cancel tournament on-chain."""
+    tournament = await session.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament Not Found")
+    if tournament.contract_tournament_id is None:
+        raise HTTPException(status_code=400, detail="Tournament not linked on-chain")
+    if tournament.winner_agent_id is not None:
+        raise HTTPException(status_code=400, detail="Tournament already settled, cannot cancel")
+
+    try:
+        client = get_agonus_client()
+        result = client.cancel_tournament(tournament.contract_tournament_id)
+    except (ValueError, ConnectionError) as e:
+        raise HTTPException(status_code=400, detail=f"Configuration error: {e}")
+    except Exception as e:
+        logger.exception("On-chain cancel failed")
+        detail = _extract_revert_reason(e) or str(e)
+        raise HTTPException(status_code=400, detail=f"On-chain cancel failed: {detail}")
+
+    tournament.status = "completed"
+    tournament.betting_closed = True
+    session.add(tournament)
+    await session.commit()
+
+    return {"tx_hash": result.tx_hash}
+
+
 @router.post("/agents/{agent_id}/force-run")
 async def force_agent_run(agent_id: str, tournament_id: str):
-    # 2. Force a single agent to think NOW
     task = run_agent_decision.delay(
         agent_uuid=agent_id, tournament_uuid=tournament_id, recover_from_crash=True
     )
-
     return {"task_id": task.id, "status": "Queued"}
 
 
@@ -282,12 +386,11 @@ async def update_tournament(
     session: AsyncSession = Depends(get_db),
     admin: dict = Depends(require_admin),
 ):
-    """PUT route for updating a tournament"""
+    """PUT update tournament"""
     db_tournament = await session.get(Tournament, tournament_id)
     if not db_tournament:
         raise HTTPException(status_code=404, detail="Tournament Not Found")
 
-    # Update only provided fields
     update_data = tournament_data.model_dump(exclude_unset=True)
 
     for key, value in update_data.items():
@@ -306,7 +409,7 @@ async def delete_tournament(
     session: AsyncSession = Depends(get_db),
     admin: dict = Depends(require_admin),
 ):
-    """DELETE route for deleting a tournament"""
+    """DELETE tournament"""
     tournament = await session.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament Not Found")

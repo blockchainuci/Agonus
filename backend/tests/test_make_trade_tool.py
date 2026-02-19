@@ -22,8 +22,6 @@ def mock_market_tool():
     """Create a mock market data tool with fixed prices."""
     market_tool = Mock()
     market_tool.get_price = Mock(side_effect=lambda token: {
-        "WETH": 3000.0,
-        "CBBTC": 60000.0,
         "ETH": 3000.0,
         "BTC": 60000.0,
     }.get(token.upper(), None))
@@ -48,7 +46,7 @@ def portfolio_with_holdings():
     return Portfolio(
         agent_id="test_agent",
         cash=200.0,
-        holdings={"WETH": 0.1},  # 0.1 ETH worth ~$300
+        holdings={"ETH": 0.1},  # 0.1 ETH worth ~$300
         starting_val=500.0,
         holdings_val=300.0,
         total_value=500.0,
@@ -90,57 +88,57 @@ class TestValidation:
     """Test trade validation logic."""
 
     def test_valid_buy_trade(self, make_trade_tool):
-        is_valid, reason = make_trade_tool.validate_trade("BUY", "WETH", 100.0)
+        is_valid, reason = make_trade_tool.validate_trade("BUY", "ETH", 100.0)
         assert is_valid is True
         assert reason == "Trade validated"
 
     def test_valid_sell_trade(self, make_trade_tool_with_holdings):
-        is_valid, reason = make_trade_tool_with_holdings.validate_trade("SELL", "WETH", 0.05)
+        is_valid, reason = make_trade_tool_with_holdings.validate_trade("SELL", "ETH", 0.05)
         assert is_valid is True
         assert reason == "Trade validated"
 
     def test_invalid_action(self, make_trade_tool):
-        is_valid, reason = make_trade_tool.validate_trade("HOLD", "WETH", 100.0)
+        is_valid, reason = make_trade_tool.validate_trade("HOLD", "ETH", 100.0)
         assert is_valid is False
         assert "Invalid action" in reason
 
     def test_unsupported_token(self, make_trade_tool):
-        is_valid, reason = make_trade_tool.validate_trade("BUY", "DOGE", 100.0)
+        is_valid, reason = make_trade_tool.validate_trade("BUY", "SHIB", 100.0)
         assert is_valid is False
         assert "Unsupported token" in reason
 
     def test_insufficient_cash_for_buy(self, make_trade_tool):
-        is_valid, reason = make_trade_tool.validate_trade("BUY", "WETH", 600.0)
+        is_valid, reason = make_trade_tool.validate_trade("BUY", "ETH", 600.0)
         assert is_valid is False
         assert "Insufficient cash" in reason
 
     def test_insufficient_holdings_for_sell(self, make_trade_tool_with_holdings):
-        is_valid, reason = make_trade_tool_with_holdings.validate_trade("SELL", "WETH", 1.0)
+        is_valid, reason = make_trade_tool_with_holdings.validate_trade("SELL", "ETH", 1.0)
         assert is_valid is False
-        assert "Insufficient WETH" in reason
+        assert "Insufficient ETH" in reason
 
     def test_zero_amount(self, make_trade_tool):
-        is_valid, reason = make_trade_tool.validate_trade("BUY", "WETH", 0.0)
+        is_valid, reason = make_trade_tool.validate_trade("BUY", "ETH", 0.0)
         assert is_valid is False
         assert "Invalid amount" in reason
 
     def test_negative_amount(self, make_trade_tool):
-        is_valid, reason = make_trade_tool.validate_trade("BUY", "WETH", -100.0)
+        is_valid, reason = make_trade_tool.validate_trade("BUY", "ETH", -100.0)
         assert is_valid is False
         assert "Invalid amount" in reason
 
     def test_risk_limit_exceeded(self, make_trade_tool):
         # With risk_score=0.5, max trade is 50% of $500 = $250
-        is_valid, reason = make_trade_tool.validate_trade("BUY", "WETH", 300.0, risk_score=0.5)
+        is_valid, reason = make_trade_tool.validate_trade("BUY", "ETH", 300.0, risk_score=0.5)
         assert is_valid is False
         assert "exceeds risk limit" in reason
 
     def test_case_insensitive_action(self, make_trade_tool):
-        is_valid, _ = make_trade_tool.validate_trade("buy", "WETH", 100.0)
+        is_valid, _ = make_trade_tool.validate_trade("buy", "ETH", 100.0)
         assert is_valid is True
 
     def test_case_insensitive_token(self, make_trade_tool):
-        is_valid, _ = make_trade_tool.validate_trade("BUY", "weth", 100.0)
+        is_valid, _ = make_trade_tool.validate_trade("BUY", "eth", 100.0)
         assert is_valid is True
 
 
@@ -156,7 +154,7 @@ class TestBuyTrades:
     async def test_basic_buy(self, make_trade_tool):
         trade = await make_trade_tool.execute_trade(
             action="BUY",
-            token="WETH",
+            token="ETH",
             amount=150.0,  # $150 USDC
             confidence=0.8,
             summary="Test buy",
@@ -164,7 +162,7 @@ class TestBuyTrades:
 
         # Check trade details
         assert trade.action == "BUY"
-        assert trade.token == "WETH"
+        assert trade.token == "ETH"
         assert trade.price == 3000.0
         assert trade.qty == pytest.approx(0.05)  # $150 / $3000 = 0.05 ETH
         assert trade.confidence == 0.8
@@ -173,43 +171,43 @@ class TestBuyTrades:
 
         # Check portfolio updates
         assert make_trade_tool.portfolio.cash == pytest.approx(350.0)  # $500 - $150
-        assert make_trade_tool.portfolio.holdings["WETH"] == pytest.approx(0.05)
+        assert make_trade_tool.portfolio.holdings["ETH"] == pytest.approx(0.05)
         assert make_trade_tool.portfolio.num_trades == 1
 
     @pytest.mark.asyncio
     async def test_buy_adds_to_existing_holdings(self, make_trade_tool_with_holdings):
         await make_trade_tool_with_holdings.execute_trade(
             action="BUY",
-            token="WETH",
+            token="ETH",
             amount=60.0,  # $60 USDC = 0.02 ETH
             confidence=0.7,
             summary="Add to position",
         )
 
         # Should add to existing 0.1 ETH
-        assert make_trade_tool_with_holdings.portfolio.holdings["WETH"] == pytest.approx(0.12)
+        assert make_trade_tool_with_holdings.portfolio.holdings["ETH"] == pytest.approx(0.12)
         assert make_trade_tool_with_holdings.portfolio.cash == pytest.approx(140.0)  # $200 - $60
 
     @pytest.mark.asyncio
     async def test_buy_different_token(self, make_trade_tool_with_holdings):
         await make_trade_tool_with_holdings.execute_trade(
             action="BUY",
-            token="CBBTC",
+            token="BTC",
             amount=60.0,  # $60 USDC
             confidence=0.75,
             summary="Diversify into BTC",
         )
 
         # Should have both tokens
-        assert "WETH" in make_trade_tool_with_holdings.portfolio.holdings
-        assert "CBBTC" in make_trade_tool_with_holdings.portfolio.holdings
-        assert make_trade_tool_with_holdings.portfolio.holdings["CBBTC"] == pytest.approx(0.001)  # $60 / $60000
+        assert "ETH" in make_trade_tool_with_holdings.portfolio.holdings
+        assert "BTC" in make_trade_tool_with_holdings.portfolio.holdings
+        assert make_trade_tool_with_holdings.portfolio.holdings["BTC"] == pytest.approx(0.001)  # $60 / $60000
 
     @pytest.mark.asyncio
     async def test_buy_updates_metrics(self, make_trade_tool):
         await make_trade_tool.execute_trade(
             action="BUY",
-            token="WETH",
+            token="ETH",
             amount=100.0,
             confidence=0.8,
             summary="Test",
@@ -218,7 +216,7 @@ class TestBuyTrades:
         status = make_trade_tool.get_portfolio_status()
         assert status["num_trades"] == 1
         assert status["cash"] == pytest.approx(400.0)
-        assert "WETH" in status["holdings"]
+        assert "ETH" in status["holdings"]
 
 
 # ============================================================================
@@ -233,7 +231,7 @@ class TestSellTrades:
     async def test_basic_sell(self, make_trade_tool_with_holdings):
         trade = await make_trade_tool_with_holdings.execute_trade(
             action="SELL",
-            token="WETH",
+            token="ETH",
             amount=0.05,  # Sell half (0.05 of 0.1 ETH)
             confidence=0.75,
             summary="Take profit",
@@ -241,26 +239,26 @@ class TestSellTrades:
 
         # Check trade details
         assert trade.action == "SELL"
-        assert trade.token == "WETH"
+        assert trade.token == "ETH"
         assert trade.qty == 0.05
         assert trade.price == 3000.0
 
         # Check portfolio updates
-        assert make_trade_tool_with_holdings.portfolio.holdings["WETH"] == pytest.approx(0.05)
+        assert make_trade_tool_with_holdings.portfolio.holdings["ETH"] == pytest.approx(0.05)
         assert make_trade_tool_with_holdings.portfolio.cash == pytest.approx(350.0)  # $200 + $150
 
     @pytest.mark.asyncio
     async def test_sell_all_removes_from_holdings(self, make_trade_tool_with_holdings):
         await make_trade_tool_with_holdings.execute_trade(
             action="SELL",
-            token="WETH",
+            token="ETH",
             amount=0.1,  # Sell all
             confidence=0.9,
             summary="Exit position",
         )
 
         # Holdings should be empty for WETH
-        assert "WETH" not in make_trade_tool_with_holdings.portfolio.holdings
+        assert "ETH" not in make_trade_tool_with_holdings.portfolio.holdings
         assert make_trade_tool_with_holdings.portfolio.cash == pytest.approx(500.0)  # $200 + $300
 
     @pytest.mark.asyncio
@@ -268,7 +266,7 @@ class TestSellTrades:
         # First buy at $3000
         await make_trade_tool.execute_trade(
             action="BUY",
-            token="WETH",
+            token="ETH",
             amount=300.0,  # Buy 0.1 ETH at $3000
             confidence=0.8,
             summary="Initial buy",
@@ -280,7 +278,7 @@ class TestSellTrades:
         # Sell at higher price
         trade = await make_trade_tool.execute_trade(
             action="SELL",
-            token="WETH",
+            token="ETH",
             amount=0.1,  # Sell all
             confidence=0.9,
             summary="Take profit",
@@ -296,7 +294,7 @@ class TestSellTrades:
         # First buy at $3000
         await make_trade_tool.execute_trade(
             action="BUY",
-            token="WETH",
+            token="ETH",
             amount=300.0,
             confidence=0.8,
             summary="Initial buy",
@@ -308,7 +306,7 @@ class TestSellTrades:
         # Sell at lower price
         trade = await make_trade_tool.execute_trade(
             action="SELL",
-            token="WETH",
+            token="ETH",
             amount=0.1,
             confidence=0.6,
             summary="Cut losses",
@@ -331,19 +329,19 @@ class TestFIFOPnL:
     @pytest.mark.asyncio
     async def test_fifo_multiple_buys(self, make_trade_tool):
         # Buy 1: 0.05 ETH at $3000
-        await make_trade_tool.execute_trade("BUY", "WETH", 150.0, 0.8, "First buy")
+        await make_trade_tool.execute_trade("BUY", "ETH", 150.0, 0.8, "First buy")
 
         # Change price to $3200
         make_trade_tool.market_tool.get_price = Mock(return_value=3200.0)
 
         # Buy 2: 0.05 ETH at $3200
-        await make_trade_tool.execute_trade("BUY", "WETH", 160.0, 0.8, "Second buy")
+        await make_trade_tool.execute_trade("BUY", "ETH", 160.0, 0.8, "Second buy")
 
         # Change price to $3500
         make_trade_tool.market_tool.get_price = Mock(return_value=3500.0)
 
         # Sell first lot (FIFO - should use $3000 cost basis)
-        trade = await make_trade_tool.execute_trade("SELL", "WETH", 0.05, 0.9, "Sell first lot")
+        trade = await make_trade_tool.execute_trade("SELL", "ETH", 0.05, 0.9, "Sell first lot")
 
         # PnL: (3500 - 3000) * 0.05 = $25
         assert trade.realized_pnl == pytest.approx(25.0)
@@ -351,19 +349,19 @@ class TestFIFOPnL:
     @pytest.mark.asyncio
     async def test_fifo_partial_lot(self, make_trade_tool):
         # Buy 0.1 ETH at $3000
-        await make_trade_tool.execute_trade("BUY", "WETH", 300.0, 0.8, "Initial buy")
+        await make_trade_tool.execute_trade("BUY", "ETH", 300.0, 0.8, "Initial buy")
 
         # Change price to $3300
         make_trade_tool.market_tool.get_price = Mock(return_value=3300.0)
 
         # Sell half
-        trade = await make_trade_tool.execute_trade("SELL", "WETH", 0.05, 0.85, "Partial sell")
+        trade = await make_trade_tool.execute_trade("SELL", "ETH", 0.05, 0.85, "Partial sell")
 
         # PnL: (3300 - 3000) * 0.05 = $15
         assert trade.realized_pnl == pytest.approx(15.0)
 
         # Sell remaining half
-        trade2 = await make_trade_tool.execute_trade("SELL", "WETH", 0.05, 0.85, "Sell rest")
+        trade2 = await make_trade_tool.execute_trade("SELL", "ETH", 0.05, 0.85, "Sell rest")
 
         # PnL: (3300 - 3000) * 0.05 = $15
         assert trade2.realized_pnl == pytest.approx(15.0)
@@ -380,7 +378,7 @@ class TestPortfolioMetrics:
     @pytest.mark.asyncio
     async def test_roi_calculation(self, make_trade_tool):
         # Buy some ETH
-        await make_trade_tool.execute_trade("BUY", "WETH", 250.0, 0.8, "Buy")
+        await make_trade_tool.execute_trade("BUY", "ETH", 250.0, 0.8, "Buy")
 
         # Price goes up 10%
         make_trade_tool.market_tool.get_price = Mock(return_value=3300.0)
@@ -394,13 +392,13 @@ class TestPortfolioMetrics:
     @pytest.mark.asyncio
     async def test_win_rate_calculation(self, make_trade_tool):
         # Execute trades
-        await make_trade_tool.execute_trade("BUY", "WETH", 150.0, 0.8, "Buy 1")
+        await make_trade_tool.execute_trade("BUY", "ETH", 150.0, 0.8, "Buy 1")
 
         make_trade_tool.market_tool.get_price = Mock(return_value=3500.0)
-        await make_trade_tool.execute_trade("SELL", "WETH", 0.025, 0.9, "Win")  # Winner
+        await make_trade_tool.execute_trade("SELL", "ETH", 0.025, 0.9, "Win")  # Winner
 
         make_trade_tool.market_tool.get_price = Mock(return_value=2800.0)
-        await make_trade_tool.execute_trade("SELL", "WETH", 0.025, 0.6, "Loss")  # Loser
+        await make_trade_tool.execute_trade("SELL", "ETH", 0.025, 0.6, "Loss")  # Loser
 
         # 1 win, 1 loss out of 3 trades (1 buy + 2 sells)
         # But win_rate is based on winning vs losing trades only
@@ -419,7 +417,7 @@ class TestPortfolioMetrics:
         assert "win_rate" in status
 
         assert status["cash"] == 200.0
-        assert status["holdings"]["WETH"] == 0.1
+        assert status["holdings"]["ETH"] == 0.1
 
 
 # ============================================================================
@@ -435,7 +433,7 @@ class TestErrorHandling:
         with pytest.raises(MakeTradeToolError) as exc_info:
             await make_trade_tool.execute_trade(
                 action="BUY",
-                token="WETH",
+                token="ETH",
                 amount=1000.0,  # More than available
                 confidence=0.8,
                 summary="Should fail",
@@ -449,7 +447,7 @@ class TestErrorHandling:
         with pytest.raises(MakeTradeToolError) as exc_info:
             await make_trade_tool.execute_trade(
                 action="BUY",
-                token="WETH",
+                token="ETH",
                 amount=100.0,
                 confidence=0.8,
                 summary="Should fail",
@@ -480,7 +478,7 @@ class TestDatabaseIntegration:
             tournament_uuid=uuid4(),
         )
 
-        await tool.execute_trade("BUY", "WETH", 100.0, 0.8, "Test")
+        await tool.execute_trade("BUY", "ETH", 100.0, 0.8, "Test")
 
         # Verify database was called
         mock_db.save_trade.assert_called_once()
@@ -501,6 +499,6 @@ class TestDatabaseIntegration:
         )
 
         # Trade should still succeed even if DB fails
-        trade = await tool.execute_trade("BUY", "WETH", 100.0, 0.8, "Test")
+        trade = await tool.execute_trade("BUY", "ETH", 100.0, 0.8, "Test")
         assert trade is not None
         assert tool.portfolio.cash == pytest.approx(400.0)

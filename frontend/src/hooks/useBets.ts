@@ -5,7 +5,6 @@ import {
   ID,
   CreateBetData,
   UpdateBetData,
-  UserBetsSummary,
   ApiError,
 } from "../types";
 
