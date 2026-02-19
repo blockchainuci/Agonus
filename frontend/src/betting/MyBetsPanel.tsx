@@ -65,9 +65,13 @@ export function MyBetsPanel({
         <p className="text-sm text-red-400">{betsError}</p>
       )}
 
-      {isConnected && isAuthenticated && !isLoadingBets && !betsError && myBets.length === 0 && (
-        <p className="text-sm text-gray-400">No bets yet.</p>
-      )}
+      {isConnected &&
+        isAuthenticated &&
+        !isLoadingBets &&
+        !betsError &&
+        myBets.length === 0 && (
+          <p className="text-sm text-gray-400">No bets yet.</p>
+        )}
 
       <ul className="mt-4 space-y-3">
         {myBets.map((b) => {
@@ -83,16 +87,22 @@ export function MyBetsPanel({
             >
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold text-white">
-                  {b.agent_name ? b.agent_name : `Agent ${String(b.agent_id).slice(0, 8)}...`}
+                  {b.agent_name
+                    ? b.agent_name
+                    : `Agent ${String(b.agent_id).slice(0, 8)}...`}
                 </div>
                 <div className="text-sm text-gray-300">{amount} ETH</div>
               </div>
 
               <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-                <span className={b.settled ? "text-green-400" : "text-yellow-400"}>
+                <span
+                  className={b.settled ? "text-green-400" : "text-yellow-400"}
+                >
                   {status}
                 </span>
-                <span>{placedAt ? new Date(placedAt).toLocaleString() : "—"}</span>
+                <span>
+                  {placedAt ? new Date(placedAt).toLocaleString() : "—"}
+                </span>
               </div>
 
               {b.payout && (

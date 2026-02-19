@@ -8,7 +8,7 @@ import CreateAgentModal, { AgentFormData } from "@/app/components/admin/agents/C
 import { useWalletAuth } from "@/src/hooks/useWalletAuth";
 import { ConnectWallet } from "@/src/components/wallet/ConnectWallet";
 import { useCreateTournament } from "@/src/hooks/useTournaments";
-import { useCreateAgent } from "@/src/hooks/useAgents";
+import { useCreateAgent, useAgents } from "@/src/hooks/useAgents";
 import { Loader2, ShieldAlert, ShieldX } from "lucide-react";
 import toast from "react-hot-toast";
 import "@/app/styles/datepicker.css";
@@ -24,6 +24,7 @@ export default function AdminLayout({
   const { isConnected, isAuthenticated, isSigningIn, signIn, isAdmin, address } = useWalletAuth();
   const createTournament = useCreateTournament();
   const createAgent = useCreateAgent();
+  const { data: agents = [] } = useAgents();
 
   const handleCreateTournament = async (data: TournamentFormData) => {
     try {
@@ -32,7 +33,7 @@ export default function AdminLayout({
         start_date: data.start_date.toISOString(),
         end_date: data.end_date.toISOString(),
         prize_pool: data.prize_pool,
-        agent_ids: [],
+        agent_ids: data.agent_ids || [],
       });
       setIsCreateTournamentModalOpen(false);
       toast.success("Tournament created");
@@ -47,6 +48,7 @@ export default function AdminLayout({
         name: data.name,
         personality: data.personality,
         strategy_type: data.strategy_type,
+        stats: data.stats,
       });
       setIsCreateAgentModalOpen(false);
       toast.success("Agent created");
@@ -153,6 +155,7 @@ export default function AdminLayout({
         isOpen={isCreateTournamentModalOpen}
         onClose={() => setIsCreateTournamentModalOpen(false)}
         onSubmit={handleCreateTournament}
+        agents={agents}
       />
 
       <CreateAgentModal

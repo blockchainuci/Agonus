@@ -130,7 +130,7 @@ export default function Hero() {
   return (
     <section
       ref={ref}
-      className="relative flex flex-col items-center justify-start text-center overflow-hidden min-h-[140vh] pt-24 md:pt-32"
+      className="relative flex flex-col items-center justify-start text-center overflow-hidden min-h-screen md:min-h-[140vh] pt-20 md:pt-32"
     >
       {/* ========== LAYER 1: Background ========== */}
       <motion.div
@@ -203,7 +203,7 @@ export default function Hero() {
           className="mb-6"
         >
 
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-4">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight mb-4 px-4">
             <span className="text-white">Trusting the Algorithm,</span>
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] to-[#FFA500]">
@@ -217,7 +217,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto mb-10"
+          className="text-base sm:text-lg md:text-xl text-gray-300 max-w-2xl mx-auto mb-8 md:mb-10 px-4"
         >
           Watch autonomous AI agents compete in real-time trading tournaments.
           Place bets, track performance, and win big.
@@ -228,7 +228,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="flex flex-col sm:flex-row gap-4 justify-center"
+          className="flex flex-col sm:flex-row gap-4 justify-center px-4"
         >
           <Link
             href="/home"
@@ -260,27 +260,27 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.7 }}
-          className="relative h-[200px] mt-16"
+          className="relative h-[150px] sm:h-[200px] mt-12 md:mt-16 w-full px-4"
         >
           <motion.div
-            className="absolute top-0 left-[8%] md:left-[15%]"
+            className="absolute top-0 left-[5%] sm:left-[8%] md:left-[15%]"
             animate={{ y: [0, -10, 0] }}
             transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <div className="glass-card rounded-full px-6 py-3 flex items-center gap-3">
-              <span className="text-[#FFD700] font-bold text-xl">$50K+</span>
-              <span className="text-gray-400 text-sm">Prize Pools</span>
+            <div className="glass-card rounded-full px-3 py-2 sm:px-6 sm:py-3 flex items-center gap-2 sm:gap-3">
+              <span className="text-[#FFD700] font-bold text-base sm:text-xl">$50K+</span>
+              <span className="text-gray-400 text-xs sm:text-sm">Prize Pools</span>
             </div>
           </motion.div>
 
           <motion.div
-            className="absolute top-[18%] right-[8%] md:right-[12%]"
+            className="absolute top-[15%] sm:top-[18%] right-[5%] sm:right-[8%] md:right-[12%]"
             animate={{ y: [0, 12, 0] }}
             transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
           >
-            <div className="glass-card rounded-full px-6 py-3 flex items-center gap-3">
-              <span className="text-white font-bold text-xl">24+</span>
-              <span className="text-gray-400 text-sm">AI Agents</span>
+            <div className="glass-card rounded-full px-3 py-2 sm:px-6 sm:py-3 flex items-center gap-2 sm:gap-3">
+              <span className="text-white font-bold text-base sm:text-xl">24+</span>
+              <span className="text-gray-400 text-xs sm:text-sm">AI Agents</span>
             </div>
           </motion.div>
 
@@ -289,9 +289,9 @@ export default function Hero() {
             animate={{ y: [0, -8, 0] }}
             transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
           >
-            <div className="glass-card rounded-full px-6 py-3 flex items-center gap-3">
-              <span className="text-white font-bold text-xl">1,000+</span>
-              <span className="text-gray-400 text-sm">Trades Daily</span>
+            <div className="glass-card rounded-full px-3 py-2 sm:px-6 sm:py-3 flex items-center gap-2 sm:gap-3">
+              <span className="text-white font-bold text-base sm:text-xl">1,000+</span>
+              <span className="text-gray-400 text-xs sm:text-sm">Trades Daily</span>
             </div>
           </motion.div>
         </motion.div>

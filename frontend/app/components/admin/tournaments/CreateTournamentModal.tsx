@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { X, Calendar, DollarSign, Trophy, Users } from "lucide-react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { X, Calendar, DollarSign, Trophy, Users, Check, ChevronDown, User } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+
+interface Agent {
+  id: string;
+  name: string;
+  personality: string;
+  strategy_type: string;
+}
 
 interface CreateTournamentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (tournamentData: TournamentFormData) => void;
+  agents: Agent[];
 }
 
 export interface TournamentFormData {
@@ -18,6 +26,7 @@ export interface TournamentFormData {
   prize_pool: string;
   max_agents: number;
   description?: string;
+  agent_ids: string[];
 }
 
 // Helper to get default end date (7 days from now)
@@ -31,6 +40,7 @@ export default function CreateTournamentModal({
   isOpen,
   onClose,
   onSubmit,
+  agents,
 }: CreateTournamentModalProps) {
   // Use useMemo to compute initial values only once
   const initialFormData = useMemo(() => ({
@@ -40,11 +50,25 @@ export default function CreateTournamentModal({
     prize_pool: "",
     max_agents: 10,
     description: "",
+    agent_ids: [] as string[],
   }), []);
 
   const [formData, setFormData] = useState<TournamentFormData>(initialFormData);
 
   const [errors, setErrors] = useState<Partial<Record<keyof TournamentFormData, string>>>({});
+  const [isAgentDropdownOpen, setIsAgentDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsAgentDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof TournamentFormData, string>> = {};
@@ -65,8 +89,21 @@ export default function CreateTournamentModal({
       newErrors.max_agents = "Must allow at least 2 agents";
     }
 
+    if (formData.agent_ids.length === 0) {
+      newErrors.agent_ids = "Select at least 1 agent";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const toggleAgentSelection = (agentId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      agent_ids: prev.agent_ids.includes(agentId)
+        ? prev.agent_ids.filter(id => id !== agentId)
+        : [...prev.agent_ids, agentId]
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -85,6 +122,7 @@ export default function CreateTournamentModal({
       prize_pool: "",
       max_agents: 10,
       description: "",
+      agent_ids: [],
     });
     setErrors({});
     onClose();
@@ -266,7 +304,7 @@ export default function CreateTournamentModal({
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       placeholder=" "
-                      rows={5}
+                      rows={3}
                       className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-transparent focus:outline-none focus:border-blue-400 transition-colors resize-none peer"
                     />
                     <label
@@ -277,6 +315,113 @@ export default function CreateTournamentModal({
                     >
                       Description (Optional)
                     </label>
+                  </div>
+
+                  {/* Agent Selection */}
+                  <div className="relative" ref={dropdownRef}>
+                    <label className="block text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Select Participating Agents *
+                    </label>
+                    
+                    {/* Dropdown Trigger */}
+                    <button
+                      type="button"
+                      onClick={() => setIsAgentDropdownOpen(!isAgentDropdownOpen)}
+                      className={`w-full px-4 py-3.5 bg-white/5 border ${
+                        errors.agent_ids ? "border-red-500" : "border-white/10"
+                      } rounded-lg text-left flex items-center justify-between transition-all hover:bg-white/10`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="w-5 h-5 text-gray-400" />
+                        {formData.agent_ids.length === 0 ? (
+                          <span className="text-gray-500">Select agents...</span>
+                        ) : (
+                          <span className="text-white">
+                            {formData.agent_ids.length} agent{formData.agent_ids.length !== 1 ? "s" : ""} selected
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown 
+                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                          isAgentDropdownOpen ? "rotate-180" : ""
+                        }`} 
+                      />
+                    </button>
+
+                    {/* Dropdown Panel */}
+                    <div 
+                      className={`absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden transition-all duration-200 origin-top ${
+                        isAgentDropdownOpen 
+                          ? "opacity-100 scale-y-100" 
+                          : "opacity-0 scale-y-95 pointer-events-none"
+                      }`}
+                    >
+                      {/* Selected Count Header */}
+                      {formData.agent_ids.length > 0 && (
+                        <div className="px-4 py-2 bg-blue-500/10 border-b border-white/10 flex items-center justify-between">
+                          <span className="text-sm text-blue-400 font-medium">
+                            {formData.agent_ids.length} selected
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, agent_ids: [] }))}
+                            className="text-xs text-gray-400 hover:text-white transition-colors"
+                          >
+                            Clear all
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Agent List */}
+                      <div className="max-h-64 overflow-y-auto">
+                        {agents.length === 0 ? (
+                          <div className="px-4 py-6 text-center">
+                            <Users className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                            <p className="text-gray-500 text-sm">No agents available</p>
+                            <p className="text-gray-600 text-xs mt-1">Create agents first</p>
+                          </div>
+                        ) : (
+                          agents.map((agent) => {
+                            const isSelected = formData.agent_ids.includes(agent.id);
+                            return (
+                              <button
+                                key={agent.id}
+                                type="button"
+                                onClick={() => toggleAgentSelection(agent.id)}
+                                className={`w-full flex items-center gap-3 px-4 py-3 transition-all text-left ${
+                                  isSelected
+                                    ? "bg-blue-500/15 text-white"
+                                    : "text-gray-300 hover:bg-white/5"
+                                }`}
+                              >
+                                <div 
+                                  className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
+                                    isSelected 
+                                      ? "bg-blue-500 border-blue-500 scale-100" 
+                                      : "border-gray-500 scale-90"
+                                  }`}
+                                >
+                                  <Check 
+                                    className={`w-3 h-3 text-white transition-all duration-200 ${
+                                      isSelected ? "opacity-100 scale-100" : "opacity-0 scale-50"
+                                    }`} 
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{agent.name}</p>
+                                  <p className="text-xs text-gray-400 capitalize">{agent.strategy_type}</p>
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                    
+                    {errors.agent_ids && (
+                      <p className="text-red-400 text-xs mt-2">{errors.agent_ids}</p>
+                    )}
                   </div>
                 </div>
 

@@ -15,7 +15,7 @@ export function useTournamentAgentStates(tournamentId: ID) {
       return res.json();
     },
     enabled: !!tournamentId,
-    refetchInterval: 15000,
+    refetchInterval: 30000, // Reduced from 15s to 30s for better performance
   });
 }
 
@@ -33,6 +33,6 @@ export function useTournamentLeaderboard(tournamentId: ID) {
       return res.json();
     },
     enabled: !!tournamentId,
-    refetchInterval: 10000, // Update every 10 seconds
+    refetchInterval: 30000, // Reduced from 10s to 30s for better performance
   });
 }

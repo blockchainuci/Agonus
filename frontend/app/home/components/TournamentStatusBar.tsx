@@ -76,15 +76,15 @@ export function TournamentStatusBar() {
   };
 
   return (
-    <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-2 border-b border-white/10 bg-gradient-to-r from-blue-900/20 to-transparent relative">
+    <div className="p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/10 bg-gradient-to-r from-blue-900/20 to-transparent relative">
       {/* Left Section: Title + Dropdown */}
-      <div className="flex items-center gap-3">
-        <div className="text-yellow-400 font-bold text-2xl">
+      <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="text-yellow-400 font-bold text-xl md:text-2xl truncate">
           {uiTournament?.name || 'TOURNAMENT'}
         </div>
 
         {/* Dropdown */}
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center hover:bg-yellow-300 transition-colors"
@@ -95,7 +95,7 @@ export function TournamentStatusBar() {
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 mt-2 w-64 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-50">
+            <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 w-72 md:w-80 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-50 max-h-[60vh] overflow-y-auto">
               <div className="py-1">
                 {(tournaments ?? []).map((t) => {
                   const status = normalizeStatus(t.status);
@@ -114,9 +114,9 @@ export function TournamentStatusBar() {
                       active ? 'bg-slate-700/50' : ''
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-white font-semibold">{t.name || `Tournament ${idStr.slice(0, 8)}`}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-semibold truncate">{t.name || `Tournament ${idStr.slice(0, 8)}`}</p>
                         <p className="text-xs text-gray-400">
                           ${Number(prizePool).toLocaleString()} *{' '}
                           {endTime ? new Date(endTime).toLocaleDateString('en-US', {
@@ -127,7 +127,7 @@ export function TournamentStatusBar() {
                       </div>
 
                       <span
-                        className={`px-2 py-1 rounded-md font-semibold uppercase text-xs ${getStatusColor(status)}`}
+                        className={`px-2 py-1 rounded-md font-semibold uppercase text-xs flex-shrink-0 ${getStatusColor(status)}`}
                       >
                         {status}
                       </span>
@@ -142,9 +142,9 @@ export function TournamentStatusBar() {
       </div>
 
       {/* Right Section: Status Info */}
-      <div className="text-gray-400 text-sm flex flex-wrap gap-4 items-center">
+      <div className="text-gray-400 text-xs md:text-sm flex flex-wrap gap-2 md:gap-4 items-center w-full md:w-auto">
         <span className="flex items-center gap-2">
-          Status:{' '}
+          <span className="hidden sm:inline">Status:</span>
           <span
             className={`px-2 py-1 rounded-md font-semibold uppercase text-xs ${getStatusColor(
               uiTournament?.status ?? 'UPCOMING'
@@ -154,16 +154,16 @@ export function TournamentStatusBar() {
           </span>
         </span>
 
-        <span>
-          Prize Pool:{' '}
+        <span className="flex items-center gap-1">
+          <span className="hidden sm:inline">Prize Pool:</span>
           <span className="text-white font-semibold">
             {uiTournament ? `$${Number(uiTournament.prize_pool_usd).toLocaleString()}` : "—"}
           </span>
         </span>
 
-        <span>
-          Ends:{' '}
-          <span className="text-white font-mono">{formattedEndTime}</span>
+        <span className="flex items-center gap-1">
+          <span className="hidden sm:inline">Ends:</span>
+          <span className="text-white font-mono text-xs">{formattedEndTime}</span>
         </span>
       </div>
     </div>

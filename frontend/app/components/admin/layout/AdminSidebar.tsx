@@ -75,7 +75,9 @@ export default function AdminSidebar({ onCreateTournament, onCreateAgent }: Admi
     <aside className="w-64 bg-slate-900/80 backdrop-blur-sm border-r border-white/10 sticky top-0 h-screen flex flex-col p-6">
       {/* Logo/Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">Agonus</h1>
+        <Link href="/" className="text-2xl font-bold text-white hover:text-blue-400 transition-colors">
+          Agonus
+        </Link>
         <p className="text-sm text-gray-400">Admin Console</p>
       </div>
 

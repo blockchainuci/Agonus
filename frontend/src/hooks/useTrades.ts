@@ -12,7 +12,7 @@ export function useRecentTrades(limit: number = 20) {
       if (!res.ok) throw new Error("Failed to fetch recent trades");
       return res.json();
     },
-    refetchInterval: 5000, // Poll every 5 seconds
+    refetchInterval: 30000, // Reduced from 5s to 30s for better performance
   });
 }
 

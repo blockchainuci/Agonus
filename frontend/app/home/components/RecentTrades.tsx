@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useMemo } from "react";
+import { motion } from "framer-motion";
 import {
   Activity,
   ArrowUpRight,
@@ -15,27 +15,46 @@ import {
   Calendar,
   TrendingUp,
   Coins,
-} from 'lucide-react';
-import { useTournamentTrades } from '@/src/hooks/useTrades';
-import { useAgents } from '@/src/hooks/useAgents';
-import { useTournament } from '@/src/hooks/useTournaments';
-import { Trade } from '@/src/types';
-import { findAgentById } from '@/src/util/findAgentById';
+} from "lucide-react";
+import { useTournamentTrades } from "@/src/hooks/useTrades";
+import { useAgents } from "@/src/hooks/useAgents";
+import { useTournament } from "@/src/hooks/useTournaments";
+import { Trade } from "@/src/types";
+import { findAgentById } from "@/src/util/findAgentById";
 
 interface RecentTradesProps {
   tournamentId: string;
 }
 
+// Crypto token logos mapping
+const TOKEN_LOGOS: Record<string, string> = {
+  ETH: "https://cryptologos.cc/logos/ethereum-eth-logo.png",
+  WETH: "https://cryptologos.cc/logos/ethereum-eth-logo.png",
+  BTC: "https://cryptologos.cc/logos/bitcoin-btc-logo.png",
+  CBBTC: "https://cryptologos.cc/logos/bitcoin-btc-logo.png",
+  TBTC: "https://cryptologos.cc/logos/bitcoin-btc-logo.png",
+  SOL: "https://cryptologos.cc/logos/solana-sol-logo.png",
+  AVAX: "https://cryptologos.cc/logos/avalanche-avax-logo.png",
+  LINK: "https://cryptologos.cc/logos/chainlink-link-logo.png",
+  SUI: "https://cryptologos.cc/logos/sui-sui-logo.png",
+  BNB: "https://cryptologos.cc/logos/bnb-bnb-logo.png",
+  DOGE: "https://cryptologos.cc/logos/dogecoin-doge-logo.png",
+  XRP: "https://cryptologos.cc/logos/xrp-xrp-logo.png",
+  TRX: "https://cryptologos.cc/logos/tron-trx-logo.png",
+  USDC: "https://cryptologos.cc/logos/usd-coin-usdc-logo.png",
+  USDT: "https://cryptologos.cc/logos/tether-usdt-logo.png",
+};
+
 // Filter options
-type ActionFilter = 'all' | 'buy' | 'sell';
+type ActionFilter = "all" | "buy" | "sell";
 
 export default function RecentTrades({ tournamentId }: RecentTradesProps) {
   const { data: trades, isLoading } = useTournamentTrades(tournamentId);
   const { data: agents } = useAgents();
   const { data: tournament } = useTournament(tournamentId);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [actionFilter, setActionFilter] = useState<ActionFilter>('all');
-  const [assetFilter, setAssetFilter] = useState<string>('all');
+  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
+  const [assetFilter, setAssetFilter] = useState<string>("all");
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
 
   // Close modal
@@ -55,11 +74,14 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
     if (!trades) return [];
     return trades.filter((trade) => {
       // Action filter
-      if (actionFilter !== 'all' && trade.action.toLowerCase() !== actionFilter) {
+      if (
+        actionFilter !== "all" &&
+        trade.action.toLowerCase() !== actionFilter
+      ) {
         return false;
       }
       // Asset filter
-      if (assetFilter !== 'all' && trade.asset !== assetFilter) {
+      if (assetFilter !== "all" && trade.asset !== assetFilter) {
         return false;
       }
       return true;
@@ -70,9 +92,17 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
   const handleExportCSV = () => {
     if (filteredTrades.length === 0) return;
 
-    const headers = ['ID', 'Action', 'Asset', 'Amount', 'Price', 'Timestamp', 'Amount USD'];
+    const headers = [
+      "ID",
+      "Action",
+      "Asset",
+      "Amount",
+      "Price",
+      "Timestamp",
+      "Amount USD",
+    ];
     const csvContent = [
-      headers.join(','),
+      headers.join(","),
       ...filteredTrades.map((trade) =>
         [
           trade.id,
@@ -82,16 +112,19 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
           trade.price,
           trade.timestamp,
           parseFloat(trade.amount) * parseFloat(trade.price),
-        ].join(',')
+        ].join(","),
       ),
-    ].join('\n');
+    ].join("\n");
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `trades_tournament_${tournamentId}_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `trades_tournament_${tournamentId}_${new Date().toISOString().split("T")[0]}.csv`,
+    );
+    link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -99,11 +132,11 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
 
   // Clear all filters
   const clearFilters = () => {
-    setActionFilter('all');
-    setAssetFilter('all');
+    setActionFilter("all");
+    setAssetFilter("all");
   };
 
-  const hasActiveFilters = actionFilter !== 'all' || assetFilter !== 'all';
+  const hasActiveFilters = actionFilter !== "all" || assetFilter !== "all";
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -111,7 +144,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
 
-    if (diffMins < 1) return 'Just now';
+    if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
     return `${Math.floor(diffMins / 1440)}d ago`;
@@ -122,15 +155,19 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
     return `$${value.toFixed(0)}`;
   };
 
+  const getTokenLogo = (asset: string) => {
+    return TOKEN_LOGOS[asset] || null;
+  };
+
   return (
     <motion.div
       className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-6 relative overflow-hidden"
-      key={tournamentId} // Re-animate when tournament changes
+      key={tournamentId}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      {/*background glow */}
+      {/* background glow */}
       <div className="absolute top-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* header */}
@@ -141,7 +178,9 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">Recent Trades</h3>
-            <p className="text-xs text-gray-400">{tournament?.name || 'Loading...'}</p>
+            <p className="text-xs text-gray-400">
+              {tournament?.name || "Loading..."}
+            </p>
           </div>
         </div>
 
@@ -152,8 +191,8 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
             <button
               className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-colors ${
                 hasActiveFilters
-                  ? 'bg-purple-500/20 border-purple-500/30 text-purple-400'
-                  : 'bg-white/5 hover:bg-white/10 border-white/10 text-gray-400'
+                  ? "bg-purple-500/20 border-purple-500/30 text-purple-400"
+                  : "bg-white/5 hover:bg-white/10 border-white/10 text-gray-400"
               }`}
               onClick={() => setShowFilterMenu(!showFilterMenu)}
             >
@@ -180,31 +219,37 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
 
                 {/* Action filter */}
                 <div className="mb-4">
-                  <h4 className="text-sm font-semibold text-white pb-3">Actions</h4>
+                  <h4 className="text-sm font-semibold text-white pb-3">
+                    Actions
+                  </h4>
                   <div className="flex gap-2">
-                    {(['all', 'buy', 'sell'] as ActionFilter[]).map((action) => (
-                      <button
-                        key={action}
-                        onClick={() => setActionFilter(action)}
-                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer ${
-                          actionFilter === action
-                            ? action === 'buy'
-                              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                              : action === 'sell'
-                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                              : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                            : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                        }`}
-                      >
-                        {action.charAt(0).toUpperCase() + action.slice(1)}
-                      </button>
-                    ))}
+                    {(["all", "buy", "sell"] as ActionFilter[]).map(
+                      (action) => (
+                        <button
+                          key={action}
+                          onClick={() => setActionFilter(action)}
+                          className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer ${
+                            actionFilter === action
+                              ? action === "buy"
+                                ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                : action === "sell"
+                                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                                  : "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                              : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                          }`}
+                        >
+                          {action.charAt(0).toUpperCase() + action.slice(1)}
+                        </button>
+                      ),
+                    )}
                   </div>
                 </div>
 
                 {/* Asset filter */}
                 <div className="mb-4">
-                  <h4 className="text-sm font-semibold text-white pb-3">Assets</h4>
+                  <h4 className="text-sm font-semibold text-white pb-3">
+                    Assets
+                  </h4>
                   <select
                     value={assetFilter}
                     onChange={(e) => setAssetFilter(e.target.value)}
@@ -236,12 +281,16 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
           <button
             className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-colors ${
               filteredTrades.length > 0
-                ? 'bg-white/5 hover:bg-white/10 border-white/10 text-gray-400 hover:text-green-400'
-                : 'bg-white/5 border-white/10 text-gray-600 cursor-not-allowed'
+                ? "bg-white/5 hover:bg-white/10 border-white/10 text-gray-400 hover:text-green-400"
+                : "bg-white/5 border-white/10 text-gray-600 cursor-not-allowed"
             }`}
             onClick={handleExportCSV}
             disabled={filteredTrades.length === 0}
-            title={filteredTrades.length > 0 ? 'Export to CSV' : 'No trades to export'}
+            title={
+              filteredTrades.length > 0
+                ? "Export to CSV"
+                : "No trades to export"
+            }
           >
             <Download className="w-4 h-4" />
           </button>
@@ -252,16 +301,18 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
       {hasActiveFilters && (
         <div className="flex items-center gap-2 mb-4 relative z-10">
           <span className="text-xs text-gray-400">Active filters:</span>
-          {actionFilter !== 'all' && (
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              actionFilter === 'buy'
-                ? 'bg-green-500/20 text-green-400'
-                : 'bg-red-500/20 text-red-400'
-            }`}>
+          {actionFilter !== "all" && (
+            <span
+              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                actionFilter === "buy"
+                  ? "bg-green-500/20 text-green-400"
+                  : "bg-red-500/20 text-red-400"
+              }`}
+            >
               {actionFilter.toUpperCase()}
             </span>
           )}
-          {assetFilter !== 'all' && (
+          {assetFilter !== "all" && (
             <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400">
               {assetFilter}
             </span>
@@ -293,30 +344,30 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
           </div>
         ) : (
           filteredTrades.map((trade, index: number) => {
-            const isBuy = trade.action.toLowerCase() === 'buy';
+            const isBuy = trade.action.toLowerCase() === "buy";
             const amount = parseFloat(trade.amount);
             const price = parseFloat(trade.price);
             const amountUsd = amount * price;
+            const logoUrl = getTokenLogo(trade.asset);
 
             return (
               <motion.div
                 key={trade.id}
                 className={`flex items-center justify-between p-4 rounded-xl border transition-all hover:scale-[1.01] cursor-pointer group relative overflow-hidden ${
                   isBuy
-                    ? 'bg-green-500/5 border-green-500/20 hover:bg-green-500/10'
-                    : 'bg-red-500/5 border-red-500/20 hover:bg-red-500/10'
+                    ? "bg-green-500/5 border-green-500/20 hover:bg-green-500/10"
+                    : "bg-red-500/5 border-red-500/20 hover:bg-red-500/10"
                 }`}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
                 onClick={() => setSelectedTrade(trade)}
               >
                 {/* glow effect on hover */}
                 <div
                   className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity ${
                     isBuy
-                      ? 'bg-gradient-to-r from-green-500/10 to-transparent'
-                      : 'bg-gradient-to-r from-red-500/10 to-transparent'
+                      ? "bg-gradient-to-r from-green-500/10 to-transparent"
+                      : "bg-gradient-to-r from-red-500/10 to-transparent"
                   }`}
                 />
 
@@ -325,7 +376,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                   {/* action icon */}
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      isBuy ? 'bg-green-500/20' : 'bg-red-500/20'
+                      isBuy ? "bg-green-500/20" : "bg-red-500/20"
                     }`}
                   >
                     {isBuy ? (
@@ -336,18 +387,35 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                   </div>
 
                   <div>
-                    {/* trade action & token */}
+                    {/* trade action & token with logo */}
                     <div className="flex items-center gap-2 mb-1">
                       <span
                         className={`font-bold text-xs uppercase ${
-                          isBuy ? 'text-green-400' : 'text-red-400'
+                          isBuy ? "text-green-400" : "text-red-400"
                         }`}
                       >
                         {trade.action}
                       </span>
-                      <span className="font-semibold text-white">
-                        {trade.asset}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {logoUrl ? (
+                          <img
+                            src={logoUrl}
+                            alt={trade.asset}
+                            className="w-5 h-5 rounded-full bg-white/10"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-[8px] font-bold text-white">
+                            {trade.asset.slice(0, 2)}
+                          </div>
+                        )}
+                        <span className="font-semibold text-white text-sm">
+                          {trade.asset}
+                        </span>
+                      </div>
                     </div>
 
                     {/* amount */}
@@ -368,7 +436,6 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                     {formatTime(trade.timestamp)}
                   </div>
                 </div>
-
               </motion.div>
             );
           })
@@ -390,8 +457,12 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
               <p className="text-lg font-bold text-green-400">
                 $
                 {filteredTrades
-                  .filter((t: Trade) => t.action.toLowerCase() === 'buy')
-                  .reduce((sum: number, t: Trade) => sum + (parseFloat(t.amount) * parseFloat(t.price)), 0)
+                  .filter((t: Trade) => t.action.toLowerCase() === "buy")
+                  .reduce(
+                    (sum: number, t: Trade) =>
+                      sum + parseFloat(t.amount) * parseFloat(t.price),
+                    0,
+                  )
                   .toLocaleString()}
               </p>
             </div>
@@ -407,8 +478,12 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
               <p className="text-lg font-bold text-red-400">
                 $
                 {filteredTrades
-                  .filter((t: Trade) => t.action.toLowerCase() === 'sell')
-                  .reduce((sum: number, t: Trade) => sum + (parseFloat(t.amount) * parseFloat(t.price)), 0)
+                  .filter((t: Trade) => t.action.toLowerCase() === "sell")
+                  .reduce(
+                    (sum: number, t: Trade) =>
+                      sum + parseFloat(t.amount) * parseFloat(t.price),
+                    0,
+                  )
                   .toLocaleString()}
               </p>
             </div>
@@ -420,139 +495,192 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500/30 via-purple-500/30 to-red-500/30 blur-sm" />
 
       {/* Trade Detail Modal */}
-      {selectedTrade && (() => {
-        const isBuy = selectedTrade.action.toLowerCase() === 'buy';
-        const amount = parseFloat(selectedTrade.amount);
-        const price = parseFloat(selectedTrade.price);
-        const totalValue = amount * price;
-        const agent = findAgentById(agents, selectedTrade.agent_id);
+      {selectedTrade &&
+        (() => {
+          const isBuy = selectedTrade.action.toLowerCase() === "buy";
+          const amount = parseFloat(selectedTrade.amount);
+          const price = parseFloat(selectedTrade.price);
+          const totalValue = amount * price;
+          const agent = findAgentById(agents, selectedTrade.agent_id);
+          const logoUrl = getTokenLogo(selectedTrade.asset);
 
-        return (
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4"
-            onClick={closeModal}
-          >
+          return (
             <div
-              className="bg-[#001D3D] border border-white/20 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4"
+              onClick={closeModal}
             >
-              {/* Modal Header */}
-              <div className={`flex items-center justify-between p-6 border-b border-white/10 ${
-                isBuy ? 'bg-green-500/5' : 'bg-red-500/5'
-              }`}>
-                <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
-                    isBuy ? 'bg-green-500/20' : 'bg-red-500/20'
-                  }`}>
-                    {isBuy ? (
-                      <ArrowUpRight className="w-7 h-7 text-green-400" />
-                    ) : (
-                      <ArrowDownRight className="w-7 h-7 text-red-400" />
-                    )}
-                  </div>
-                  <div>
-                    <h2 className={`text-xl font-bold ${isBuy ? 'text-green-400' : 'text-red-400'}`}>
-                      {selectedTrade.action.toUpperCase()} {selectedTrade.asset}
-                    </h2>
-                    <p className="text-sm text-gray-400">
-                      Trade Details
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={closeModal}
-                  className="w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10"
+              <div
+                className="bg-[#001D3D] border border-white/20 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div
+                  className={`flex items-center justify-between p-6 border-b border-white/10 ${
+                    isBuy ? "bg-green-500/5" : "bg-red-500/5"
+                  }`}
                 >
-                  <X className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
-
-              {/* Modal Content */}
-              <div className="p-6 space-y-6">
-                {/* Total Value */}
-                <div className={`rounded-xl p-4 border ${
-                  isBuy
-                    ? 'bg-green-500/10 border-green-500/20'
-                    : 'bg-red-500/10 border-red-500/20'
-                }`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <DollarSign className={`w-5 h-5 ${isBuy ? 'text-green-400' : 'text-red-400'}`} />
-                    <span className="text-sm text-gray-400">Total Value</span>
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`w-14 h-14 rounded-full flex items-center justify-center ${
+                        isBuy ? "bg-green-500/20" : "bg-red-500/20"
+                      }`}
+                    >
+                      {isBuy ? (
+                        <ArrowUpRight className="w-7 h-7 text-green-400" />
+                      ) : (
+                        <ArrowDownRight className="w-7 h-7 text-red-400" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {logoUrl ? (
+                        <img
+                          src={logoUrl}
+                          alt={selectedTrade.asset}
+                          className="w-10 h-10 rounded-full bg-white/10 shadow-lg"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-sm font-bold text-white shadow-lg">
+                          {selectedTrade.asset.slice(0, 2)}
+                        </div>
+                      )}
+                      <div>
+                        <h2
+                          className={`text-xl font-bold ${isBuy ? "text-green-400" : "text-red-400"}`}
+                        >
+                          {selectedTrade.action.toUpperCase()}
+                        </h2>
+                        <p className="text-sm font-semibold text-white">
+                          {selectedTrade.asset}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <p className={`text-3xl font-bold ${isBuy ? 'text-green-400' : 'text-red-400'}`}>
-                    ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </p>
+                  <button
+                    onClick={closeModal}
+                    className="w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10"
+                  >
+                    <X className="w-5 h-5 text-gray-400" />
+                  </button>
                 </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                {/* Modal Content */}
+                <div className="p-6 space-y-6">
+                  {/* Total Value */}
+                  <div
+                    className={`rounded-xl p-4 border ${
+                      isBuy
+                        ? "bg-green-500/10 border-green-500/20"
+                        : "bg-red-500/10 border-red-500/20"
+                    }`}
+                  >
                     <div className="flex items-center gap-2 mb-2">
-                      <Coins className="w-4 h-4 text-amber-400" />
-                      <span className="text-xs text-gray-400">Amount</span>
-                    </div>
-                    <p className="text-xl font-bold text-white">
-                      {amount.toLocaleString(undefined, { maximumFractionDigits: 8 })}
-                    </p>
-                    <p className="text-xs text-gray-500">{selectedTrade.asset}</p>
-                  </div>
-
-                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="w-4 h-4 text-blue-400" />
-                      <span className="text-xs text-gray-400">Price</span>
-                    </div>
-                    <p className="text-xl font-bold text-white">
-                      ${price.toLocaleString(undefined, { maximumFractionDigits: 8 })}
-                    </p>
-                    <p className="text-xs text-gray-500">per {selectedTrade.asset}</p>
-                  </div>
-                </div>
-
-                {/* Agent Info */}
-                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Activity className="w-4 h-4 text-purple-400" />
-                    <span className="text-xs text-gray-400 uppercase">Executed By</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden shadow-lg">
-                      <img
-                        src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agent?.name || selectedTrade.agent_id)}`}
-                        alt={agent?.name || 'Agent'}
-                        className="w-full h-full object-cover"
+                      <DollarSign
+                        className={`w-5 h-5 ${isBuy ? "text-green-400" : "text-red-400"}`}
                       />
+                      <span className="text-sm text-gray-400">Total Value</span>
                     </div>
-                    <div>
-                      <p className="font-bold text-white">{agent?.name || `Agent ${selectedTrade.agent_id.slice(0, 8)}...`}</p>
-                      <p className="text-xs text-gray-400">{agent?.strategy_type || ''}</p>
+                    <p
+                      className={`text-3xl font-bold ${isBuy ? "text-green-400" : "text-red-400"}`}
+                    >
+                      $
+                      {totalValue.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Coins className="w-4 h-4 text-amber-400" />
+                        <span className="text-xs text-gray-400">Amount</span>
+                      </div>
+                      <p className="text-xl font-bold text-white">
+                        {amount.toLocaleString(undefined, {
+                          maximumFractionDigits: 8,
+                        })}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {selectedTrade.asset}
+                      </p>
+                    </div>
+
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="w-4 h-4 text-blue-400" />
+                        <span className="text-xs text-gray-400">Price</span>
+                      </div>
+                      <p className="text-xl font-bold text-white">
+                        $
+                        {price.toLocaleString(undefined, {
+                          maximumFractionDigits: 8,
+                        })}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        per {selectedTrade.asset}
+                      </p>
                     </div>
                   </div>
-                </div>
 
-                {/* Trade ID */}
-                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Hash className="w-4 h-4 text-gray-400" />
-                    <span className="text-xs text-gray-400 uppercase">Trade ID</span>
+                  {/* Agent Info */}
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Activity className="w-4 h-4 text-purple-400" />
+                      <span className="text-xs text-gray-400 uppercase">
+                        Executed By
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden shadow-lg">
+                        <img
+                          src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agent?.name || selectedTrade.agent_id)}`}
+                          alt={agent?.name || "Agent"}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <p className="font-bold text-white">
+                          {agent?.name ||
+                            `Agent ${selectedTrade.agent_id.slice(0, 8)}...`}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {agent?.strategy_type || ""}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-white font-mono break-all">
-                    {selectedTrade.id}
-                  </p>
-                </div>
 
-                {/* Timestamp */}
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <Calendar className="w-3 h-3" />
-                  <span>
-                    Executed: {new Date(selectedTrade.timestamp).toLocaleString()}
-                  </span>
+                  {/* Trade ID */}
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Hash className="w-4 h-4 text-gray-400" />
+                      <span className="text-xs text-gray-400 uppercase">
+                        Trade ID
+                      </span>
+                    </div>
+                    <p className="text-sm text-white font-mono break-all">
+                      {selectedTrade.id}
+                    </p>
+                  </div>
+
+                  {/* Timestamp */}
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Calendar className="w-3 h-3" />
+                    <span>
+                      Executed:{" "}
+                      {new Date(selectedTrade.timestamp).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
     </motion.div>
   );
 }
