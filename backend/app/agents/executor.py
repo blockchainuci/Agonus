@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # PERSONALITY PROFILES
 # ============================================================================
-# Each profile is injected into the LLM prompt to drive distinct trading behavior.
 
 PERSONALITY_PROFILES = {
     "aggressive": (
@@ -94,6 +93,128 @@ DEFAULT_PERSONALITY_PROFILE = (
 )
 
 
+# ============================================================================
+# PER-AGENT HARDCODED CONFIGS
+# Keyed by agent name. Scheduler merges these with DB stats (DB wins on conflict).
+# Supported indicators: rsi, sma, ema, macd, bbands, atr, volatility
+# ============================================================================
+
+AGENT_CONFIGS: dict = {
+    "AlphaBot": {
+        "risk_score": 0.8,
+        "temperature": 0.9,
+        "allowed_tokens": ["ETH", "BTC", "SOL", "AVAX", "SUI"],
+        "max_position_pct": 0.8,
+        "min_cash_reserve_pct": 0.05,
+        "max_trades_per_cycle": 3,
+        "preferred_indicators": ["rsi", "macd", "ema"],
+        "system_prompt": (
+            "You are AlphaBot, a high-conviction momentum trader.\n"
+            "- Concentrate positions — 40-80% of portfolio in your highest-conviction trade\n"
+            "- Entry signal: RSI > 55 and rising AND MACD histogram positive = strong buy\n"
+            "- Use EMA crossovers (fast vs slow) as momentum triggers\n"
+            "- Cut losers hard at -5%. Let winners run — don't take profits too early.\n"
+            "- Prefer SOL, AVAX, SUI for momentum plays; ETH/BTC for macro direction\n"
+            "- You have 3 trades per cycle — use them when momentum is clear\n"
+            "- Inaction is your enemy. If conditions align, act decisively.\n"
+        ),
+    },
+    "TrendRider": {
+        "risk_score": 0.7,
+        "temperature": 0.8,
+        "allowed_tokens": ["SOL", "AVAX", "SUI", "LINK", "ETH"],
+        "max_position_pct": 0.7,
+        "min_cash_reserve_pct": 0.1,
+        "max_trades_per_cycle": 2,
+        "preferred_indicators": ["ema", "macd", "sma"],
+        "system_prompt": (
+            "You are TrendRider, a systematic trend-follower. You only trade in the direction of the trend.\n"
+            "- Long only when EMA(20) > SMA(50). Flat or exit when below.\n"
+            "- MACD histogram turning positive = trend confirmation, enter the trade\n"
+            "- MACD histogram turning negative = trend exhaustion, exit cleanly\n"
+            "- Never fight the trend. If a position moves against you, exit — don't hope.\n"
+            "- Focus on SOL, AVAX, SUI, LINK — altcoins with the clearest trend structures\n"
+            "- 2 trades per cycle — quality setups only, no chasing\n"
+        ),
+    },
+    "SafeHaven": {
+        "risk_score": 0.2,
+        "temperature": 0.2,
+        "allowed_tokens": ["ETH", "BTC"],
+        "max_position_pct": 0.15,
+        "min_cash_reserve_pct": 0.4,
+        "max_trades_per_cycle": 1,
+        "preferred_indicators": ["bbands", "rsi", "sma"],
+        "system_prompt": (
+            "You are SafeHaven, a capital-preservation-first trader. Safety is everything.\n"
+            "- Only trade ETH and BTC — the two most liquid, established assets\n"
+            "- Never put more than 15% of portfolio in any single position\n"
+            "- Keep 40% or more in cash at all times — dry powder for real opportunities\n"
+            "- Entry requires: RSI < 35 AND price at or below Bollinger lower band\n"
+            "- SMA(50) is your trend filter — only buy when price is above it\n"
+            "- 1 trade per cycle maximum. If conditions aren't perfect, do nothing.\n"
+            "- Doing nothing is almost always the right call. Patience is your edge.\n"
+        ),
+    },
+    "SwingKing": {
+        "risk_score": 0.5,
+        "temperature": 0.6,
+        "allowed_tokens": ["ETH", "BTC", "SOL", "LINK"],
+        "max_position_pct": 0.35,
+        "min_cash_reserve_pct": 0.25,
+        "max_trades_per_cycle": 2,
+        "preferred_indicators": ["ema", "rsi", "sma"],
+        "system_prompt": (
+            "You are SwingKing, a disciplined swing trader capturing 2-5 day moves.\n"
+            "- Entry: EMA(20) crossing above SMA(50) with RSI between 45-60\n"
+            "- Exit: RSI > 70 (overbought) or EMA(20) crossing back below SMA(50)\n"
+            "- Scale into positions in 2 tranches — first at setup, second on confirmation\n"
+            "- Target 5-10% profit per swing. Cut losses at -3%, no exceptions.\n"
+            "- Rotate between ETH, BTC, SOL, and LINK — trade whichever has the cleanest setup\n"
+            "- Maintain 25-35% cash always — you need dry powder for the next swing\n"
+        ),
+    },
+    "DipBuyer": {
+        "risk_score": 0.6,
+        "temperature": 0.7,
+        "allowed_tokens": ["ETH", "BTC", "SOL", "AVAX", "DOGE", "XRP"],
+        "max_position_pct": 0.5,
+        "min_cash_reserve_pct": 0.2,
+        "max_trades_per_cycle": 2,
+        "preferred_indicators": ["rsi", "bbands", "volatility"],
+        "system_prompt": (
+            "You are DipBuyer, a contrarian mean-reversion trader. You buy panic, you sell euphoria.\n"
+            "- PRIMARY buy signal: RSI < 30 AND price at or below Bollinger lower band\n"
+            "- SECONDARY signal: volatility spike = potential capitulation = buying opportunity\n"
+            "- Always keep 20% cash — you must have firepower when the real dip hits\n"
+            "- Sell signal: RSI > 65 OR price touches Bollinger upper band — take profits\n"
+            "- Cast a wide net: ETH, BTC, SOL, AVAX, DOGE, XRP — dips happen everywhere\n"
+            "- Patient on entries — wait for genuine panic, not just a small pullback\n"
+            "- The bigger the fear, the bigger the opportunity. Lean in when others flee.\n"
+        ),
+    },
+    "SentimentBot": {
+        "risk_score": 0.5,
+        "temperature": 0.5,
+        "allowed_tokens": ["ETH", "BTC", "SOL", "AVAX", "DOGE", "XRP", "TRX", "SUI", "LINK"],
+        "max_position_pct": 0.25,
+        "min_cash_reserve_pct": 0.2,
+        "max_trades_per_cycle": 2,
+        "preferred_indicators": ["rsi", "volatility", "macd"],
+        "system_prompt": (
+            "You are SentimentBot, a data-driven sentiment analyst. News and market mood drive your decisions.\n"
+            "- Always use research_token before opening any significant position\n"
+            "- A strong positive catalyst + neutral-to-bullish technicals = high-conviction trade\n"
+            "- Use RSI, MACD, and volatility only as confirmation after sentiment analysis\n"
+            "- Volatility spikes signal market-moving events — research what's causing them\n"
+            "- Prefer tokens with clear catalysts: upgrades, partnerships, regulatory clarity\n"
+            "- Position sizes 10-25% — your conviction scales with the quality of evidence\n"
+            "- If you have no research from the last 6 hours on a token, research it first\n"
+        ),
+    },
+}
+
+
 class TradingAgent(BaseAgent):
     """
     Complete trading agent implementation using LangChain ReAct pattern.
@@ -118,6 +239,14 @@ class TradingAgent(BaseAgent):
         starting_cash: float = 500.0,
         model_name: str = "gpt-4o-mini",
         recover_from_crash: bool = False,
+        temperature: float = 0.7,
+        allowed_tokens: Optional[List[str]] = None,
+        max_position_pct: float = 1.0,
+        min_cash_reserve_pct: float = 0.0,
+        allowed_tools: Optional[List[str]] = None,
+        max_trades_per_cycle: int = 10,
+        preferred_indicators: Optional[List[str]] = None,
+        agent_system_prompt: Optional[str] = None,
     ):
         """
         Initialize TradingAgent.
@@ -141,6 +270,15 @@ class TradingAgent(BaseAgent):
         self.tournament_uuid = tournament_uuid
         self.database_tool = database_tool
         self.model_name = model_name
+        self.temperature = temperature
+        self.allowed_tokens = allowed_tokens
+        self.max_position_pct = max_position_pct
+        self.min_cash_reserve_pct = min_cash_reserve_pct
+        self.allowed_tools = allowed_tools
+        self.max_trades_per_cycle = max_trades_per_cycle
+        self.preferred_indicators = preferred_indicators
+        self.agent_system_prompt = agent_system_prompt
+        self._trades_this_cycle = 0
 
         # Initialize portfolio
         self.portfolio = Portfolio(
@@ -167,6 +305,9 @@ class TradingAgent(BaseAgent):
             database_tool=database_tool,
             agent_uuid=agent_uuid,
             tournament_uuid=tournament_uuid,
+            allowed_tokens=allowed_tokens,
+            min_cash_reserve_pct=min_cash_reserve_pct,
+            max_position_pct=max_position_pct,
         )
 
         # Initialize database-backed memory
@@ -205,6 +346,7 @@ class TradingAgent(BaseAgent):
         """Build LangChain ReAct agent with trading tools."""
 
         # Define tools for the agent
+        token_list_str = ", ".join(self.allowed_tokens or MakeTradeTool.SUPPORTED_TOKENS)
         tools = [
             Tool(
                 name="get_market_price",
@@ -238,7 +380,7 @@ class TradingAgent(BaseAgent):
                 description=(
                     "Execute a simulated trade. Format: 'ACTION TOKEN AMOUNT CONFIDENCE SUMMARY' "
                     "Example: 'BUY ETH 50 0.8 Bullish momentum detected'. "
-                    "ACTION must be BUY or SELL. TOKEN must be ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK"
+                    f"ACTION must be BUY or SELL. TOKEN must be one of: {token_list_str}. "
                     "AMOUNT is USDC for BUY, token quantity for SELL. "
                     "CONFIDENCE is 0.0-1.0. SUMMARY is brief explanation."
                 ),
@@ -285,8 +427,12 @@ class TradingAgent(BaseAgent):
             ),
         ]
 
+        # Filter to per-agent allowed tools
+        if self.allowed_tools:
+            tools = [t for t in tools if t.name in self.allowed_tools]
+
         # Create OpenAI LLM
-        llm = ChatOpenAI(model=self.model_name, temperature=0.7)
+        llm = ChatOpenAI(model=self.model_name, temperature=self.temperature)
         logger.info(f"Using OpenAI model: {self.model_name}")
 
         # Define ReAct prompt with proper format
@@ -304,6 +450,7 @@ CURRENT TIME: {current_time}
 
 === YOUR TRADING STYLE ===
 {personality_profile}
+Preferred indicators: {preferred_indicators}
 
 Market Context:
 {market_context}
@@ -515,6 +662,8 @@ Thought:{agent_scratchpad}"""
             Result message
         """
         try:
+            if self._trades_this_cycle >= self.max_trades_per_cycle:
+                return f"Trade blocked: cycle limit of {self.max_trades_per_cycle} trades reached. Give Final Answer."
             trade_input = trade_input.strip().strip("'\"")
             parts = trade_input.split(maxsplit=4)
             if len(parts) < 5:
@@ -539,6 +688,7 @@ Thought:{agent_scratchpad}"""
             )
 
             logger.info(f"Trade executed successfully: {trade}")
+            self._trades_this_cycle += 1
 
             return (
                 f"Trade executed successfully! "
@@ -930,10 +1080,13 @@ Thought:{agent_scratchpad}"""
             except Exception as e:
                 logger.warning(f"Failed to load last decision: {e}")
 
-        # Get personality profile
-        personality_profile = PERSONALITY_PROFILES.get(
+        # Get personality profile (per-agent system_prompt takes priority over shared dict)
+        personality_profile = self.agent_system_prompt or PERSONALITY_PROFILES.get(
             self.personality.lower(), DEFAULT_PERSONALITY_PROFILE
         )
+
+        # Reset per-cycle trade counter
+        self._trades_this_cycle = 0
 
         # Run agent
         try:
@@ -953,6 +1106,11 @@ Thought:{agent_scratchpad}"""
                     "recent_trades": recent_trades_text,
                     "last_decision": last_decision_text,
                     "personality_profile": personality_profile,
+                    "preferred_indicators": (
+                        ", ".join(self.preferred_indicators)
+                        if self.preferred_indicators
+                        else "any (choose based on market conditions)"
+                    ),
                 }
             )
 
@@ -1040,6 +1198,9 @@ Thought:{agent_scratchpad}"""
                 database_tool=self.database_tool,
                 agent_uuid=self.agent_uuid,
                 tournament_uuid=self.tournament_uuid,
+                allowed_tokens=self.allowed_tokens,
+                min_cash_reserve_pct=self.min_cash_reserve_pct,
+                max_position_pct=self.max_position_pct,
             )
 
             logger.info(

@@ -1,248 +1,128 @@
 """
-Test script to simulate AI trading agents with dummy data.
-This allows testing agent decision-making without spending real money.
+Test script to simulate all 6 tournament agents using their real AGENT_CONFIGS.
+Runs without a DB — no Celery, no Redis required.
+
+Usage:
+    cd backend
+    python test_agent_simulation.py
 """
 
 import asyncio
-import os
 import sys
 from pathlib import Path
-from datetime import datetime, timezone
-from decimal import Decimal
 
-# Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from app.agents.executor import TradingAgent
-from app.agents.data_classes import Portfolio
+from app.agents.executor import TradingAgent, AGENT_CONFIGS
+
+# Mirrors seed_data.py AGENTS — name + personality only
+SEED_AGENTS = [
+    {"name": "AlphaBot",     "personality": "aggressive"},
+    {"name": "TrendRider",   "personality": "aggressive"},
+    {"name": "SwingKing",    "personality": "balanced"},
+    {"name": "DipBuyer",     "personality": "contrarian"},
+    {"name": "SentimentBot", "personality": "analytical"},
+    {"name": "SafeHaven",    "personality": "conservative"},
+]
+
+STARTING_CASH = 500.0  # Match real tournament
 
 
-class DryRunSimulation:
-    """Simulate trading agents with dummy portfolios (no real trades)"""
+def create_agent(seed: dict) -> TradingAgent:
+    name = seed["name"]
+    personality = seed["personality"]
+    cfg = AGENT_CONFIGS.get(name, {})
 
-    def __init__(self):
-        self.agents = []
-        self.market_prices = {
-            "ETH": 3850.23,
-            "BTC": 95420.50,
-            "USDC": 1.0
-        }
+    print(f"\n  {name} ({personality})")
+    print(f"    temp={cfg.get('temperature', 0.7)}  "
+          f"risk={cfg.get('risk_score', 0.5)}  "
+          f"max_pos={cfg.get('max_position_pct', 1.0)*100:.0f}%  "
+          f"min_cash={cfg.get('min_cash_reserve_pct', 0.0)*100:.0f}%  "
+          f"trades/cycle={cfg.get('max_trades_per_cycle', 10)}")
+    print(f"    tokens : {cfg.get('allowed_tokens', ['all'])}")
+    print(f"    indicators: {cfg.get('preferred_indicators', ['any'])}")
 
-    def create_agent(
-        self,
-        agent_id: str,
-        personality: str,
-        risk_score: float,
-        starting_cash: float = 10000.0,  # Give them $10k dummy money
-        initial_holdings: dict = None
-    ):
-        """Create a trading agent with dummy portfolio"""
+    return TradingAgent(
+        agent_id=name,
+        personality=personality,
+        risk_score=cfg.get("risk_score", 0.5),
+        starting_cash=STARTING_CASH,
+        model_name="gpt-4o-mini",
+        recover_from_crash=False,
+        temperature=cfg.get("temperature", 0.7),
+        allowed_tokens=cfg.get("allowed_tokens"),
+        max_position_pct=cfg.get("max_position_pct", 1.0),
+        min_cash_reserve_pct=cfg.get("min_cash_reserve_pct", 0.0),
+        allowed_tools=cfg.get("allowed_tools"),
+        max_trades_per_cycle=cfg.get("max_trades_per_cycle", 10),
+        preferred_indicators=cfg.get("preferred_indicators"),
+        agent_system_prompt=cfg.get("system_prompt"),
+    )
 
-        print(f"\n{'='*60}")
-        print(f"Creating Agent: {agent_id}")
-        print(f"Personality: {personality}")
-        print(f"Risk Score: {risk_score}")
-        print(f"Starting Cash: ${starting_cash:.2f} USDC")
 
-        # Create agent
-        agent = TradingAgent(
-            agent_id=agent_id,
-            personality=personality,
-            risk_score=risk_score,
-            starting_cash=starting_cash,
-            model_name="gpt-4o-mini",
-            recover_from_crash=False
-        )
+def print_leaderboard(agents: list[TradingAgent]):
+    print("\n" + "=" * 72)
+    print("LEADERBOARD")
+    print("=" * 72)
+    print(f"{'Rank':<5} {'Agent':<14} {'Personality':<13} "
+          f"{'Value':>10} {'Cash':>10} {'Trades':>7} {'ROI':>8}")
+    print("-" * 72)
 
-        # Add initial holdings if provided
-        if initial_holdings:
-            for token, amount in initial_holdings.items():
-                agent.portfolio.holdings[token] = amount
-                print(f"Initial Holdings: {amount} {token}")
+    sorted_agents = sorted(agents, key=lambda a: a.portfolio.total_value, reverse=True)
 
-        # Calculate total portfolio value
-        total_value = starting_cash
-        for token, amount in agent.portfolio.holdings.items():
-            price = self.market_prices.get(token, 0)
-            total_value += amount * price
+    for rank, agent in enumerate(sorted_agents, 1):
+        pf = agent.portfolio
+        roi = (pf.total_value - pf.starting_val) / pf.starting_val * 100
+        print(f"{rank:<5} {agent.agent_id:<14} {agent.personality:<13} "
+              f"${pf.total_value:>9,.2f} ${pf.cash:>9,.2f} "
+              f"{pf.num_trades:>7} {roi:>+7.1f}%")
 
-        agent.portfolio.total_value = total_value
-        agent.portfolio.starting_val = total_value
+    print("=" * 72 + "\n")
 
-        print(f"Total Portfolio Value: ${total_value:,.2f}")
-        print(f"{'='*60}\n")
 
-        self.agents.append(agent)
-        return agent
+async def run_cycle(agent: TradingAgent, cycle: int):
+    print(f"\n{'─'*60}")
+    print(f"  {agent.agent_id}  |  cycle {cycle}  |  "
+          f"cash ${agent.portfolio.cash:.2f}  |  "
+          f"holdings {list(agent.portfolio.holdings.keys()) or 'none'}")
+    print(f"{'─'*60}")
 
-    def print_market_summary(self):
-        """Display current market prices"""
-        print("\n" + "="*60)
-        print("CURRENT MARKET PRICES (Live from CoinGecko)")
-        print("="*60)
-
-        for token, price in self.market_prices.items():
-            print(f"{token:8} ${price:,.2f}")
-
-        print("="*60 + "\n")
-
-    async def run_decision_cycle(self, agent: TradingAgent, task: str = None):
-        """Let agent make a decision with current market conditions"""
-
-        if task is None:
-            task = "Analyze the current market and decide whether to buy, sell, or hold. Consider your risk tolerance and portfolio balance."
-
-        print(f"\n{'='*60}")
-        print(f"Agent {agent.agent_id} Decision Cycle")
-        print(f"{'='*60}")
-        print(f"Task: {task}\n")
-
-        # Show current portfolio
-        print("Current Portfolio:")
-        print(f"  Cash (USDC): ${agent.portfolio.cash:,.2f}")
-        if agent.portfolio.holdings:
-            for token, amount in agent.portfolio.holdings.items():
-                price = self.market_prices.get(token, 0)
-                value = amount * price
-                print(f"  {token}: {amount:.6f} (${value:,.2f})")
-        print(f"  Total Value: ${agent.portfolio.total_value:,.2f}\n")
-
-        # Let agent make decision
-        print("Agent is thinking...\n")
-
-        try:
-            decision = agent.make_decision(task)
-
-            print(f"\n{'='*60}")
-            print("AGENT DECISION:")
-            print(f"{'='*60}")
-            print(decision)
-            print(f"{'='*60}\n")
-
-            return decision
-
-        except Exception as e:
-            print(f"❌ Error during decision: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
-
-    def print_leaderboard(self):
-        """Display leaderboard of all agents"""
-        print("\n" + "="*60)
-        print("TOURNAMENT LEADERBOARD")
-        print("="*60)
-        print(f"{'Rank':<6} {'Agent':<15} {'Personality':<20} {'Portfolio Value':<20}")
-        print("-"*60)
-
-        # Sort by portfolio value
-        sorted_agents = sorted(
-            self.agents,
-            key=lambda a: a.portfolio.total_value,
-            reverse=True
-        )
-
-        for rank, agent in enumerate(sorted_agents, 1):
-            print(f"{rank:<6} {agent.agent_id:<15} {agent.personality:<20} ${agent.portfolio.total_value:>18,.2f}")
-
-        print("="*60 + "\n")
+    try:
+        agent.make_decision()
+        pf = agent.portfolio
+        print(f"  -> trades this cycle: {agent._trades_this_cycle}  |  "
+              f"total value: ${pf.total_value:.2f}  |  "
+              f"cash: ${pf.cash:.2f}")
+    except Exception as e:
+        import traceback
+        print(f"  ERROR: {e}")
+        traceback.print_exc()
 
 
 async def main():
-    """Run the simulation"""
+    print("\n" + "=" * 72)
+    print("  AGONUS TOURNAMENT SIMULATION")
+    print(f"  {len(SEED_AGENTS)} agents  |  starting cash ${STARTING_CASH:.0f}  |  no DB")
+    print("=" * 72)
 
-    print("\n" + "🤖 " * 20)
-    print("AI TRADING AGENT SIMULATION - DRY RUN MODE")
-    print("(No real trades will be executed)")
-    print("🤖 " * 20 + "\n")
+    # Build agents
+    print("\nInitializing agents:")
+    agents = [create_agent(s) for s in SEED_AGENTS]
 
-    sim = DryRunSimulation()
+    print_leaderboard(agents)
 
-    # Display current market prices
-    sim.print_market_summary()
+    # Run 1 decision cycle per agent sequentially
+    print("=" * 72)
+    print("  DECISION CYCLE 1")
+    print("=" * 72)
 
-    # Create diverse agents with different personalities
-    print("Creating AI trading agents...\n")
+    for agent in agents:
+        await run_cycle(agent, cycle=1)
 
-    agent1 = sim.create_agent(
-        agent_id="conservative_warren",
-        personality="Conservative value investor like Warren Buffett. Focuses on long-term holdings and rarely trades.",
-        risk_score=0.2,
-        starting_cash=8000.0,
-        initial_holdings={"ETH": 0.5, "BTC": 0.02}  # Already has some positions
-    )
-
-    agent2 = sim.create_agent(
-        agent_id="aggressive_trader",
-        personality="Aggressive day trader who seeks quick profits and isn't afraid of volatility.",
-        risk_score=0.9,
-        starting_cash=10000.0,
-        initial_holdings={}  # Starts with all cash
-    )
-
-    agent3 = sim.create_agent(
-        agent_id="balanced_jane",
-        personality="Balanced investor who maintains a diversified portfolio and rebalances periodically.",
-        risk_score=0.5,
-        starting_cash=5000.0,
-        initial_holdings={"ETH": 1.0}  # Has 1 ETH
-    )
-
-    # Show initial leaderboard
-    sim.print_leaderboard()
-
-    # Run decision cycles for each agent
-    print("\n" + "🎯 " * 20)
-    print("RUNNING DECISION CYCLES")
-    print("🎯 " * 20 + "\n")
-
-    # Agent 1: Conservative - should probably hold or make small moves
-    await sim.run_decision_cycle(
-        agent1,
-        task="The market is currently stable. Analyze your portfolio and decide if any action is needed."
-    )
-
-    print("\n" + "⏳ " * 20)
-    print("Moving to next agent...")
-    print("⏳ " * 20 + "\n")
-
-    # Agent 2: Aggressive - should look for opportunities
-    await sim.run_decision_cycle(
-        agent2,
-        task="You have $10,000 USDC. Look for trading opportunities in the current market."
-    )
-
-    print("\n" + "⏳ " * 20)
-    print("Moving to next agent...")
-    print("⏳ " * 20 + "\n")
-
-    # Agent 3: Balanced - might rebalance
-    await sim.run_decision_cycle(
-        agent3,
-        task="Review your portfolio allocation and consider rebalancing if needed."
-    )
-
-    print("\n" + "✅ " * 20)
-    print("SIMULATION COMPLETE")
-    print("✅ " * 20 + "\n")
-
-    # Final leaderboard (won't change since no real trades executed)
-    sim.print_leaderboard()
-
-    print("\n💡 NEXT STEPS:")
-    print("="*60)
-    print("1. Review the agent decisions above")
-    print("2. Note how different personalities influence trading behavior")
-    print("3. To run with REAL trades, use the Celery scheduler:")
-    print("   celery -A app.celery_config.celery_app worker --loglevel=info")
-    print("4. Monitor live data via API endpoints:")
-    print("   - /tournaments/{id}/leaderboard")
-    print("   - /trades/recent")
-    print("   - /market-data/prices")
-    print("="*60 + "\n")
+    print_leaderboard(agents)
 
 
 if __name__ == "__main__":

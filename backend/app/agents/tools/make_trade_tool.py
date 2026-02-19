@@ -60,6 +60,9 @@ class MakeTradeTool:
         database_tool: Optional["DatabaseTool"] = None,
         agent_uuid: Optional[UUID] = None,
         tournament_uuid: Optional[UUID] = None,
+        allowed_tokens: Optional[List[str]] = None,
+        min_cash_reserve_pct: float = 0.0,
+        max_position_pct: float = 1.0,
     ):
         """
         Initialize MakeTradeTool.
@@ -78,6 +81,9 @@ class MakeTradeTool:
         self.database_tool = database_tool
         self.agent_uuid = agent_uuid
         self.tournament_uuid = tournament_uuid
+        self.allowed_tokens = [t.upper() for t in allowed_tokens] if allowed_tokens else None
+        self.min_cash_reserve_pct = min_cash_reserve_pct
+        self.max_position_pct = max_position_pct
 
         # Track cost basis for realized PnL calculation
         self._cost_basis: dict[str, list[dict]] = {}  # token -> [{qty, price}, ...]
@@ -112,10 +118,11 @@ class MakeTradeTool:
         if action not in ["BUY", "SELL"]:
             return False, f"Invalid action: {action}. Must be BUY or SELL"
 
-        if token not in self.SUPPORTED_TOKENS:
+        token_list = self.allowed_tokens if self.allowed_tokens else self.SUPPORTED_TOKENS
+        if token not in token_list:
             return (
                 False,
-                f"Unsupported token: {token}. Only {self.SUPPORTED_TOKENS} allowed",
+                f"Token {token} not allowed. Permitted: {token_list}",
             )
 
         if amount <= 0:
@@ -128,6 +135,30 @@ class MakeTradeTool:
                     False,
                     f"Insufficient cash: have ${self.portfolio.cash:.2f}, need ${amount:.2f}",
                 )
+            # Min cash reserve check
+            if self.min_cash_reserve_pct > 0:
+                cash_after = self.portfolio.cash - amount
+                reserve_required = self.portfolio.total_value * self.min_cash_reserve_pct
+                if cash_after < reserve_required:
+                    return (
+                        False,
+                        f"Trade would breach min cash reserve ({self.min_cash_reserve_pct*100:.0f}%): "
+                        f"would have ${cash_after:.2f} cash, need ${reserve_required:.2f}",
+                    )
+            # Max position size check
+            if self.max_position_pct < 1.0:
+                price = self.market_tool.get_price(token)
+                if price and price > 0:
+                    current_pos_val = self.portfolio.holdings.get(token, 0.0) * price
+                    new_pos_val = current_pos_val + amount
+                    max_pos_val = self.portfolio.total_value * self.max_position_pct
+                    if new_pos_val > max_pos_val:
+                        return (
+                            False,
+                            f"{token} position would be ${new_pos_val:.2f} "
+                            f"({new_pos_val/self.portfolio.total_value*100:.0f}% of portfolio), "
+                            f"exceeds max {self.max_position_pct*100:.0f}%",
+                        )
             # Risk check: don't spend more than risk_score % of portfolio in one trade
             max_trade_size = self.portfolio.total_value * risk_score
             if amount > max_trade_size:

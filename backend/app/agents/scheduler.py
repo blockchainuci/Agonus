@@ -32,7 +32,7 @@ from ..db.models import (
     PlanStatusEnum,
     PlanActionEnum,
 )
-from .executor import TradingAgent
+from .executor import TradingAgent, AGENT_CONFIGS
 from .tools.database_tool import DatabaseTool
 
 logger = logging.getLogger(__name__)
@@ -206,10 +206,18 @@ async def _run_agent_decision_async(
             if not agent_model:
                 raise ValueError(f"Agent not found: {agent_uuid}")
 
-            # Get risk score from agent stats, default to 0.5
-            risk_score = (
-                agent_model.stats.get("risk_score", 0.5) if agent_model.stats else 0.5
-            )
+            # Extract per-agent config: code defaults < AGENT_CONFIGS < DB stats
+            stats = agent_model.stats or {}
+            cfg = AGENT_CONFIGS.get(agent_model.name, {})
+            risk_score = stats.get("risk_score", cfg.get("risk_score", 0.5))
+            temperature = stats.get("temperature", cfg.get("temperature", 0.7))
+            allowed_tokens = stats.get("allowed_tokens", cfg.get("allowed_tokens", None))
+            max_position_pct = stats.get("max_position_pct", cfg.get("max_position_pct", 1.0))
+            min_cash_reserve_pct = stats.get("min_cash_reserve_pct", cfg.get("min_cash_reserve_pct", 0.0))
+            allowed_tools = stats.get("allowed_tools", cfg.get("allowed_tools", None))
+            max_trades_per_cycle = stats.get("max_trades_per_cycle", cfg.get("max_trades_per_cycle", 10))
+            preferred_indicators = stats.get("preferred_indicators", cfg.get("preferred_indicators", None))
+            agent_system_prompt = stats.get("system_prompt", cfg.get("system_prompt", None))
 
             # Create database tool
             db_tool = DatabaseTool(session)
@@ -223,6 +231,14 @@ async def _run_agent_decision_async(
                 tournament_uuid=tournament_uuid,
                 database_tool=db_tool,
                 recover_from_crash=recover_from_crash,
+                temperature=temperature,
+                allowed_tokens=allowed_tokens,
+                max_position_pct=max_position_pct,
+                min_cash_reserve_pct=min_cash_reserve_pct,
+                allowed_tools=allowed_tools,
+                max_trades_per_cycle=max_trades_per_cycle,
+                preferred_indicators=preferred_indicators,
+                agent_system_prompt=agent_system_prompt,
             )
 
             # Attempt recovery if requested

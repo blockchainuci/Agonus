@@ -19,16 +19,24 @@ load_dotenv()
 
 from app.db.database import AsyncSessionLocal
 from app.db.models import Agent, Tournament, AgentState, StatusEnum
-from app.agents.executor import TradingAgent
+from app.agents.executor import TradingAgent, AGENT_CONFIGS
 from app.agents.tools.database_tool import DatabaseTool
 from sqlalchemy import select
 
 
 async def run_single_agent(session, agent_model, tournament, db_tool):
     """Run one decision cycle for a single agent. Returns performance dict."""
-    risk_score = (
-        agent_model.stats.get("risk_score", 0.5) if agent_model.stats else 0.5
-    )
+    stats = agent_model.stats or {}
+    cfg = AGENT_CONFIGS.get(agent_model.name, {})
+    risk_score          = stats.get("risk_score",          cfg.get("risk_score",          0.5))
+    temperature         = stats.get("temperature",         cfg.get("temperature",         0.7))
+    allowed_tokens      = stats.get("allowed_tokens",      cfg.get("allowed_tokens",      None))
+    max_position_pct    = stats.get("max_position_pct",    cfg.get("max_position_pct",    1.0))
+    min_cash_reserve    = stats.get("min_cash_reserve_pct",cfg.get("min_cash_reserve_pct",0.0))
+    allowed_tools       = stats.get("allowed_tools",       cfg.get("allowed_tools",       None))
+    max_trades_per_cycle= stats.get("max_trades_per_cycle",cfg.get("max_trades_per_cycle",10))
+    preferred_indicators= stats.get("preferred_indicators",cfg.get("preferred_indicators",None))
+    agent_system_prompt = stats.get("system_prompt",       cfg.get("system_prompt",       None))
 
     agent = TradingAgent(
         agent_id=agent_model.name,
@@ -38,6 +46,14 @@ async def run_single_agent(session, agent_model, tournament, db_tool):
         tournament_uuid=tournament.id,
         database_tool=db_tool,
         recover_from_crash=True,
+        temperature=temperature,
+        allowed_tokens=allowed_tokens,
+        max_position_pct=max_position_pct,
+        min_cash_reserve_pct=min_cash_reserve,
+        allowed_tools=allowed_tools,
+        max_trades_per_cycle=max_trades_per_cycle,
+        preferred_indicators=preferred_indicators,
+        agent_system_prompt=agent_system_prompt,
     )
 
     recovered = await agent.recover_state()
@@ -93,8 +109,13 @@ async def run_tournament_cycle():
             print(f"\n{'─'*70}")
             print(f"  [{i}/{len(agents)}] {agent_model.name}")
             print(f"  Personality: {agent_model.personality}")
-            risk = agent_model.stats.get("risk_score", 0.5) if agent_model.stats else 0.5
-            print(f"  Risk Score: {risk}")
+            cfg = AGENT_CONFIGS.get(agent_model.name, {})
+            stats = agent_model.stats or {}
+            risk = stats.get("risk_score", cfg.get("risk_score", 0.5))
+            print(f"  Risk: {risk}  temp: {cfg.get('temperature', 0.7)}  "
+                  f"max_pos: {cfg.get('max_position_pct', 1.0)*100:.0f}%  "
+                  f"min_cash: {cfg.get('min_cash_reserve_pct', 0.0)*100:.0f}%  "
+                  f"trades/cycle: {cfg.get('max_trades_per_cycle', 10)}")
             print(f"{'─'*70}")
 
             try:
@@ -118,7 +139,9 @@ async def run_tournament_cycle():
             if perf is None:
                 print(f"  {agent_model.name:<15} {agent_model.personality:<14} {'—':>6} {'ERROR':>10}")
                 continue
-            risk = agent_model.stats.get("risk_score", 0.5) if agent_model.stats else 0.5
+            _cfg = AGENT_CONFIGS.get(agent_model.name, {})
+            _stats = agent_model.stats or {}
+            risk = _stats.get("risk_score", _cfg.get("risk_score", 0.5))
             print(
                 f"  {perf['agent_id']:<15} "
                 f"{agent_model.personality:<14} "
