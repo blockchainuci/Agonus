@@ -103,6 +103,48 @@ async def create_agent(
     return agent
 
 
+@router.patch("/{agent_id}/wallet", response_model=AgentResponse)
+async def provision_agent_wallet(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """
+    PATCH route to generate and fund a wallet for an existing agent (admin only).
+
+    Generates a new Ethereum wallet, stores credentials in agent stats,
+    and funds it via Tenderly (10,000 USDC + 1 ETH for gas).
+    """
+    agent = await session.get(Agent, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent Not Found")
+
+    # Generate and encrypt wallet
+    wallet = generate_wallet()
+    encrypted_key = encrypt_private_key(wallet["private_key"])
+
+    # Update stats with wallet credentials
+    agent.stats = {
+        **(agent.stats or {}),
+        "wallet_address": wallet["address"],
+        "encrypted_private_key": encrypted_key,
+    }
+
+    session.add(agent)
+    await session.commit()
+    await session.refresh(agent)
+    logger.info(f"Wallet credentials stored for agent {agent_id}: {wallet['address']}")
+
+    # Fund via Tenderly
+    try:
+        setup_agent_wallet(wallet_address=wallet["address"], initial_usdc=10000.0, initial_eth=1.0)
+        logger.info(f"Wallet funded successfully: {wallet['address']}")
+    except Exception as e:
+        logger.error(f"Failed to fund wallet for agent {agent_id}: {e}")
+
+    return agent
+
+
 @router.put("/{agent_id}", response_model=AgentResponse)
 async def update_agent(
     agent_id: UUID,
