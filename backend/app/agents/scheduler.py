@@ -206,15 +206,18 @@ async def _run_agent_decision_async(
             if not agent_model:
                 raise ValueError(f"Agent not found: {agent_uuid}")
 
-            # Get risk score from agent stats, default to 0.5
-            risk_score = (
-                agent_model.stats.get("risk_score", 0.5) if agent_model.stats else 0.5
-            )
+            # Get risk score and config from agent stats
+            if agent_model.stats:
+                risk_score = agent_model.stats.get("risk_score", 0.5)
+                agent_config = agent_model.stats.get("config", {})
+            else:
+                risk_score = 0.5
+                agent_config = {}
 
             # Create database tool
             db_tool = DatabaseTool(session)
 
-            # Initialize trading agent
+            # Initialize trading agent with per-agent configuration
             agent = TradingAgent(
                 agent_id=agent_model.name,
                 personality=agent_model.personality,
@@ -223,6 +226,8 @@ async def _run_agent_decision_async(
                 tournament_uuid=tournament_uuid,
                 database_tool=db_tool,
                 recover_from_crash=recover_from_crash,
+                strategy_type=agent_model.strategy_type or "balanced",
+                agent_config=agent_config,
             )
 
             # Attempt recovery if requested

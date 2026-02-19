@@ -29,6 +29,12 @@ from .tools.research_tool import ResearchTool
 from .tools.plan_tool import PlanTool
 from .tools.research_tool import ResearchTool
 from .memory import AgentMemory
+from .agent_configs import (
+    get_agent_config,
+    build_system_prompt,
+    filter_tools_by_config,
+    get_allowed_tokens_string,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +63,8 @@ class TradingAgent(BaseAgent):
         starting_cash: float = 500.0,
         model_name: str = "gpt-4o-mini",
         recover_from_crash: bool = False,
+        agent_config: Optional[Dict[str, Any]] = None,
+        strategy_type: str = "balanced",
     ):
         """
         Initialize TradingAgent.
@@ -72,6 +80,8 @@ class TradingAgent(BaseAgent):
             starting_cash: Starting portfolio cash (USDC)
             model_name: OpenAI model name for decision-making
             recover_from_crash: If True, attempt to recover state from database
+            agent_config: Optional agent configuration dict with temperature, allowed_tools, etc.
+            strategy_type: Agent strategy type for config lookup (e.g., "momentum", "value")
         """
         super().__init__(agent_id, personality, risk_score)
 
@@ -79,7 +89,13 @@ class TradingAgent(BaseAgent):
         self.tournament_id = tournament_id
         self.tournament_uuid = tournament_uuid
         self.database_tool = database_tool
-        self.model_name = model_name
+        self.strategy_type = strategy_type
+        
+        # Load agent configuration from provided config or use defaults based on strategy_type
+        self.agent_config = get_agent_config(strategy_type, agent_config)
+        
+        # Override model_name if specified in config, otherwise use parameter
+        self.model_name = self.agent_config.get("model_name", model_name)
 
         # Initialize portfolio
         self.portfolio = Portfolio(
@@ -141,14 +157,17 @@ class TradingAgent(BaseAgent):
         )
 
     def _build_agent_executor(self) -> AgentExecutor:
-        """Build LangChain ReAct agent with trading tools."""
-
-        # Define tools for the agent
-        tools = [
+        """Build LangChain ReAct agent with trading tools using per-agent configuration."""
+        
+        # Get allowed tokens from config for tool descriptions
+        allowed_tokens_str = get_allowed_tokens_string(self.agent_config)
+        
+        # Define all available tools
+        all_tools = [
             Tool(
                 name="get_market_price",
                 func=lambda token: self.market_tool.get_price(token),
-                description="Get current price for a crypto token. Input: token symbol (ETH, BTC, WETH, CBBTC)",
+                description=f"Get current price for a crypto token. Input: token symbol ({allowed_tokens_str})",
             ),
             Tool(
                 name="get_market_sentiment",
@@ -175,11 +194,11 @@ class TradingAgent(BaseAgent):
                 name="execute_trade",
                 func=self._execute_trade_wrapper,
                 description=(
-                    "Execute a simulated trade. Format: 'ACTION TOKEN AMOUNT CONFIDENCE SUMMARY' "
-                    "Example: 'BUY ETH 50 0.8 Bullish momentum detected'. "
-                    "ACTION must be BUY or SELL. TOKEN must be ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK"
-                    "AMOUNT is USDC for BUY, token quantity for SELL. "
-                    "CONFIDENCE is 0.0-1.0. SUMMARY is brief explanation."
+                    f"Execute a simulated trade. Format: 'ACTION TOKEN AMOUNT CONFIDENCE SUMMARY' "
+                    f"Example: 'BUY ETH 50 0.8 Bullish momentum detected'. "
+                    f"ACTION must be BUY or SELL. TOKEN must be {allowed_tokens_str}"
+                    f"AMOUNT is USDC for BUY, token quantity for SELL. "
+                    f"CONFIDENCE is 0.0-1.0. SUMMARY is brief explanation."
                 ),
             ),
             Tool(
@@ -222,204 +241,29 @@ class TradingAgent(BaseAgent):
                     "Example: 'abc123-uuid 2025-06-16T10:00:00Z'"
                 ),
             ),
-            Tool(
-                name="research_token",
-                func=self._execute_research_token_wrapper,
-                description=(
-                    "Research a token for news and any market sentiments, "
-                    "Input: token symbol and recency (e.g., 'ETH 7d' for last 7 days)"
-                ),
-            ),
         ]
-
-        # Create OpenAI LLM
-        llm = ChatOpenAI(model=self.model_name, temperature=0.7)
-        logger.info(f"Using OpenAI model: {self.model_name}")
-
-        # Define ReAct prompt with proper format
-        prompt = PromptTemplate.from_template(
-            """You are an AI trading agent with the following characteristics:
-
-Agent ID: {agent_id}
-Personality: {personality}
-Risk Score: {risk_score} (0.0 = very conservative, 1.0 = very aggressive)
-Current Cash: ${cash}
-Current Holdings: {holdings}
-Total Portfolio Value: ${total_value}
-
-CURRENT TIME: {current_time}
-
-Market Context:
-{market_context}
-
-Pending Scheduled Plans:
-{pending_plans}
-
-Your goal is to maximize returns while respecting your risk tolerance.
-
-CRITICAL: Call ONE tool per response, but you can make MULTIPLE responses per cycle.
-Example: response 1 → research_token, response 2 → cancel_plan_step, response 3 → Final Answer
-
-=== TIME HORIZON DEFINITIONS (you are prompted every 5 minutes) ===
-- IMMEDIATE: 5-15 minutes (1-3 decision cycles) - react to current price action
-- SHORT-TERM: 15-60 minutes (3-12 cycles) - intraday momentum plays
-- MEDIUM-TERM: 1-6 hours - session-based setups, news reactions
-- LONG-TERM: 6-24 hours - overnight/next-day positioning
-
-=== DECISION WORKFLOW (choose ONE path per cycle) ===
-
-**PATH A - PLANNING MODE** (if you have fewer than 3 pending plans):
-You MUST create more plans until you have at least 3 total.
-1. Count your current plans. If < 3, create new ones until you reach 3. 
-2. RESEARCH FIRST BEFORE BUYING OR SELLING
-3. Each plan should be at a different time horizon (short, medium, long)
-4. Plans must be scheduled in the FUTURE (execute_at > CURRENT TIME)
-5. After reaching 3+ plans, give Final Answer - do NOT execute trades this cycle
-
-**PATH B - EXECUTION MODE** (if you have 3+ pending plans):
-1. Check if any plans have execute_at <= CURRENT TIME (they are DUE)
-2. If plans are due, execute them and cancel the executed plan
-IMPORTANT - CANCEL THE PLANS AS SOON AS YOU EXECUTE IT
-3. If no plans are due, you may take no action - that's fine
-4. Do NOT create new plans in execution mode
-
-**PATH C - MAINTENANCE MODE** (if >=3 plans exist but need cleanup):
-1. Cancel outdated plans (>2 hours old, conditions changed)
-2. Give Final Answer after cleanup
-
-IMPORTANT: Do NOT mix planning and execution in the same cycle. Pick one path.
-
-=== MARGINAL PLANNING PRINCIPLES ===
-- Think in percentages: "add 5-10% to position" not "buy $100"
-- Scale in/out gradually: multiple small entries are better than one large one
-- Set conditional triggers: "if price drops 2%, add to position"
-- Stagger exits: take partial profits at multiple levels
-- Always have both bullish AND bearish contingency plans
-
-=== PLAN CANCELLATION CRITERIA ===
-Cancel a plan when ANY of the following apply:
-- Market sentiment has reversed from the plan's thesis
-- Price has moved >3% against the plan's direction since creation
-- The plan is >2 hours old and conditions have changed
-- A newer plan supersedes this one for the same token
-- You just executed a similar action (avoid duplicate trades)
-
-=== PLAN ACTION TYPES (only these 3 are valid) ===
-- RESEARCH: Schedule research before key decisions
-- OPEN_POSITION: Schedule a BUY entry
-- CLOSE_POSITION: Schedule a SELL/exit
-
-=== HOW TO EXECUTE DUE PLANS ===
-When a plan's execute_at time has passed, execute it using the correct tool:
-- RESEARCH plan → use research_token tool (e.g., "ETH 1d") → THEN cancel the plan
-- OPEN_POSITION plan → use execute_trade tool (e.g., "BUY ETH 50 0.8 reason") → THEN cancel the plan
-- CLOSE_POSITION plan → use execute_trade tool (e.g., "SELL ETH 0.05 0.8 reason") → THEN cancel the plan
-
-CRITICAL: After executing ANY plan (including RESEARCH), your NEXT action MUST be cancel_plan_step.
-Do NOT give Final Answer until you have cancelled the executed plan.
-
-=== PLAN TIMESTAMPS ===
-Use CURRENT TIME above to calculate future times. Add minutes/hours to create valid future ISO-8601 timestamps.
-Example: If current time is 2026-02-07T19:20:00Z, then:
-- +10 min = 2026-02-07T19:30:00Z
-- +1 hour = 2026-02-07T20:20:00Z
-- +6 hours = 2026-02-08T01:20:00Z
-
-=== PLAN PAYLOAD EXAMPLES ===
-RESEARCH plan:
-'RESEARCH 2026-02-07T19:30:00Z {{"token": "ETH", "reason": "check sentiment before adding", "recency": "1d"}}'
-
-OPEN_POSITION plan (bullish):
-'OPEN_POSITION 2026-02-07T19:35:00Z {{"token": "ETH", "amount": 25, "action": "BUY", "reason": "scale in 5% if price holds support"}}'
-
-OPEN_POSITION plan (bearish contingency):
-'OPEN_POSITION 2026-02-07T19:40:00Z {{"token": "ETH", "amount": 25, "action": "BUY", "reason": "add on dip if price drops 2%"}}'
-
-CLOSE_POSITION plan:
-'CLOSE_POSITION 2026-02-07T20:30:00Z {{"token": "ETH", "portion": 0.25, "reason": "take 25% profit at resistance"}}'
-
-=== RESEARCH WORKFLOW ===
-- Before opening significant positions, use research_token to check news and sentiment
-- Schedule RESEARCH plans ahead of known events (upgrades, earnings, unlocks)
-- If you have recent research (<24h), you may skip re-researching the same token
-- Use research findings to inform your OPEN_POSITION and CLOSE_POSITION decisions 
-
-=== TRADING GUIDELINES ===
-- For BUY trades: amount is USDC to spend (e.g., BUY ETH 50 means spend $50 USDC to buy ETH)
-- For SELL trades: amount is quantity of token to sell
-- Only trade with these tokens: ETH, BTC, SOL, AVAX, DOGE, XRP, TRX, SUI, LINK
-- CHECK YOUR CASH FIRST: Don't plan or execute BUY trades for more than your available cash
-- If cash is low, consider SELL trades to free up capital, or wait
-- Conservative agents should trade less frequently
-- Aggressive agents can take larger positions
-- Always provide reasoning in your summary
-- This is a simulation - trades are not executed on-chain
-- Do not create duplicate plans - cancel outdated ones first
-- DOING NOTHING IS VALID: If no plans are due and market conditions don't warrant action, it's perfectly fine to take no action this cycle. Don't trade just to trade.
-- Before making significant trades, research tokens using the research_token tool to check recent news and sentiment
-- If recent research already exists, you may reuse it instead of researching again
-
-TOOLS:
-------
-You have access to the following tools:
-
-{tools}
-
-RESPONSE FORMAT:
-----------------
-Thought: your reasoning
-Action: tool name ONLY (no parentheses, no quotes, no input here)
-Action Input: the input string
-
-CORRECT EXAMPLES:
-Thought: I need to check the market sentiment.
-Action: get_market_sentiment
-Action Input: ""
-
-Thought: I need to list my plans.
-Action: list_plan_steps
-Action Input: ""
-
-Thought: I need the price of ETH.
-Action: get_market_price
-Action Input: ETH
-
-Thought: I need to create a plan.
-Action: create_plan_step
-Action Input: OPEN_POSITION 2026-02-07T20:10:00Z {{"token": "ETH", "amount": 50, "action": "BUY", "reason": "bullish momentum"}}
-
-WRONG (do NOT do this):
-Action: get_market_sentiment("")  <-- WRONG: no parentheses on Action line
-Action: list_plan_steps("")  <-- WRONG: input goes on Action Input line
-
-The system will respond with "Observation:" containing the tool result.
-After seeing the Observation, continue with another Thought/Action/Action Input,
-or end with "Final Answer:" when done.
-
-IMPORTANT RULES:
-- ALWAYS start with "Thought:"
-- Call exactly ONE tool per response - never multiple Action/Action Input pairs
-- ALWAYS use "Action:" followed by ONE tool name from [{tool_names}]
-- ALWAYS use "Action Input:" followed by the input
-- STOP IMMEDIATELY after "Action Input:" - do NOT continue writing
-- NEVER include "Final Answer" in the same response as an Action
-- Wait for the Observation (tool result) before writing your next Thought
-- Only use "Final Answer:" when you are completely done with all tool calls
-- DO NOT skip any steps in the format
-- DO NOT use markdown code blocks
-- When creating plans, create them ONE AT A TIME across multiple turns
-
-=== BEFORE GIVING FINAL ANSWER ===
-In your Final Answer, briefly summarize:
-- What action you took this cycle (planned, executed, or nothing)
-- Your current pending plans (if any)
-
-Begin!
-
-Question: {input}
-
-Thought:{agent_scratchpad}"""
+        
+        # Filter tools based on agent configuration
+        tools = filter_tools_by_config(all_tools, self.agent_config)
+        logger.info(
+            f"Agent {self.agent_id} tools enabled: {[t.name for t in tools]}"
         )
+
+        # Create OpenAI LLM with per-agent temperature
+        temperature = self.agent_config.get("temperature", 0.7)
+        llm = ChatOpenAI(model=self.model_name, temperature=temperature)
+        logger.info(
+            f"Using OpenAI model: {self.model_name} with temperature={temperature} "
+            f"for agent {self.agent_id}"
+        )
+
+        # Build system prompt using agent configuration
+        allowed_tool_names = [t.name for t in tools]
+        prompt_template = build_system_prompt(
+            self.agent_config,
+            allowed_tools=allowed_tool_names,
+        )
+        prompt = PromptTemplate.from_template(prompt_template)
 
         # Create ReAct agent
         agent = create_react_agent(llm, tools, prompt)
@@ -860,9 +704,6 @@ Thought:{agent_scratchpad}"""
                 "If you decide to trade, execute it. If not, explain why."
             )
 
-        # Update portfolio values before making decision
-        self.make_trade_tool.recalculate_holdings_value()
-
         # Get market context
         sentiment = self.market_tool.get_market_sentiment()
         market_context = f"Market sentiment: {sentiment}"
@@ -881,18 +722,26 @@ Thought:{agent_scratchpad}"""
         # Run agent
         try:
             current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            
+            # Prepend agent context to the task so the LLM knows who it is
+            agent_context = (
+                f"=== AGENT CONTEXT ===\n"
+                f"Agent ID: {self.agent_id}\n"
+                f"Personality: {self.personality}\n"
+                f"Risk Score: {self.risk_score} (0.0 = very conservative, 1.0 = very aggressive)\n"
+                f"Current Cash: ${self.portfolio.cash:.2f}\n"
+                f"Current Holdings: {self.portfolio.holdings}\n"
+                f"Total Portfolio Value: ${self.portfolio.total_value:.2f}\n"
+                f"Market Context: {market_context}\n"
+                f"Pending Plans: {pending_plans_text}\n"
+                f"Current Time: {current_time}\n\n"
+                f"=== YOUR TASK ===\n"
+            )
+            full_input = agent_context + task
+            
             result = self.executor.invoke(
                 {
-                    "input": task,
-                    "agent_id": self.agent_id,
-                    "personality": self.personality,
-                    "risk_score": self.risk_score,
-                    "cash": self.portfolio.cash,
-                    "holdings": self.portfolio.holdings,
-                    "total_value": self.portfolio.total_value,
-                    "market_context": market_context,
-                    "pending_plans": pending_plans_text,
-                    "current_time": current_time,
+                    "input": full_input,
                 }
             )
 
