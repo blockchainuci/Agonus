@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Search, Link2, XCircle, Trophy, Ban, Loader2, CheckCircle, AlertCircle, Calendar, DollarSign, Users, Plus, X, ArrowRight, Play } from "lucide-react";
+import { Search, Link2, XCircle, Trophy, Ban, Loader2, CheckCircle, AlertCircle, Calendar, DollarSign, Users, Plus, X, ArrowRight, Play, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { useTournaments } from "@/src/hooks/useTournaments";
@@ -55,6 +55,7 @@ export default function AdminDashboard() {
   const [winnerAgentId, setWinnerAgentId] = useState<string>("");
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showOnchainPanel, setShowOnchainPanel] = useState(false);
+  const [winnerDropdownOpen, setWinnerDropdownOpen] = useState(false);
 
   // Real API data
   const { data: tournaments, isLoading: tournamentsLoading } = useTournaments();
@@ -447,7 +448,6 @@ export default function AdminDashboard() {
             const totalTournaments = stats.total_tournaments ?? 0;
             const wins = stats.wins ?? 0;
             const winRate = stats.win_rate ?? 0;
-            const avgRank = stats.avg_rank ?? 0;
             const totalTrades = stats.total_trades ?? 0;
 
             return (
@@ -494,8 +494,10 @@ export default function AdminDashboard() {
                     <p className="text-lg font-bold text-yellow-400">{(winRate * 100).toFixed(0)}%</p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-2">
-                    <p className="text-xs text-gray-500">Avg Rank</p>
-                    <p className="text-lg font-bold text-blue-400">{avgRank > 0 ? `#${avgRank.toFixed(1)}` : '-'}</p>
+                    <p className="text-xs text-gray-500">Started</p>
+                    <p className="text-lg font-bold text-blue-400">
+                      {new Date(agent.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                    </p>
                   </div>
                 </div>
 
@@ -756,32 +758,65 @@ export default function AdminDashboard() {
                           </h3>
                           <p className="text-xs text-gray-400 mb-3">Select the winning agent:</p>
 
-                          <select
-                            value={winnerAgentId}
-                            onChange={(e) => setWinnerAgentId(e.target.value)}
-                            className="w-full mb-3 p-2 rounded-lg bg-slate-800 border border-white/20 text-white [&>option]:bg-slate-800 [&>option]:text-white"
-                          >
-                            <option value="">Select winner...</option>
-                            {agentStates?.map(state => {
-                              const agent = findAgentById(agents, state.agent_id);
-                              return (
-                                <option key={state.agent_id} value={state.agent_id}>
-                                  {agent?.name || state.agent_id} - ${parseFloat(state.portfolio_value_usd).toLocaleString()}
-                                </option>
-                              );
-                            })}
-                            {/* Fallback: show mapped agents if no states */}
-                            {(!agentStates || agentStates.length === 0) && selectedTournament.agent_contract_mapping &&
-                              Object.keys(selectedTournament.agent_contract_mapping).map(agentId => {
-                                const agent = findAgentById(agents, agentId);
-                                return (
-                                  <option key={agentId} value={agentId}>
-                                    {agent?.name || agentId.slice(0, 8)}
-                                  </option>
-                                );
-                              })
-                            }
-                          </select>
+                          {/* Custom winner dropdown */}
+                          {(() => {
+                            const winnerOptions = agentStates && agentStates.length > 0
+                              ? agentStates.map(state => ({
+                                  id: state.agent_id,
+                                  name: findAgentById(agents, state.agent_id)?.name || state.agent_id.slice(0, 8),
+                                  value: `$${parseFloat(state.portfolio_value_usd).toLocaleString()}`,
+                                }))
+                              : selectedTournament.agent_contract_mapping
+                                ? Object.keys(selectedTournament.agent_contract_mapping).map(agentId => ({
+                                    id: agentId,
+                                    name: findAgentById(agents, agentId)?.name || agentId.slice(0, 8),
+                                    value: '',
+                                  }))
+                                : [];
+                            const selectedOption = winnerOptions.find(o => o.id === winnerAgentId);
+                            return (
+                              <div className="relative mb-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setWinnerDropdownOpen(v => !v)}
+                                  className="w-full flex items-center justify-between bg-white/5 hover:bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white transition cursor-pointer"
+                                >
+                                  <span className={selectedOption ? 'text-white' : 'text-gray-400'}>
+                                    {selectedOption ? selectedOption.name : 'Select winner...'}
+                                  </span>
+                                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${winnerDropdownOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {winnerDropdownOpen && (
+                                  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl z-50 max-h-48 overflow-y-auto">
+                                    {winnerOptions.map(option => (
+                                      <button
+                                        key={option.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setWinnerAgentId(option.id);
+                                          setWinnerDropdownOpen(false);
+                                        }}
+                                        className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-white/10 transition text-left cursor-pointer ${winnerAgentId === option.id ? 'bg-white/5' : ''}`}
+                                      >
+                                        <img
+                                          src={getAvatarUrl(option.name)}
+                                          alt={option.name}
+                                          className="w-7 h-7 rounded-full shrink-0"
+                                        />
+                                        <span className="text-sm text-white flex-1">{option.name}</span>
+                                        {option.value && (
+                                          <span className="text-xs text-yellow-400 shrink-0">{option.value}</span>
+                                        )}
+                                      </button>
+                                    ))}
+                                    {winnerOptions.length === 0 && (
+                                      <p className="px-3 py-2 text-sm text-gray-400">No agents available</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           <button
                             onClick={handleSettleTournament}

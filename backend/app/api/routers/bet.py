@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from uuid import UUID
 
 from ...db.database import get_db
-from ...db.models import Bet
+from ...db.models import Bet, Agent
 from ...schemas.bet import BetCreate, BetUpdate, BetResponse
 from ..deps import get_current_user
 
@@ -32,6 +32,32 @@ async def get_user_bets(
     result = await session.execute(statement)
     bets = result.scalars().all()
     return bets
+
+
+# IMPORTANT: This route must come BEFORE /{bet_id}
+@router.get("/pools/{tournament_id}")
+async def get_betting_pools(tournament_id: UUID, session: AsyncSession = Depends(get_db)):
+    """GET aggregated ETH bet pools per agent for a tournament (public, no auth required)"""
+    statement = (
+        select(
+            Bet.agent_id,
+            Agent.name.label("agent_name"),
+            func.sum(Bet.amount).label("total_eth"),
+        )
+        .join(Agent, Bet.agent_id == Agent.id)
+        .where(Bet.tournament_id == tournament_id)
+        .group_by(Bet.agent_id, Agent.name)
+    )
+    result = await session.execute(statement)
+    rows = result.all()
+    return [
+        {
+            "agent_id": str(row.agent_id),
+            "agent_name": row.agent_name,
+            "total_eth": f"{float(row.total_eth):.6f}",
+        }
+        for row in rows
+    ]
 
 
 @router.get("/{bet_id}", response_model=BetResponse)

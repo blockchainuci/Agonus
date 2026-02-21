@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { X, Minus, Plus, DollarSign } from "lucide-react";
+import { useEthPrice } from "@/src/hooks/useEthPrice";
 import { motion } from "framer-motion";
 import { useAccount, usePublicClient, useSwitchChain } from "wagmi";
 
@@ -33,6 +34,15 @@ export default function BetModal() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { ethPriceUsd } = useEthPrice();
+
+  // Lock body scroll while panel is open
+  useEffect(() => {
+    document.body.style.overflow = isBetModalOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isBetModalOpen]);
 
   useEffect(() => {
     if (isBetModalOpen) setError(null);
@@ -131,7 +141,6 @@ export default function BetModal() {
       closeBetModal();
     } catch (err) {
       const raw = err instanceof Error ? err.message : "Bet failed";
-      // Extract readable part from viem/contract errors
       const revertMatch = raw.match(/execution reverted:\s*([^"',]+)/i);
       const userRejected = /user rejected|user denied/i.test(raw);
       const message = userRejected
@@ -149,100 +158,162 @@ export default function BetModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex justify-end">
+      {/* Backdrop */}
       <button
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default"
         onClick={closeBetModal}
         aria-label="Close bet modal"
       />
 
+      {/* Right-side panel */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.2 }}
-        className="relative w-full max-w-md rounded-2xl bg-[#0a1122] border border-white/10 p-6 shadow-2xl"
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="relative w-full max-w-sm h-full bg-[#0a1122] border-l border-white/10 shadow-2xl flex flex-col"
       >
-        <button
-          onClick={closeBetModal}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white"
-          aria-label="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <h2 className="text-2xl font-bold text-white mb-1">{title}</h2>
-        <p className="text-sm text-gray-400 mb-4">
-          Tournament: {draft.tournament_name || draft.tournament_id || "—"}
-        </p>
-
-        <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3">
-          <p className="text-sm text-gray-300">
-            Wallet:{" "}
-            {address
-              ? `${address.slice(0, 6)}...${address.slice(-4)}`
-              : "Not connected"}
-          </p>
+        {/* Panel header */}
+        <div className="shrink-0 flex items-start justify-between p-6 border-b border-white/10">
+          <div className="pr-8">
+            <h2 className="text-xl font-bold text-white leading-tight">{title}</h2>
+            <p className="text-sm text-gray-400 mt-1">
+              {draft.tournament_name || draft.tournament_id || "—"}
+            </p>
+          </div>
+          <button
+            onClick={closeBetModal}
+            className="shrink-0 text-gray-400 hover:text-white transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {isConnected && !isAuthenticated && (
-          <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm text-gray-200">Sign in required</p>
-                <p className="text-xs text-gray-500">
-                  Sign a message to access betting features.
-                </p>
-                {signInError && (
-                  <p className="mt-2 text-xs text-red-400">{signInError}</p>
-                )}
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {/* Wallet info */}
+          <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+            <p className="text-sm text-gray-300">
+              Wallet:{" "}
+              {address
+                ? `${address.slice(0, 6)}...${address.slice(-4)}`
+                : "Not connected"}
+            </p>
+          </div>
+
+          {/* Sign-in prompt */}
+          {isConnected && !isAuthenticated && (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-gray-200">Sign in required</p>
+                  <p className="text-xs text-gray-500">
+                    Sign a message to access betting features.
+                  </p>
+                  {signInError && (
+                    <p className="mt-2 text-xs text-red-400">{signInError}</p>
+                  )}
+                </div>
+                <button
+                  onClick={signIn}
+                  disabled={isSigningIn}
+                  className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-white text-sm font-medium transition disabled:opacity-50"
+                >
+                  {isSigningIn ? "Signing..." : "Sign In"}
+                </button>
               </div>
+            </div>
+          )}
+
+          {/* Betting closed banner */}
+          {bettingClosed && (
+            <div className="rounded-lg border border-red-600/40 bg-red-500/10 p-3 text-sm text-red-300">
+              Betting is only open while the tournament is LIVE.
+            </div>
+          )}
+
+          {/* Bet amount */}
+          <div>
+            <label className="text-sm text-gray-300">Bet Amount (ETH)</label>
+            <div className="mt-1 flex">
               <button
-                onClick={signIn}
-                disabled={isSigningIn}
-                className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-white text-sm font-medium transition disabled:opacity-50"
+                type="button"
+                onClick={() => {
+                  const cur = parseFloat(draft.amount_eth) || 0;
+                  const next = Math.max(MIN_BET, parseFloat((cur - 0.001).toFixed(6)));
+                  setDraftAmount(String(next));
+                }}
+                className="rounded-l-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 px-3 py-2 transition"
+                aria-label="Decrease bet amount"
               >
-                {isSigningIn ? "Signing..." : "Sign In"}
+                <Minus className="w-4 h-4" />
+              </button>
+              <input
+                value={draft.amount_eth}
+                onChange={(e) => setDraftAmount(e.target.value)}
+                inputMode="decimal"
+                placeholder="0.01"
+                className="flex-1 rounded-none bg-black/30 border-y border-white/10 px-3 py-2 text-white text-center focus:outline-none focus:border-white/20"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const cur = parseFloat(draft.amount_eth) || 0;
+                  setDraftAmount(String(parseFloat((cur + 0.001).toFixed(6))));
+                }}
+                className="rounded-r-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 px-3 py-2 transition"
+                aria-label="Increase bet amount"
+              >
+                <Plus className="w-4 h-4" />
               </button>
             </div>
           </div>
-        )}
 
-        {bettingClosed && (
-          <div className="mb-3 rounded-lg border border-red-600/40 bg-red-500/10 p-3 text-sm text-red-300">
-            Betting is only open while the tournament is LIVE.
-          </div>
-        )}
+          {/* USD conversion */}
+          {!Number.isNaN(parseFloat(draft.amount_eth)) &&
+            parseFloat(draft.amount_eth) > 0 && (
+              <div className="flex items-center gap-2.5 rounded-lg border border-green-500/40 bg-green-500/10 px-3 py-2">
+                <DollarSign className="w-4 h-4 text-green-400 shrink-0" />
+                <div>
+                  <p className="text-green-400 font-semibold text-sm leading-none">
+                    {ethPriceUsd !== null
+                      ? `$${(parseFloat(draft.amount_eth) * ethPriceUsd).toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })} USD`
+                      : "Fetching price…"}
+                  </p>
+                  <p className="text-[10px] text-green-600 mt-0.5">
+                    Live estimate — updates as you type, increment, or decrement
+                  </p>
+                </div>
+              </div>
+            )}
 
-        <label className="text-sm text-gray-300">Bet Amount (ETH)</label>
-        <input
-          value={draft.amount_eth}
-          onChange={(e) => setDraftAmount(e.target.value)}
-          inputMode="decimal"
-          placeholder="0.01"
-          className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-white"
-        />
+          {/* Validation / error messages */}
+          {amountInvalid && (
+            <p className="text-xs text-red-400">Minimum bet is 0.001 ETH.</p>
+          )}
+          {error && <p className="text-sm text-red-400">{error}</p>}
+        </div>
 
-        {amountInvalid && (
-          <p className="mt-2 text-xs text-red-400">
-            Minimum bet is 0.001 ETH.
-          </p>
-        )}
-
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
-
-        <button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          className="mt-4 w-full rounded-xl bg-yellow-500 px-4 py-2 font-semibold text-black disabled:opacity-50"
-        >
-          {submitting
-            ? "Placing bet..."
-            : !isConnected
-            ? "Connect wallet to bet"
-            : !isAuthenticated
-            ? "Sign in to bet"
-            : "Place Bet"}
-        </button>
+        {/* Sticky footer — submit button */}
+        <div className="shrink-0 p-6 border-t border-white/10">
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="w-full rounded-xl bg-yellow-500 px-4 py-3 font-semibold text-black disabled:opacity-50 transition"
+          >
+            {submitting
+              ? "Placing bet..."
+              : !isConnected
+              ? "Connect wallet to bet"
+              : !isAuthenticated
+              ? "Sign in to bet"
+              : "Place Bet"}
+          </button>
+        </div>
       </motion.div>
     </div>
   );

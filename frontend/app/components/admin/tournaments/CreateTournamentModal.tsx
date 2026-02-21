@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { X, Calendar, DollarSign, Trophy, Users, Check, ChevronDown, User } from "lucide-react";
+import { X, Calendar, DollarSign, Trophy, Users, Check, ChevronDown, User, Minus, Plus } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -237,60 +237,87 @@ export default function CreateTournamentModal({
                   </div>
 
                   {/* Prize Pool & Max Agents */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-2 gap-6">
                     {/* Prize Pool */}
-                    <div className="relative">
-                      <input
-                        type="number"
-                        id="prize-pool"
-                        value={formData.prize_pool}
-                        onChange={(e) => setFormData({ ...formData, prize_pool: e.target.value })}
-                        placeholder=" "
-                        min="0"
-                        step="100"
-                        className={`w-full px-4 py-3.5 bg-white/5 border ${
-                          errors.prize_pool ? "border-red-500" : "border-white/10"
-                        } rounded-lg text-white placeholder-transparent focus:outline-none focus:border-blue-400 transition-colors peer`}
-                      />
-                      <label
-                        htmlFor="prize-pool"
-                        className="absolute left-4 -top-2.5 px-1 bg-slate-900 text-sm font-medium text-gray-300 transition-all flex items-center gap-1
-                          peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-500 peer-placeholder-shown:top-3.5 peer-placeholder-shown:bg-transparent
-                          peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-400 peer-focus:bg-slate-900"
-                      >
+                    <div>
+                      <label className="flex items-center gap-1 text-sm font-medium text-gray-300 mb-2">
                         <DollarSign className="w-4 h-4" />
                         Prize Pool (USD) *
                       </label>
+                      <div className="flex h-12">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = parseFloat(formData.prize_pool) || 0;
+                            const next = Math.max(0, cur - 100);
+                            setFormData({ ...formData, prize_pool: String(next) });
+                          }}
+                          className="w-10 shrink-0 rounded-l-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 flex items-center justify-center transition"
+                          aria-label="Decrease prize pool"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          id="prize-pool"
+                          value={formData.prize_pool}
+                          onChange={(e) => setFormData({ ...formData, prize_pool: e.target.value })}
+                          placeholder="0"
+                          className={`flex-1 min-w-0 bg-white/5 border-y ${
+                            errors.prize_pool ? "border-red-500" : "border-white/10"
+                          } px-3 text-white text-center focus:outline-none focus:border-blue-400 transition-colors`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = parseFloat(formData.prize_pool) || 0;
+                            setFormData({ ...formData, prize_pool: String(cur + 100) });
+                          }}
+                          className="w-10 shrink-0 rounded-r-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 flex items-center justify-center transition"
+                          aria-label="Increase prize pool"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
                       {errors.prize_pool && (
                         <p className="text-red-400 text-xs mt-2">{errors.prize_pool}</p>
                       )}
                     </div>
 
                     {/* Max Agents */}
-                    <div className="relative">
-                      <input
-                        type="number"
-                        id="max-agents"
-                        value={formData.max_agents}
-                        onChange={(e) =>
-                          setFormData({ ...formData, max_agents: parseInt(e.target.value) })
-                        }
-                        placeholder=" "
-                        min="2"
-                        max="100"
-                        className={`w-full px-4 py-3.5 bg-white/5 border ${
-                          errors.max_agents ? "border-red-500" : "border-white/10"
-                        } rounded-lg text-white placeholder-transparent focus:outline-none focus:border-blue-400 transition-colors peer`}
-                      />
-                      <label
-                        htmlFor="max-agents"
-                        className="absolute left-4 -top-2.5 px-1 bg-slate-900 text-sm font-medium text-gray-300 transition-all flex items-center gap-1
-                          peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-500 peer-placeholder-shown:top-3.5 peer-placeholder-shown:bg-transparent
-                          peer-focus:-top-2.5 peer-focus:text-sm peer-focus:text-blue-400 peer-focus:bg-slate-900"
-                      >
+                    <div>
+                      <label className="flex items-center gap-1 text-sm font-medium text-gray-300 mb-2">
                         <Users className="w-4 h-4" />
-                        Agents
+                        Max Agents *
                       </label>
+                      <div className="flex h-12">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({ ...formData, max_agents: Math.max(2, formData.max_agents - 1) })
+                          }
+                          className="w-10 shrink-0 rounded-l-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 flex items-center justify-center transition"
+                          aria-label="Decrease max agents"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <div className={`flex-1 flex items-center justify-center bg-white/5 border-y ${
+                          errors.max_agents ? "border-red-500" : "border-white/10"
+                        } text-white font-medium`}>
+                          {formData.max_agents}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({ ...formData, max_agents: Math.min(12, formData.max_agents + 1) })
+                          }
+                          className="w-10 shrink-0 rounded-r-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 flex items-center justify-center transition"
+                          aria-label="Increase max agents"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
                       {errors.max_agents && (
                         <p className="text-red-400 text-xs mt-2">{errors.max_agents}</p>
                       )}

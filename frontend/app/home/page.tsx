@@ -1,65 +1,48 @@
 'use client';
 
-import { useEffect } from 'react';
-import TournamentContainer from './components/TournamentStatusBar';
-import RecentTrades from './components/RecentTrades';
+import { useState } from 'react';
+import AgentSidebar from './components/AgentSidebar';
 import AgentPerformanceChart from './components/AgentPerformanceChart';
-import { useTournaments } from '@/src/hooks/useTournaments';
+import RecentTrades from './components/RecentTrades';
 import { useTournamentStore } from '@/src/store/useTournamentStore';
-import SectionBackground from '../components/background/SectionBackground';
 import BetModal from '@/src/betting/BetModal';
 
 export default function HomePage() {
-  // Fetch tournaments from backend (optional - for syncing with backend data)
-  const { data: tournaments } = useTournaments();
-
-  // Use Zustand store for tournament selection (same as TournamentStatusBar)
   const selectedTournamentId = useTournamentStore((s) => s.selectedTournamentId);
-  const setTournamentId = useTournamentStore((s) => s.setTournamentId);
-
-  // Sync with backend tournaments when they load (optional - updates default if needed)
-  useEffect(() => {
-    if (tournaments && tournaments.length > 0) {
-      // Only update if the current ID doesn't exist in backend tournaments
-      const currentExists = tournaments.some(t => String(t.id) === selectedTournamentId);
-      if (!currentExists) {
-        setTournamentId(String(tournaments[0].id), tournaments[0].name);
-      }
-    }
-  }, [tournaments, selectedTournamentId, setTournamentId]);
+  const [highlightedAgentId, setHighlightedAgentId] = useState<string | null>(null);
 
   return (
-    <div className="min-h-screen">
-      <SectionBackground id="tournaments" variant="base" className="pt-8">
-        <div className="max-w-7xl mx-auto p-6">
-          <div className="scroll-mt-24 relative">
-            <TournamentContainer />
-          </div>
-        </div>
-      </SectionBackground>
+    // h-full fills the <main> content area (h-screen minus 64px navbar via pt-16)
+    <div className="h-full flex flex-col px-8 py-4 gap-4 overflow-hidden">
 
-      <SectionBackground
-        id="performance"
-        variant="grid"
-        baseClass="bg-deep-performance"
-        gridClass="bg-grid-gold-bright grid-flicker"
-        className="py-12"
-        parallax
-      >
-        <div className="max-w-7xl mx-auto p-6">
-          <div className="scroll-mt-24 relative">
-            <AgentPerformanceChart tournamentId={selectedTournamentId} />
-          </div>
-        </div>
-      </SectionBackground>
+      {/* Main area — fills all remaining height */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 overflow-hidden">
 
-      <SectionBackground id="recent-trades" variant="inverse" className="pb-12">
-        <div className="max-w-7xl mx-auto p-6">
-          <div className="scroll-mt-24 relative">
+        {/* Left: Agent sidebar (agents list + your bets accordion) */}
+        <div className="lg:w-[280px] lg:shrink-0 lg:h-full min-h-[300px]">
+          <AgentSidebar
+            tournamentId={selectedTournamentId}
+            onAgentHover={setHighlightedAgentId}
+            highlightedAgentId={highlightedAgentId}
+          />
+        </div>
+
+        {/* Right: Chart on top, Recent Trades pinned at bottom */}
+        <div className="flex-1 min-w-0 flex flex-col gap-4 h-full overflow-hidden">
+          {/* Performance chart fills remaining vertical space */}
+          <div className="flex-1 min-h-0">
+            <AgentPerformanceChart
+              tournamentId={selectedTournamentId}
+              highlightedAgentId={highlightedAgentId}
+            />
+          </div>
+
+          {/* Recent Trades — fixed height strip at the bottom */}
+          <div className="h-[220px] shrink-0">
             <RecentTrades tournamentId={selectedTournamentId} />
           </div>
         </div>
-      </SectionBackground>
+      </div>
 
       <BetModal />
     </div>
