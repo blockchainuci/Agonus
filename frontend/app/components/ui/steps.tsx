@@ -3,6 +3,7 @@
 import { motion, useScroll, useTransform, useInView, MotionValue, useSpring } from 'framer-motion';
 import { useRef, useState, useEffect } from 'react';
 import { Trophy } from 'lucide-react';
+import Link from 'next/link';
 import {
   spacing,
   typography,
@@ -817,18 +818,20 @@ export default function Steps() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
       >
-        <motion.div
-          className="flex items-center gap-3 px-8 py-4 rounded-full bg-gradient-to-r from-[#FFD700]/20 to-[#FFA500]/20 border-2 border-[#FFD700]/40 cursor-pointer"
-          whileHover={{
-            scale: 1.05,
-            boxShadow: '0 0 30px rgba(255,215,0,0.3)',
-            borderColor: 'rgba(255,215,0,0.6)',
-          }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <Trophy className="w-6 h-6 text-[#FFD700]" />
-          <span className="text-white font-semibold text-lg">Ready to start your journey?</span>
-        </motion.div>
+        <Link href="/home">
+          <motion.div
+            className="flex items-center gap-3 px-8 py-4 rounded-full bg-gradient-to-r from-[#FFD700]/20 to-[#FFA500]/20 border-2 border-[#FFD700]/40 cursor-pointer"
+            whileHover={{
+              scale: 1.05,
+              boxShadow: '0 0 30px rgba(255,215,0,0.3)',
+              borderColor: 'rgba(255,215,0,0.6)',
+            }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <Trophy className="w-6 h-6 text-[#FFD700]" />
+            <span className="text-white font-semibold text-lg">Ready to start your journey?</span>
+          </motion.div>
+        </Link>
       </motion.div>
     </div>
   );

@@ -138,7 +138,7 @@ export default function AgentPerformanceChart({
 
       const chart = LightweightCharts.createChart(ctn, {
         width: ctn.clientWidth,
-        height: isFullscreen ? window.innerHeight - 100 : 450,
+        height: isFullscreen ? window.innerHeight - 100 : (ctn.clientHeight || 300),
         layout: {
           background: { color: "transparent" },
           textColor: "#9ca3af",
@@ -190,20 +190,24 @@ export default function AgentPerformanceChart({
 
       chart.timeScale().fitContent();
 
-      resizeHandler = () => {
+      // ResizeObserver tracks the flex container's actual dimensions
+      const ro = new ResizeObserver(() => {
         if (disposed || !chartContainerRef.current) return;
         chart.applyOptions({
           width: chartContainerRef.current.clientWidth,
-          height: isFullscreen ? window.innerHeight - 100 : 450,
+          height: isFullscreen
+            ? window.innerHeight - 100
+            : (chartContainerRef.current.clientHeight || 300),
         });
-      };
+      });
+      ro.observe(ctn);
 
-      window.addEventListener("resize", resizeHandler);
+      resizeHandler = () => ro.disconnect();
     });
 
     return () => {
       disposed = true;
-      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      if (resizeHandler) resizeHandler(); // disconnects ResizeObserver
       if (chartInstance) {
         chartInstance.remove();
         chartRef.current = null;
@@ -235,7 +239,7 @@ export default function AgentPerformanceChart({
 
   if (statesLoading || agentsLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-full">
         <div className="text-zinc-500 text-sm">Loading chart…</div>
       </div>
     );
@@ -249,7 +253,7 @@ export default function AgentPerformanceChart({
       className={
         isFullscreen
           ? "fixed inset-0 z-50 bg-[#000814]/95 backdrop-blur-xl p-6 flex flex-col"
-          : "relative flex flex-col h-full"
+          : "relative flex flex-col h-full rounded-2xl overflow-hidden bg-[#0a0e17] border border-white/5"
       }
     >
       {/* Header */}
@@ -306,7 +310,7 @@ export default function AgentPerformanceChart({
             ))}
           </div>
 
-          {/* fullscreen */}
+          {/* Fullscreen toggle */}
           <button
             onClick={() => setIsFullscreen((v) => !v)}
             className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
@@ -324,14 +328,11 @@ export default function AgentPerformanceChart({
         </div>
       </div>
 
-      {/* Chart canvas */}
+      {/* Chart canvas — flex-1 so it fills remaining height, ResizeObserver handles sizing */}
       <div
         ref={chartContainerRef}
-        className="w-full"
-        style={{
-          height: isFullscreen ? "calc(100vh - 160px)" : "450px",
-          background: "rgba(0,0,0,0.15)",
-        }}
+        className="flex-1 min-h-0 w-full"
+        style={{ background: "rgba(0,0,0,0.15)" }}
       />
 
       {/* Footer stats */}

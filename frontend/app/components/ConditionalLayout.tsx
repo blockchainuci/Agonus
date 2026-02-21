@@ -31,12 +31,11 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (isDashboardRoute) {
-    // Dashboard route: use DashboardNavbar with section scroll
+    // Dashboard route: fixed-height viewport — no page scroll
     return (
       <>
         <DashboardNavbar />
-        <main className="min-h-screen pt-16">{children}</main>
-        <Footer />
+        <main className="h-screen overflow-hidden pt-16">{children}</main>
       </>
     );
   }

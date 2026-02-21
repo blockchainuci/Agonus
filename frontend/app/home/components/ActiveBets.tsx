@@ -19,6 +19,7 @@ import type { Bet } from "@/src/types/bets";
 
 interface ActiveBetsProps {
   tournamentId: string;
+  agentId?: string | null;
 }
 
 type UiStatus = "active" | "won" | "lost";
@@ -35,7 +36,7 @@ const statusIcon = (uiStatus: UiStatus) => {
   return Clock;
 };
 
-export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
+export default function ActiveBets({ tournamentId, agentId }: ActiveBetsProps) {
   const [filter, setFilter] = useState<"active" | "past">("active");
   const { isConnected } = useAccount();
   const { isAuthenticated, isSigningIn, signInError, signIn } = useWalletAuth();
@@ -141,9 +142,9 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
     refreshMyBets(tournamentId);
   }, [isConnected, isAuthenticated, refreshMyBets, tournamentId]);
 
-  const scopedBets = myBets.filter(
-    (b) => String(b.tournament_id) === String(tournamentId),
-  );
+  const scopedBets = myBets
+    .filter((b) => String(b.tournament_id) === String(tournamentId))
+    .filter((b) => !agentId || String(b.agent_id) === String(agentId));
 
   // Determine bet status based on tournament state, not just backend settled field
   const winnerId = tournament?.winner_agent_id;
@@ -166,7 +167,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
   const displayed = filter === "active" ? active : past;
 
   return (
-    <div className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 p-6 h-[720px] flex flex-col">
+    <div className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 p-6 h-full flex flex-col">
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -176,7 +177,9 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
           <div>
             <h3 className="text-lg font-bold text-white">Your Bets</h3>
             <p className="text-xs text-gray-400">
-              {tournament?.name || "Loading..."}
+              {agentId
+                ? agentMap.get(agentId)?.name ?? "Selected Agent"
+                : tournament?.name ?? "Loading..."}
             </p>
           </div>
         </div>

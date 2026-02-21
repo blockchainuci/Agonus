@@ -40,6 +40,8 @@ const TOKEN_LOGOS: Record<string, string> = {
 
 interface AgentPositionsProps {
   tournamentId: string;
+  selectedAgentId?: string | null;
+  onSelectAgent?: (agentId: string | null) => void;
 }
 
 interface SelectedAgentData {
@@ -49,7 +51,7 @@ interface SelectedAgentData {
   percentOfTotal: number;
 }
 
-export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
+export default function AgentPositions({ tournamentId, selectedAgentId, onSelectAgent }: AgentPositionsProps) {
   const { data: agentStates, isLoading: statesLoading } =
     useTournamentAgentStates(tournamentId);
   const { data: agents, isLoading: agentsLoading } = useAgents();
@@ -124,7 +126,7 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
   return (
     <>
       <motion.div
-        className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-4 md:p-6 min-h-[500px] md:h-[720px] relative overflow-hidden flex flex-col"
+        className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-4 md:p-6 min-h-[500px] md:h-full relative overflow-hidden flex flex-col"
         key={tournamentId}
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -199,20 +201,25 @@ export default function AgentPositions({ tournamentId }: AgentPositionsProps) {
                       )
                     : null;
 
+                const isSelected = selectedAgentId === String(agentState.agent_id);
+
                 return (
                   <motion.div
                     key={agentState.agent_id}
-                    className="bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10 cursor-pointer group relative overflow-hidden"
+                    className={`rounded-xl p-4 border cursor-pointer group relative overflow-hidden transition-colors ${
+                      isSelected
+                        ? 'bg-[#FFD700]/10 border-[#FFD700]/40 ring-1 ring-[#FFD700]/30'
+                        : 'bg-white/5 hover:bg-white/10 border-white/10'
+                    }`}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    onClick={() =>
-                      handleAgentClick(
-                        agentState,
-                        agent,
-                        portfolioValue,
-                        percentOfTotal,
-                      )
-                    }
+                    onClick={() => {
+                      if (onSelectAgent) {
+                        onSelectAgent(String(agentState.agent_id));
+                      } else {
+                        handleAgentClick(agentState, agent, portfolioValue, percentOfTotal);
+                      }
+                    }}
                   >
                     <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 

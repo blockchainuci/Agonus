@@ -161,7 +161,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
 
   return (
     <motion.div
-      className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-6 relative overflow-hidden"
+      className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-6 relative overflow-hidden h-full flex flex-col"
       key={tournamentId}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -171,7 +171,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
       <div className="absolute top-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* header */}
-      <div className="flex items-center justify-between mb-6 relative z-20">
+      <div className="shrink-0 flex items-center justify-between mb-4 relative z-20">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
             <Activity className="w-5 h-5 text-purple-300" />
@@ -327,7 +327,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
       )}
 
       {/* trades list */}
-      <div className="space-y-2 max-h-[500px] overflow-y-scroll pr-2 custom-scrollbar relative z-10">
+      <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar relative z-10">
         {isLoading ? (
           <div className="text-center py-12">
             <div className="w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
