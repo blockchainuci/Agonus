@@ -8,15 +8,12 @@ import {
   DollarSign,
   Percent,
   Trophy,
-  BarChart2,
 } from "lucide-react";
 import type { UTCTimestamp, ISeriesApi, IChartApi } from "lightweight-charts";
 import { useTournamentAgentStates } from "@/src/hooks/useAgentStates";
 import { useAgents } from "@/src/hooks/useAgents";
-import { useTournamentStore } from "@/src/store/useTournamentStore";
 import { findAgentById } from "@/src/util/findAgentById";
 import { getAgentColor } from "@/src/util/agentColor";
-import { useEthPrice } from "@/src/hooks/useEthPrice";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,89 +37,6 @@ interface AgentPerformanceLine {
   avatarUrl?: string;
 }
 
-// ── Standings sub-charts (shown for ended tournaments) ───────────────────────
-
-function RankingBars({ lines }: { lines: AgentPerformanceLine[] }) {
-  const { ethPriceUsd } = useEthPrice();
-
-  const sorted = [...lines]
-    .map((l) => {
-      const raw = l.data[l.data.length - 1]?.value ?? 0;
-      return { ...l, finalValue: Number.isFinite(raw) ? Math.max(0, raw) : 0 };
-    })
-    .sort((a, b) => b.finalValue - a.finalValue);
-  const max = sorted[0]?.finalValue || 1;
-
-  return (
-    <div className="space-y-4 w-full">
-      {sorted.map((l, i) => {
-        const barPct = max > 0 ? (l.finalValue / max) * 100 : 0;
-        const roi = l.startValue > 0 ? ((l.finalValue - l.startValue) / l.startValue) * 100 : 0;
-        const roiPositive = roi >= 0;
-        const ethEquiv = ethPriceUsd && ethPriceUsd > 0 ? l.finalValue / ethPriceUsd : null;
-
-        return (
-          <div key={l.agentId}>
-            {/* Row header */}
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-[11px] font-bold w-5 text-right flex-shrink-0 tabular-nums"
-                  style={{ color: i === 0 ? "#f59e0b" : "#52525b" }}
-                >
-                  #{i + 1}
-                </span>
-                {/* Agent avatar */}
-                <div
-                  className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 border"
-                  style={{ borderColor: l.color + "60", background: l.color + "20" }}
-                >
-                  {l.avatarUrl ? (
-                    <img src={l.avatarUrl} alt={l.agentName} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full" style={{ background: l.color }} />
-                  )}
-                </div>
-                {i === 0 && <Trophy className="w-3 h-3 text-amber-400 flex-shrink-0" />}
-                <span className="text-white text-[13px] font-semibold">{l.agentName}</span>
-              </div>
-              {/* USD + ETH right side */}
-              <div className="flex items-baseline gap-2">
-                <span className="text-white tabular-nums font-bold text-[13px]">
-                  ${l.finalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </span>
-                {ethEquiv !== null && (
-                  <span className="text-zinc-500 tabular-nums text-[11px]">
-                    {ethEquiv.toFixed(4)} ETH
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Bar */}
-            <div className="w-full h-2 rounded-full overflow-hidden mb-1" style={{ background: "rgba(255,255,255,0.05)" }}>
-              <div
-                className="h-full rounded-full"
-                style={{ width: `${barPct}%`, background: l.color, transition: "width 0.8s ease" }}
-              />
-            </div>
-
-            {/* ROI tag */}
-            <div className="flex justify-end">
-              <span
-                className="text-[10px] font-semibold tabular-nums"
-                style={{ color: roiPositive ? "#10b981" : "#ef4444" }}
-              >
-                {roiPositive ? "+" : ""}{roi.toFixed(1)}% return
-              </span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function AgentPerformanceChart({
@@ -131,38 +45,27 @@ export default function AgentPerformanceChart({
 }: AgentPerformanceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  // activeView: "absolute"|"relative" = line chart; "pie" = donut; "rankings" = bar chart
-  const [activeView, setActiveView] = useState<"absolute" | "relative" | "rankings">("absolute");
-  const tournamentStatus = useTournamentStore((s) => s.selectedTournamentStatus);
-  const isEnded = tournamentStatus === "ENDED";
+  const [activeView, setActiveView] = useState<"absolute" | "relative">("absolute");
   const chartRef = useRef<IChartApi | null>(null);
   const seriesMapRef = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
 
-  // Reset to line chart whenever tournament changes or goes back to live
   useEffect(() => {
     setActiveView("absolute");
   }, [tournamentId]);
-
-  useEffect(() => {
-    if (!isEnded && activeView === "rankings") setActiveView("absolute");
-  }, [isEnded, activeView]);
 
   const { data: agentStates, isLoading: statesLoading } =
     useTournamentAgentStates(tournamentId);
   const { data: agents, isLoading: agentsLoading } = useAgents();
 
-  const [performanceLines, setPerformanceLines] = useState<
-    AgentPerformanceLine[]
-  >([]);
+  const [performanceLines, setPerformanceLines] = useState<AgentPerformanceLine[]>([]);
 
   useEffect(() => {
     if (!agentStates || !agents) return;
 
     const now = Math.floor(Date.now() / 1000) as UTCTimestamp;
-    const N = 90; // number of data points
-    const startTime = (now as number) - N * 300; // N × 5-min candles back
+    const N = 90;
+    const startTime = (now as number) - N * 300;
 
-    // Derive common starting value from portfolio.starting_val (all agents same start)
     const firstPortfolio = (agentStates[0] as any)?.portfolio;
     const portfolioVals = agentStates.map((s) => parseFloat(s.portfolio_value_usd));
     const commonStart: number =
@@ -175,27 +78,19 @@ export default function AgentPerformanceChart({
       const agentName = agent?.name || `Agent ${index + 1}`;
       const finalValue = parseFloat(state.portfolio_value_usd);
 
-      // Better seeded RNG (avoids clustering with simple sin)
       const seed = state.agent_id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
       const rng = (i: number) => {
         const x = Math.sin(seed * 9301 + i * 49297 + 233) * 10000;
         return x - Math.floor(x);
       };
 
-      // ── Brownian bridge ──────────────────────────────────────────────────
-      // Build a random walk of N+1 steps
       const walk: number[] = new Array(N + 1).fill(0);
       for (let i = 1; i <= N; i++) walk[i] = walk[i - 1] + (rng(i) - 0.5);
-
-      // Subtract the linear drift so the walk ends exactly at 0 (bridge)
       const W_N = walk[N];
       const bridge = walk.slice(0, N).map((w, i) => w - (i / N) * W_N);
-
-      // Normalize bridge to [-1, 1]
       const peak = Math.max(...bridge.map(Math.abs), 0.0001);
       const normBridge = bridge.map((v) => v / peak);
 
-      // Scale noise: large enough to cause crossovers, small enough trend is visible
       const totalChange = finalValue - commonStart;
       const noiseAmp = Math.max(Math.abs(totalChange) * 0.38, commonStart * 0.04);
 
@@ -207,7 +102,6 @@ export default function AgentPerformanceChart({
           value: Math.max(1, trend + noise * noiseAmp),
         };
       });
-      // Pin the final point to the exact portfolio value
       data.push({ time: now, value: finalValue });
 
       return {
@@ -234,7 +128,7 @@ export default function AgentPerformanceChart({
 
   useEffect(() => {
     const container = chartContainerRef.current;
-    if (!container || performanceLines.length === 0 || activeView === "rankings") return;
+    if (!container || performanceLines.length === 0) return;
 
     let disposed = false;
     let resizeHandler: (() => void) | undefined;
@@ -297,7 +191,6 @@ export default function AgentPerformanceChart({
 
       chart.timeScale().fitContent();
 
-      // ResizeObserver tracks the flex container's actual dimensions
       const ro = new ResizeObserver(() => {
         if (disposed || !chartContainerRef.current) return;
         chart.applyOptions({
@@ -314,7 +207,7 @@ export default function AgentPerformanceChart({
 
     return () => {
       disposed = true;
-      if (resizeHandler) resizeHandler(); // disconnects ResizeObserver
+      if (resizeHandler) resizeHandler();
       if (chartInstance) {
         chartInstance.remove();
         chartRef.current = null;
@@ -332,13 +225,11 @@ export default function AgentPerformanceChart({
       const series = seriesMapRef.current.get(line.agentId);
       if (series) {
         const isHighlighted = highlightedAgentId === line.agentId;
-        const hasHighlight =
-          highlightedAgentId !== null && highlightedAgentId !== undefined;
+        const hasHighlight = highlightedAgentId !== null && highlightedAgentId !== undefined;
 
         series.applyOptions({
           lineWidth: isHighlighted ? 3 : hasHighlight ? 1 : 2,
-          color:
-            hasHighlight && !isHighlighted ? `${line.color}33` : line.color,
+          color: hasHighlight && !isHighlighted ? `${line.color}33` : line.color,
         });
       }
     });
@@ -385,7 +276,7 @@ export default function AgentPerformanceChart({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Pill toggle: USD | Change | (Pie — ended only) | (Rankings — ended only) */}
+          {/* USD / Change toggle */}
           <div
             className="flex items-center rounded-lg p-0.5"
             style={{
@@ -407,15 +298,6 @@ export default function AgentPerformanceChart({
             >
               <Percent className="w-3 h-3" />Change
             </button>
-            {isEnded && (
-              <button
-                onClick={() => setActiveView("rankings")}
-                className="px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1"
-                style={activeView === "rankings" ? { background: "#f59e0b", color: "#000" } : { color: "#71717a" }}
-              >
-                <BarChart2 className="w-3 h-3" />Rankings
-              </button>
-            )}
           </div>
 
           {/* Fullscreen toggle */}
@@ -436,21 +318,40 @@ export default function AgentPerformanceChart({
         </div>
       </div>
 
-      {/* Chart body — switches between line chart and rankings */}
-      {activeView === "rankings" && isEnded ? (
-        <div className="flex-1 min-h-0 overflow-y-auto p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <BarChart2 className="w-4 h-4 text-zinc-500" />
-            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em]">Final Rankings</p>
-          </div>
-          <RankingBars lines={performanceLines} />
-        </div>
-      ) : (
+      {/* Chart canvas */}
+      <div
+        ref={chartContainerRef}
+        className="flex-1 min-h-0 w-full"
+        style={{ background: "rgba(0,0,0,0.15)" }}
+      />
+
+      {/* Agent legend — avatar + name strip */}
+      {performanceLines.length > 0 && (
         <div
-          ref={chartContainerRef}
-          className="flex-1 min-h-0 w-full"
-          style={{ background: "rgba(0,0,0,0.15)" }}
-        />
+          className="px-6 py-2.5 flex items-center gap-4 overflow-x-auto flex-shrink-0"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+        >
+          {performanceLines.map((line) => (
+            <div key={line.agentId} className="flex items-center gap-1.5 flex-shrink-0">
+              <div
+                className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 border"
+                style={{ borderColor: line.color + "80", background: line.color + "20" }}
+              >
+                {line.avatarUrl ? (
+                  <img
+                    src={line.avatarUrl}
+                    alt={line.agentName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <div className="w-full h-full" style={{ background: line.color }} />
+                )}
+              </div>
+              <span className="text-[11px] text-zinc-400 whitespace-nowrap">{line.agentName}</span>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Footer stats */}

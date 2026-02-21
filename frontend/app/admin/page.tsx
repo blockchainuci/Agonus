@@ -15,8 +15,6 @@ import {
   useSettleTournamentOnchain,
   useCancelTournamentOnchain,
 } from "@/src/hooks/useAdminOnchain";
-import { useAuthStore } from "@/src/store/useAuthStore";
-
 // Helper to format dates
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('en-US', {
@@ -47,7 +45,6 @@ const getAvatarUrl = (name: string) =>
   `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`;
 
 export default function AdminDashboard() {
-  const { isAuthenticated, role } = useAuthStore();
   const [agentSearch, setAgentSearch] = useState("");
   const [tournamentFilter, setTournamentFilter] = useState<"all" | "upcoming" | "live" | "completed">("all");
   const [selectedTournamentId, setSelectedTournamentId] = useState<string | null>(null);
@@ -202,19 +199,6 @@ export default function AdminDashboard() {
     return colors[statusLower] || colors.upcoming;
   };
 
-  // Auth gate - only admins can access this page
-  if (!isAuthenticated || role !== "admin") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
-        <div className="text-center space-y-4">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto" />
-          <h1 className="text-2xl font-bold">Admin Access Required</h1>
-          <p className="text-gray-400">Please sign in with an admin wallet to access this page.</p>
-        </div>
-      </div>
-    );
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -329,7 +313,7 @@ export default function AdminDashboard() {
                       <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getStatusBadge(tournament.status)}`}>
                         {tournament.status}
                       </span>
-                      {tournament.contract_tournament_id ? (
+                      {tournament.contract_tournament_id != null ? (
                         <span className="px-2 py-0.5 bg-green-500/20 border border-green-500/30 rounded text-xs text-green-300 flex items-center gap-1">
                           <Link2 className="w-3 h-3" /> On-chain #{tournament.contract_tournament_id}
                         </span>
@@ -583,7 +567,7 @@ export default function AdminDashboard() {
                 <div className="space-y-4">
 
                   {/* ===== NOT LINKED: Agent Assignment + Create ===== */}
-                  {!selectedTournament.contract_tournament_id && (
+                  {selectedTournament.contract_tournament_id == null && (
                     <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/30">
                       <h3 className="font-semibold text-blue-300 mb-3 flex items-center gap-2">
                         <Link2 className="w-4 h-4" /> Link Tournament On-Chain

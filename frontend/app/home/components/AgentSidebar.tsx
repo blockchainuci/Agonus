@@ -133,7 +133,7 @@ export default function AgentSidebar({
   }, [agents]);
 
   const handleClaim = useCallback(async () => {
-    if (!contractTournamentId || wrongNetwork) return;
+    if (contractTournamentId == null || wrongNetwork) return;
     try {
       setClaimState('confirming');
       setClaimError(null);
@@ -397,7 +397,7 @@ export default function AgentSidebar({
                 {isConnected &&
                   isAuthenticated &&
                   isTournamentSettled &&
-                  contractTournamentId &&
+                  contractTournamentId != null &&
                   scopedBets.length > 0 && (
                     <div className="mt-2">
                       {claimStatusLoading ? (
@@ -457,9 +457,10 @@ export default function AgentSidebar({
                           )}
                         </div>
                       ) : (
-                        <p className="text-[11px] text-zinc-500 py-1">
-                          No winnings to claim
-                        </p>
+                        <div className="flex items-center gap-1.5 py-1.5 px-2 rounded-lg bg-red-500/10">
+                          <XCircle className="w-3 h-3 text-red-400" />
+                          <span className="text-[11px] text-red-400 font-medium">Bet lost</span>
+                        </div>
                       )}
                     </div>
                   )}

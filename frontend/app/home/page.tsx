@@ -301,7 +301,7 @@ function UserBetsPanel({
   const isSettled = tournament?.status === "completed";
 
   async function handleClaim() {
-    if (!contractTournamentId) return;
+    if (contractTournamentId == null) return;
     setIsClaiming(true);
     try {
       await claimWinningsOnchain(contractTournamentId);

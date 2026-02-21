@@ -346,25 +346,21 @@ export default function CreateAgentModal({
                   </div>
 
                   {/* Starting Cash */}
-                  <div className="relative">
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Starting Cash (USDC)
-                        </label>
-                        <div className="flex items-center gap-3">
-                          <span className="text-gray-400">$</span>
-                          <input
-                            type="number"
-                            min="100"
-                            max="10000"
-                            step="50"
-                            value={configOverrides.starting_cash}
-                            onChange={(e) => setConfigOverrides({ ...configOverrides, starting_cash: parseInt(e.target.value) || 500 })}
-                            className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
-                          />
-                        </div>
-                      </div>
+                  <div>
+                    <label>
+                      Starting Cash (USDC)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-400">$</span>
+                      <input
+                        type="number"
+                        min="100"
+                        max="10000"
+                        step="50"
+                        value={configOverrides.starting_cash}
+                        onChange={(e) => setConfigOverrides({ ...configOverrides, starting_cash: parseInt(e.target.value) || 500 })}
+                        className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
+                      />
                     </div>
                     <p className="text-gray-500 text-xs mt-2">Amount of USDC the agent starts with in tournaments (default: $500)</p>
                   </div>

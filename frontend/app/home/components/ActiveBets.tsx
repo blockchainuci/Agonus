@@ -71,7 +71,7 @@ export default function ActiveBets({ tournamentId, agentId }: ActiveBetsProps) {
   const { switchChain, isPending: isSwitching } = useSwitchChain();
 
   const handleClaim = useCallback(async () => {
-    if (!contractTournamentId || wrongNetwork) return;
+    if (contractTournamentId == null || wrongNetwork) return;
     try {
       setClaimState("confirming");
       setClaimError(null);
@@ -397,7 +397,7 @@ export default function ActiveBets({ tournamentId, agentId }: ActiveBetsProps) {
       {isConnected &&
         isAuthenticated &&
         isTournamentSettled &&
-        contractTournamentId &&
+        contractTournamentId != null &&
         scopedBets.length > 0 && (
           <div className="mt-4 shrink-0">
             {claimStatusLoading ? (
@@ -486,12 +486,13 @@ export default function ActiveBets({ tournamentId, agentId }: ActiveBetsProps) {
                 )}
               </div>
             ) : (
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/20">
                 <div className="flex items-center gap-2">
-                  <XCircle className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-400">
-                    No winnings to claim for this tournament.
-                  </p>
+                  <XCircle className="w-4 h-4 text-red-400" />
+                  <div>
+                    <p className="text-sm font-semibold text-red-400">Bet Lost</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Your agent did not win this tournament.</p>
+                  </div>
                 </div>
               </div>
             )}

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Minus, Plus, DollarSign } from "lucide-react";
 import { useEthPrice } from "@/src/hooks/useEthPrice";
 import { motion } from "framer-motion";
-import { useAccount, usePublicClient, useSwitchChain } from "wagmi";
+import { useAccount, usePublicClient, useSwitchChain, useConnect } from "wagmi";
 
 import { useBettingStore } from "@/src/store/useBettingStore";
 import { useTournamentStore } from "@/src/store/useTournamentStore";
@@ -21,7 +21,8 @@ export default function BetModal() {
     (s) => s.selectedTournamentStatus
   );
   const publicClient = usePublicClient({ chainId: AGONUS_CHAIN_ID });
-  const { switchChain } = useSwitchChain();
+  const { switchChain, isPending: isSwitching } = useSwitchChain();
+  const { connectors, connect, isPending: isConnecting } = useConnect();
 
   const placeBetOnchain = usePlaceBetOnchain();
   const {
@@ -34,7 +35,22 @@ export default function BetModal() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConnectorMenu, setShowConnectorMenu] = useState(false);
   const { ethPriceUsd } = useEthPrice();
+
+  // Close connector menu once wallet connects
+  useEffect(() => {
+    if (isConnected) setShowConnectorMenu(false);
+  }, [isConnected]);
+
+  // Auto-switch to the correct chain when modal opens or wallet connects on wrong chain
+  useEffect(() => {
+    if (isBetModalOpen && isConnected && chainId !== undefined && chainId !== AGONUS_CHAIN_ID) {
+      switchChain({ chainId: AGONUS_CHAIN_ID });
+    }
+  }, [isBetModalOpen, isConnected, chainId]);
+
+  const isWrongChain = isConnected && chainId !== undefined && chainId !== AGONUS_CHAIN_ID;
 
   // Lock body scroll while panel is open
   useEffect(() => {
@@ -65,8 +81,8 @@ export default function BetModal() {
   const canSubmit =
     !!draft.tournament_id &&
     !!draft.agent_id &&
-    !!draft.contract_tournament_id &&
-    !!draft.contract_agent_id &&
+    draft.contract_tournament_id != null &&
+    draft.contract_agent_id != null &&
     isConnected &&
     isAuthenticated &&
     !bettingClosed &&
@@ -82,13 +98,14 @@ export default function BetModal() {
       setError("Connect your wallet to place a bet.");
       return;
     }
-    if (chainId && chainId !== AGONUS_CHAIN_ID) {
+    if (chainId !== AGONUS_CHAIN_ID) {
       try {
         await switchChain({ chainId: AGONUS_CHAIN_ID });
+        // switchChain resolves once the wallet has switched — continue below
       } catch {
-        setError(`Switch to Base Sepolia (${AGONUS_CHAIN_ID}) to place a bet.`);
+        setError(`Switch to Base Sepolia (chain ${AGONUS_CHAIN_ID}) to place a bet.`);
+        return;
       }
-      return;
     }
     if (!isAuthenticated) {
       setError("Please sign in to place a bet.");
@@ -102,7 +119,7 @@ export default function BetModal() {
       setError(`Minimum bet is ${MIN_BET} ETH.`);
       return;
     }
-    if (!draft.contract_tournament_id || !draft.contract_agent_id) {
+    if (draft.contract_tournament_id == null || draft.contract_agent_id == null) {
       setError("Tournament is not linked on-chain yet.");
       return;
     }
@@ -298,21 +315,60 @@ export default function BetModal() {
           {error && <p className="text-sm text-red-400">{error}</p>}
         </div>
 
-        {/* Sticky footer — submit button */}
-        <div className="shrink-0 p-6 border-t border-white/10">
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="w-full rounded-xl bg-yellow-500 px-4 py-3 font-semibold text-black disabled:opacity-50 transition"
-          >
-            {submitting
-              ? "Placing bet..."
-              : !isConnected
-              ? "Connect wallet to bet"
-              : !isAuthenticated
-              ? "Sign in to bet"
-              : "Place Bet"}
-          </button>
+        {/* Sticky footer */}
+        <div className="shrink-0 p-6 border-t border-white/10 space-y-3">
+          {/* Wrong network banner */}
+          {isWrongChain && (
+            <button
+              onClick={() => switchChain({ chainId: AGONUS_CHAIN_ID })}
+              disabled={isSwitching}
+              className="w-full rounded-xl bg-orange-500/20 border border-orange-500/40 px-4 py-2.5 text-sm font-medium text-orange-300 hover:bg-orange-500/30 transition disabled:opacity-50"
+            >
+              {isSwitching ? "Switching network…" : "Switch to Base Sepolia to bet"}
+            </button>
+          )}
+
+          {/* Connect wallet — shows connector picker */}
+          {!isConnected ? (
+            <div className="relative">
+              <button
+                onClick={() => setShowConnectorMenu((v) => !v)}
+                disabled={isConnecting}
+                className="w-full rounded-xl bg-yellow-500 hover:bg-yellow-400 px-4 py-3 font-semibold text-black transition disabled:opacity-50"
+              >
+                {isConnecting ? "Connecting…" : "Connect wallet to bet"}
+              </button>
+
+              {showConnectorMenu && (
+                <div className="absolute bottom-full mb-2 w-full bg-[#0d1629] border border-white/10 rounded-xl shadow-xl overflow-hidden">
+                  {connectors.map((connector) => (
+                    <button
+                      key={connector.uid}
+                      onClick={() => connect({ connector })}
+                      className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 transition border-b border-white/5 last:border-0 flex items-center gap-3"
+                    >
+                      {connector.icon && (
+                        <img src={connector.icon} alt="" className="w-5 h-5 rounded" />
+                      )}
+                      {connector.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className="w-full rounded-xl bg-yellow-500 hover:bg-yellow-400 px-4 py-3 font-semibold text-black disabled:opacity-50 transition"
+            >
+              {submitting
+                ? "Placing bet…"
+                : !isAuthenticated
+                ? "Sign in to bet"
+                : "Place Bet"}
+            </button>
+          )}
         </div>
       </motion.div>
     </div>

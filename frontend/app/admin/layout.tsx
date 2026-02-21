@@ -21,7 +21,14 @@ export default function AdminLayout({
   const [isCreateTournamentModalOpen, setIsCreateTournamentModalOpen] = useState(false);
   const [isCreateAgentModalOpen, setIsCreateAgentModalOpen] = useState(false);
 
-  const { isConnected, isAuthenticated, isSigningIn, signIn, isAdmin, address } = useWalletAuth();
+  const { isConnected, isAuthenticated, isSigningIn, signIn, signOut, isAdmin, address } = useWalletAuth();
+
+  // Frontend allowlist — wallets always granted admin access regardless of JWT role
+  const ADMIN_WALLETS = [
+    "0x6cd7eae80775d4eb6b383abc0efd59842d701f76",
+    "0x8d8cf0e9e670476b86bf7d7594e3e6286a9b23c5",
+  ];
+  const hasAdminAccess = isAdmin || ADMIN_WALLETS.includes(address?.toLowerCase() ?? "");
   const createTournament = useCreateTournament();
   const createAgent = useCreateAgent();
   const { data: agents = [] } = useAgents();
@@ -101,7 +108,7 @@ export default function AdminLayout({
   }
 
   // Gate 3: Signed in but not admin role
-  if (!isAdmin) {
+  if (!hasAdminAccess) {
     return (
       <div className="flex h-screen items-center justify-center bg-gradient-to-b from-[#0A2540] to-[#1E3A8A]">
         <div className="text-center space-y-6 max-w-md p-8">
@@ -110,9 +117,19 @@ export default function AdminLayout({
           <p className="text-gray-400">
             Wallet <span className="text-white font-mono text-sm">{address}</span> does not have admin privileges.
           </p>
-          <Link href="/" className="inline-block px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition">
-            Back to Home
-          </Link>
+          <p className="text-xs text-gray-500">If you are an admin, your session token may be outdated. Sign out and sign back in.</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={async () => { await signOut?.(); await signIn(); }}
+              disabled={isSigningIn}
+              className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-white font-semibold rounded-xl disabled:opacity-50 flex items-center gap-2"
+            >
+              {isSigningIn ? <><Loader2 className="w-4 h-4 animate-spin" />Signing...</> : "Re-Sign In"}
+            </button>
+            <Link href="/" className="inline-block px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition">
+              Back to Home
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -155,7 +172,6 @@ export default function AdminLayout({
         isOpen={isCreateTournamentModalOpen}
         onClose={() => setIsCreateTournamentModalOpen(false)}
         onSubmit={handleCreateTournament}
-        agents={agents}
       />
 
       <CreateAgentModal
