@@ -57,11 +57,11 @@ celery_app.conf.update(
 
 # Periodic task schedule (Celery Beat)
 celery_app.conf.beat_schedule = {
-    # Run agent decisions every 1 minute for live tournaments
-    # (Change back to 300.0 for production - 5 minutes)
+    # Run agent decisions periodically for live tournaments
+    # Adjusted to every 15 minutes (900 seconds)
     "run-agent-decisions-every-5min": {
         "task": "app.agents.scheduler.run_all_live_tournament_agents",
-        "schedule": 300.0,  # 1 minute for testing (use 300.0 for production)
+        "schedule": 900.0,  # 15 minutes
     },
     # Check for tournament status changes every minute
     "check-tournament-status": {

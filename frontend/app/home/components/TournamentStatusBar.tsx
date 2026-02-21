@@ -2,20 +2,20 @@
 
 import React, { useEffect, useState } from 'react';
 import { useTournaments } from '@/src/hooks/useTournaments';
-
-import AgentPositions from './AgentPositions';
-import ActiveBets from './ActiveBets';
+import { ChevronDown } from 'lucide-react';
 
 import { useTournamentStore } from '@/src/store/useTournamentStore';
 import type { TournamentStatus } from '@/src/store/useTournamentStore';
 
 /* ---------------------------------------------------------
-   TOURNAMENT STATUS BAR (Named Export)
+   TOURNAMENT STATUS BAR (Named Export) — Compact single-line
 --------------------------------------------------------- */
 export function TournamentStatusBar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const selectedTournamentId = useTournamentStore((s) => s.selectedTournamentId);
+  const selectedTournamentId = useTournamentStore(
+    (s) => s.selectedTournamentId
+  );
   const setTournamentId = useTournamentStore((s) => s.setTournamentId);
   const setTournamentStatus = useTournamentStore((s) => s.setTournamentStatus);
   const { data: tournaments } = useTournaments();
@@ -58,139 +58,109 @@ export function TournamentStatusBar() {
     ? new Date(uiTournament.end_time).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
-        year: 'numeric',
       })
     : 'TBD';
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'LIVE':
-        return 'bg-green-500/20 text-green-400';
+        return 'bg-emerald-500/15 text-emerald-400';
       case 'ENDED':
-        return 'bg-gray-500/20 text-gray-400';
+        return 'bg-zinc-500/15 text-zinc-400';
       case 'UPCOMING':
-        return 'bg-blue-500/20 text-blue-400';
+        return 'bg-blue-500/15 text-blue-400';
       default:
-        return 'bg-gray-500/20 text-gray-400';
+        return 'bg-zinc-500/15 text-zinc-400';
     }
   };
 
   return (
-    <div className="p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/10 bg-gradient-to-r from-blue-900/20 to-transparent relative">
-      {/* Left Section: Title + Dropdown */}
-      <div className="flex items-center gap-3 w-full md:w-auto">
-        <div className="text-yellow-400 font-bold text-xl md:text-2xl truncate">
-          {uiTournament?.name || 'TOURNAMENT'}
-        </div>
+    <div className="px-4 py-2.5 flex items-center gap-3 border-b border-white/5 bg-[#0a0e17]">
+      {/* Tournament name + dropdown */}
+      <div className="relative">
+        <button
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+        >
+          <span className="text-sm font-semibold text-white truncate max-w-[200px]">
+            {uiTournament?.name || 'Tournament'}
+          </span>
+          <ChevronDown
+            className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
 
-        {/* Dropdown */}
-        <div className="relative flex-shrink-0">
-          <button
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center hover:bg-yellow-300 transition-colors"
-          >
-            <svg className="w-4 h-4 text-blue-900" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-            </svg>
-          </button>
-
-          {isDropdownOpen && (
-            <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 w-72 md:w-80 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-50 max-h-[60vh] overflow-y-auto">
-              <div className="py-1">
-                {(tournaments ?? []).map((t) => {
-                  const status = normalizeStatus(t.status);
-                  const prizePool = Number(t.prize_pool);
-                  const endTime = t.end_date;
-                  const idStr = String(t.id);
-                  const active = uiTournament ? idStr === String(uiTournament.id) : false;
-                  return (
+        {isDropdownOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setIsDropdownOpen(false)}
+            />
+            <div className="absolute top-full left-0 mt-1 w-72 bg-[#111827] rounded-lg shadow-2xl border border-white/10 z-50 max-h-[50vh] overflow-y-auto">
+              {(tournaments ?? []).map((t) => {
+                const status = normalizeStatus(t.status);
+                const idStr = String(t.id);
+                const active = uiTournament
+                  ? idStr === String(uiTournament.id)
+                  : false;
+                return (
                   <button
                     key={idStr}
                     onClick={() => {
                       setTournamentId(idStr, t.name);
                       setIsDropdownOpen(false);
                     }}
-                    className={`w-full text-left px-4 py-3 hover:bg-slate-700 transition-colors ${
-                      active ? 'bg-slate-700/50' : ''
+                    className={`w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors text-sm ${
+                      active ? 'bg-white/5' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-semibold truncate">{t.name || `Tournament ${idStr.slice(0, 8)}`}</p>
-                        <p className="text-xs text-gray-400">
-                          ${Number(prizePool).toLocaleString()} *{' '}
-                          {endTime ? new Date(endTime).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                          }) : 'TBD'}
-                        </p>
-                      </div>
-
+                      <span className="text-white truncate">
+                        {t.name || `Tournament ${idStr.slice(0, 8)}`}
+                      </span>
                       <span
-                        className={`px-2 py-1 rounded-md font-semibold uppercase text-xs flex-shrink-0 ${getStatusColor(status)}`}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase flex-shrink-0 ${getStatusColor(status)}`}
                       >
                         {status}
                       </span>
                     </div>
                   </button>
                 );
-                })}
-              </div>
+              })}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
-      {/* Right Section: Status Info */}
-      <div className="text-gray-400 text-xs md:text-sm flex flex-wrap gap-2 md:gap-4 items-center w-full md:w-auto">
-        <span className="flex items-center gap-2">
-          <span className="hidden sm:inline">Status:</span>
-          <span
-            className={`px-2 py-1 rounded-md font-semibold uppercase text-xs ${getStatusColor(
-              uiTournament?.status ?? 'UPCOMING'
-            )}`}
-          >
-            {uiTournament?.status ?? "UPCOMING"}
-          </span>
-        </span>
+      {/* Separator */}
+      <div className="w-px h-4 bg-white/10" />
 
-        <span className="flex items-center gap-1">
-          <span className="hidden sm:inline">Prize Pool:</span>
-          <span className="text-white font-semibold">
-            {uiTournament ? `$${Number(uiTournament.prize_pool_usd).toLocaleString()}` : "—"}
-          </span>
-        </span>
+      {/* Status badge */}
+      <span
+        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${getStatusColor(uiTournament?.status ?? 'UPCOMING')}`}
+      >
+        {uiTournament?.status ?? 'UPCOMING'}
+      </span>
 
-        <span className="flex items-center gap-1">
-          <span className="hidden sm:inline">Ends:</span>
-          <span className="text-white font-mono text-xs">{formattedEndTime}</span>
+      {/* Inline metadata */}
+      <span className="text-xs text-zinc-500">
+        Prize:{' '}
+        <span className="text-zinc-300">
+          {uiTournament
+            ? `$${Number(uiTournament.prize_pool_usd).toLocaleString()}`
+            : '—'}
         </span>
-      </div>
+      </span>
+
+      <span className="text-xs text-zinc-500">
+        Ends: <span className="text-zinc-300">{formattedEndTime}</span>
+      </span>
     </div>
   );
 }
 
 /* ---------------------------------------------------------
-   TOURNAMENT CONTAINER (Default Export)
+   Default export kept for backward compatibility
+   (page.tsx now uses TournamentStatusBar directly)
 --------------------------------------------------------- */
-export default function TournamentContainer() {
-  const selectedTournamentId = useTournamentStore((s) => s.selectedTournamentId);
-
-  return (
-    <div className="flex flex-col gap-0 w-full bg-black/20 backdrop-blur rounded-2xl border border-white/10 overflow-hidden">
-      {/* Header */}
-      <TournamentStatusBar />
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-        {/* Left: Agent holdings */}
-        <AgentPositions tournamentId={selectedTournamentId} />
-
-        {/* Right: Bets (active + my bets) */}
-        <div className="flex flex-col gap-6">
-          <ActiveBets tournamentId={selectedTournamentId} />
-        </div>
-      </div>
-    </div>
-  );
-}
+export default TournamentStatusBar;
