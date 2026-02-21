@@ -25,18 +25,8 @@ import {
 import { AGONUS_CHAIN_ID } from '@/src/lib/agonusContract';
 import { settleBet } from '@/src/lib/api/bets';
 import { findAgentById } from '@/src/util/findAgentById';
+import { getAgentColor } from '@/src/util/agentColor';
 import type { Bet } from '@/src/types/bets';
-
-const AGENT_COLORS = [
-  '#10b981',
-  '#3b82f6',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#14b8a6',
-  '#f97316',
-];
 
 interface AgentSidebarProps {
   tournamentId: string;
@@ -211,7 +201,7 @@ export default function AgentSidebar({
             const portfolioValue = parseFloat(state.portfolio_value_usd);
             const pctOfTotal =
               totalValue > 0 ? (portfolioValue / totalValue) * 100 : 0;
-            const color = AGENT_COLORS[index % AGENT_COLORS.length];
+            const color = getAgentColor(state.agent_id);
             const isHighlighted = highlightedAgentId === state.agent_id;
             const canBet =
               tournamentStatus === 'LIVE' && !tournament?.betting_closed;
@@ -226,11 +216,25 @@ export default function AgentSidebar({
                 onMouseLeave={() => onAgentHover(null)}
               >
                 <div className="flex items-center gap-2.5">
-                  {/* Color dot */}
+                  {/* Agent avatar */}
                   <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
+                    className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 border"
+                    style={{
+                      borderColor: isHighlighted ? color : 'rgba(255,255,255,0.08)',
+                      background: color + '20',
+                    }}
+                  >
+                    {agent?.avatar_url ? (
+                      <img
+                        src={agent.avatar_url}
+                        alt={agentName}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div className="w-full h-full" style={{ background: color }} />
+                    )}
+                  </div>
 
                   {/* Name + rank */}
                   <div className="flex-1 min-w-0">

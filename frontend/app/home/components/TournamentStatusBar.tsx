@@ -75,7 +75,7 @@ export function TournamentStatusBar() {
   };
 
   return (
-    <div className="px-4 py-2.5 flex items-center gap-3 border-b border-white/5 bg-[#0a0e17]">
+    <div className="px-4 py-2.5 flex items-center gap-3 bg-[#0a0e17]">
       {/* Tournament name + dropdown */}
       <div className="relative">
         <button

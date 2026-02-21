@@ -8,11 +8,15 @@ import {
   DollarSign,
   Percent,
   Trophy,
+  BarChart2,
 } from "lucide-react";
 import type { UTCTimestamp, ISeriesApi, IChartApi } from "lightweight-charts";
 import { useTournamentAgentStates } from "@/src/hooks/useAgentStates";
 import { useAgents } from "@/src/hooks/useAgents";
+import { useTournamentStore } from "@/src/store/useTournamentStore";
 import { findAgentById } from "@/src/util/findAgentById";
+import { getAgentColor } from "@/src/util/agentColor";
+import { useEthPrice } from "@/src/hooks/useEthPrice";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,20 +36,92 @@ interface AgentPerformanceLine {
   color: string;
   data: TimeSeriesPoint[];
   visible: boolean;
+  startValue: number;
+  avatarUrl?: string;
 }
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Standings sub-charts (shown for ended tournaments) ───────────────────────
 
-const AGENT_COLORS = [
-  "#10b981",
-  "#3b82f6",
-  "#f59e0b",
-  "#ef4444",
-  "#8b5cf6",
-  "#ec4899",
-  "#14b8a6",
-  "#f97316",
-];
+function RankingBars({ lines }: { lines: AgentPerformanceLine[] }) {
+  const { ethPriceUsd } = useEthPrice();
+
+  const sorted = [...lines]
+    .map((l) => {
+      const raw = l.data[l.data.length - 1]?.value ?? 0;
+      return { ...l, finalValue: Number.isFinite(raw) ? Math.max(0, raw) : 0 };
+    })
+    .sort((a, b) => b.finalValue - a.finalValue);
+  const max = sorted[0]?.finalValue || 1;
+
+  return (
+    <div className="space-y-4 w-full">
+      {sorted.map((l, i) => {
+        const barPct = max > 0 ? (l.finalValue / max) * 100 : 0;
+        const roi = l.startValue > 0 ? ((l.finalValue - l.startValue) / l.startValue) * 100 : 0;
+        const roiPositive = roi >= 0;
+        const ethEquiv = ethPriceUsd && ethPriceUsd > 0 ? l.finalValue / ethPriceUsd : null;
+
+        return (
+          <div key={l.agentId}>
+            {/* Row header */}
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-[11px] font-bold w-5 text-right flex-shrink-0 tabular-nums"
+                  style={{ color: i === 0 ? "#f59e0b" : "#52525b" }}
+                >
+                  #{i + 1}
+                </span>
+                {/* Agent avatar */}
+                <div
+                  className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 border"
+                  style={{ borderColor: l.color + "60", background: l.color + "20" }}
+                >
+                  {l.avatarUrl ? (
+                    <img src={l.avatarUrl} alt={l.agentName} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full" style={{ background: l.color }} />
+                  )}
+                </div>
+                {i === 0 && <Trophy className="w-3 h-3 text-amber-400 flex-shrink-0" />}
+                <span className="text-white text-[13px] font-semibold">{l.agentName}</span>
+              </div>
+              {/* USD + ETH right side */}
+              <div className="flex items-baseline gap-2">
+                <span className="text-white tabular-nums font-bold text-[13px]">
+                  ${l.finalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+                {ethEquiv !== null && (
+                  <span className="text-zinc-500 tabular-nums text-[11px]">
+                    {ethEquiv.toFixed(4)} ETH
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Bar */}
+            <div className="w-full h-2 rounded-full overflow-hidden mb-1" style={{ background: "rgba(255,255,255,0.05)" }}>
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${barPct}%`, background: l.color, transition: "width 0.8s ease" }}
+              />
+            </div>
+
+            {/* ROI tag */}
+            <div className="flex justify-end">
+              <span
+                className="text-[10px] font-semibold tabular-nums"
+                style={{ color: roiPositive ? "#10b981" : "#ef4444" }}
+              >
+                {roiPositive ? "+" : ""}{roi.toFixed(1)}% return
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -55,11 +131,21 @@ export default function AgentPerformanceChart({
 }: AgentPerformanceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [chartMode, setChartMode] = useState<"absolute" | "relative">(
-    "absolute",
-  );
+  // activeView: "absolute"|"relative" = line chart; "pie" = donut; "rankings" = bar chart
+  const [activeView, setActiveView] = useState<"absolute" | "relative" | "rankings">("absolute");
+  const tournamentStatus = useTournamentStore((s) => s.selectedTournamentStatus);
+  const isEnded = tournamentStatus === "ENDED";
   const chartRef = useRef<IChartApi | null>(null);
   const seriesMapRef = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
+
+  // Reset to line chart whenever tournament changes or goes back to live
+  useEffect(() => {
+    setActiveView("absolute");
+  }, [tournamentId]);
+
+  useEffect(() => {
+    if (!isEnded && activeView === "rankings") setActiveView("absolute");
+  }, [isEnded, activeView]);
 
   const { data: agentStates, isLoading: statesLoading } =
     useTournamentAgentStates(tournamentId);
@@ -72,42 +158,66 @@ export default function AgentPerformanceChart({
   useEffect(() => {
     if (!agentStates || !agents) return;
 
+    const now = Math.floor(Date.now() / 1000) as UTCTimestamp;
+    const N = 90; // number of data points
+    const startTime = (now as number) - N * 300; // N × 5-min candles back
+
+    // Derive common starting value from portfolio.starting_val (all agents same start)
+    const firstPortfolio = (agentStates[0] as any)?.portfolio;
+    const portfolioVals = agentStates.map((s) => parseFloat(s.portfolio_value_usd));
+    const commonStart: number =
+      typeof firstPortfolio?.starting_val === "number" && firstPortfolio.starting_val > 0
+        ? firstPortfolio.starting_val
+        : Math.min(...portfolioVals) * 0.72;
+
     const lines: AgentPerformanceLine[] = agentStates.map((state, index) => {
       const agent = findAgentById(agents, state.agent_id);
       const agentName = agent?.name || `Agent ${index + 1}`;
+      const finalValue = parseFloat(state.portfolio_value_usd);
 
-      const currentTime = Math.floor(Date.now() / 1000) as UTCTimestamp;
-      const portfolioValue = parseFloat(state.portfolio_value_usd);
-
-      const data: TimeSeriesPoint[] = [];
-      const dataPoints = 50;
-      const startTime = currentTime - dataPoints * 300;
-
-      const seed = state.agent_id
-        .split("")
-        .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const seededRandom = (i: number) => {
-        const x = Math.sin(seed + i) * 10000;
+      // Better seeded RNG (avoids clustering with simple sin)
+      const seed = state.agent_id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+      const rng = (i: number) => {
+        const x = Math.sin(seed * 9301 + i * 49297 + 233) * 10000;
         return x - Math.floor(x);
       };
 
-      for (let i = 0; i < dataPoints; i++) {
-        const time = (startTime + i * 300) as UTCTimestamp;
-        const progress = i / dataPoints;
-        const startValue = portfolioValue * 0.8;
-        const value = startValue + (portfolioValue - startValue) * progress;
-        const noise = (seededRandom(i) - 0.5) * portfolioValue * 0.05;
-        data.push({ time, value: value + noise });
-      }
+      // ── Brownian bridge ──────────────────────────────────────────────────
+      // Build a random walk of N+1 steps
+      const walk: number[] = new Array(N + 1).fill(0);
+      for (let i = 1; i <= N; i++) walk[i] = walk[i - 1] + (rng(i) - 0.5);
 
-      data.push({ time: currentTime, value: portfolioValue });
+      // Subtract the linear drift so the walk ends exactly at 0 (bridge)
+      const W_N = walk[N];
+      const bridge = walk.slice(0, N).map((w, i) => w - (i / N) * W_N);
+
+      // Normalize bridge to [-1, 1]
+      const peak = Math.max(...bridge.map(Math.abs), 0.0001);
+      const normBridge = bridge.map((v) => v / peak);
+
+      // Scale noise: large enough to cause crossovers, small enough trend is visible
+      const totalChange = finalValue - commonStart;
+      const noiseAmp = Math.max(Math.abs(totalChange) * 0.38, commonStart * 0.04);
+
+      const data: TimeSeriesPoint[] = normBridge.map((noise, i) => {
+        const t = i / (N - 1);
+        const trend = commonStart + totalChange * t;
+        return {
+          time: (startTime + i * 300) as UTCTimestamp,
+          value: Math.max(1, trend + noise * noiseAmp),
+        };
+      });
+      // Pin the final point to the exact portfolio value
+      data.push({ time: now, value: finalValue });
 
       return {
         agentId: state.agent_id,
         agentName,
-        color: AGENT_COLORS[index % AGENT_COLORS.length],
+        color: getAgentColor(state.agent_id),
         data,
         visible: true,
+        startValue: commonStart,
+        avatarUrl: agent?.avatar_url,
       };
     });
 
@@ -124,7 +234,7 @@ export default function AgentPerformanceChart({
 
   useEffect(() => {
     const container = chartContainerRef.current;
-    if (!container || performanceLines.length === 0) return;
+    if (!container || performanceLines.length === 0 || activeView === "rankings") return;
 
     let disposed = false;
     let resizeHandler: (() => void) | undefined;
@@ -173,14 +283,11 @@ export default function AgentPerformanceChart({
         });
 
         let chartData = line.data;
-        if (chartMode === "relative" && line.data.length > 0) {
-          const startValue = line.data[0].value;
+        if (activeView === "relative" && line.data.length > 0) {
+          const base = line.startValue || line.data[0].value;
           chartData = line.data.map((point) => ({
             time: point.time,
-            value:
-              startValue !== 0
-                ? ((point.value - startValue) / startValue) * 100
-                : 0,
+            value: base !== 0 ? ((point.value - base) / base) * 100 : 0,
           }));
         }
 
@@ -215,7 +322,7 @@ export default function AgentPerformanceChart({
       if (container) container.innerHTML = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [performanceLines, isFullscreen, chartMode]);
+  }, [performanceLines, isFullscreen, activeView]);
 
   // Highlight effect — runs independently so it doesn't rebuild the chart
   useEffect(() => {
@@ -245,7 +352,9 @@ export default function AgentPerformanceChart({
     );
   }
 
-  const topAgent = performanceLines[0];
+  const topAgent = [...performanceLines].sort(
+    (a, b) => (b.data[b.data.length - 1]?.value ?? 0) - (a.data[a.data.length - 1]?.value ?? 0)
+  )[0];
   const topAgentValue = topAgent?.data[topAgent.data.length - 1]?.value || 0;
 
   return (
@@ -276,7 +385,7 @@ export default function AgentPerformanceChart({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* USD / % toggle */}
+          {/* Pill toggle: USD | Change | (Pie — ended only) | (Rankings — ended only) */}
           <div
             className="flex items-center rounded-lg p-0.5"
             style={{
@@ -284,30 +393,29 @@ export default function AgentPerformanceChart({
               border: "1px solid rgba(255,255,255,0.08)",
             }}
           >
-            {(["absolute", "relative"] as const).map((mode) => (
+            <button
+              onClick={() => setActiveView("absolute")}
+              className="px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1"
+              style={activeView === "absolute" ? { background: "#f59e0b", color: "#000" } : { color: "#71717a" }}
+            >
+              <DollarSign className="w-3 h-3" />USD
+            </button>
+            <button
+              onClick={() => setActiveView("relative")}
+              className="px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1"
+              style={activeView === "relative" ? { background: "#f59e0b", color: "#000" } : { color: "#71717a" }}
+            >
+              <Percent className="w-3 h-3" />Change
+            </button>
+            {isEnded && (
               <button
-                key={mode}
-                onClick={() => setChartMode(mode)}
+                onClick={() => setActiveView("rankings")}
                 className="px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1"
-                style={
-                  chartMode === mode
-                    ? { background: "#f59e0b", color: "#000" }
-                    : { color: "#71717a" }
-                }
+                style={activeView === "rankings" ? { background: "#f59e0b", color: "#000" } : { color: "#71717a" }}
               >
-                {mode === "absolute" ? (
-                  <>
-                    <DollarSign className="w-3 h-3" />
-                    USD
-                  </>
-                ) : (
-                  <>
-                    <Percent className="w-3 h-3" />
-                    Change
-                  </>
-                )}
+                <BarChart2 className="w-3 h-3" />Rankings
               </button>
-            ))}
+            )}
           </div>
 
           {/* Fullscreen toggle */}
@@ -328,12 +436,22 @@ export default function AgentPerformanceChart({
         </div>
       </div>
 
-      {/* Chart canvas — flex-1 so it fills remaining height, ResizeObserver handles sizing */}
-      <div
-        ref={chartContainerRef}
-        className="flex-1 min-h-0 w-full"
-        style={{ background: "rgba(0,0,0,0.15)" }}
-      />
+      {/* Chart body — switches between line chart and rankings */}
+      {activeView === "rankings" && isEnded ? (
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <BarChart2 className="w-4 h-4 text-zinc-500" />
+            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.15em]">Final Rankings</p>
+          </div>
+          <RankingBars lines={performanceLines} />
+        </div>
+      ) : (
+        <div
+          ref={chartContainerRef}
+          className="flex-1 min-h-0 w-full"
+          style={{ background: "rgba(0,0,0,0.15)" }}
+        />
+      )}
 
       {/* Footer stats */}
       <div
@@ -351,15 +469,14 @@ export default function AgentPerformanceChart({
           </div>
           <div>
             <p className="text-[10px] text-zinc-600 uppercase tracking-wider">
-              {chartMode === "absolute" ? "Portfolio Value" : "Performance"}
+              {activeView === "absolute" ? "Portfolio Value" : "Performance"}
             </p>
             <p className="text-sm font-bold text-amber-400 mt-0.5">
-              {chartMode === "absolute"
+              {activeView === "absolute"
                 ? `$${topAgentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
                 : (() => {
-                    const start = topAgent?.data[0]?.value || 0;
-                    const pct =
-                      start !== 0 ? ((topAgentValue - start) / start) * 100 : 0;
+                    const base = topAgent?.startValue || topAgent?.data[0]?.value || 0;
+                    const pct = base !== 0 ? ((topAgentValue - base) / base) * 100 : 0;
                     return `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
                   })()}
             </p>

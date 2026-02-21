@@ -161,28 +161,56 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
 
   return (
     <motion.div
-      className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-lg p-6 relative overflow-hidden h-full flex flex-col"
+      className="rounded-2xl overflow-hidden h-full flex flex-col"
+      style={{ background: "#0a0e17", border: "1px solid rgba(255,255,255,0.05)" }}
       key={tournamentId}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      {/* background glow */}
-      <div className="absolute top-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-
       {/* header */}
-      <div className="shrink-0 flex items-center justify-between mb-4 relative z-20">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-            <Activity className="w-5 h-5 text-purple-300" />
+      <div
+        className="shrink-0 flex items-center justify-between px-6 py-4 relative z-20"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center flex-shrink-0">
+            <Activity className="w-5 h-5 text-zinc-300" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">Recent Trades</h3>
-            <p className="text-xs text-gray-400">
+            <h3 className="text-base font-bold text-white tracking-tight">Recent Trades</h3>
+            <p className="text-[11px] text-zinc-500">
               {tournament?.name || "Loading..."}
             </p>
           </div>
         </div>
+
+        {/* inline volume summary */}
+        {filteredTrades.length > 0 && (
+          <div className="flex items-center gap-3 mx-4">
+            <div className="flex items-center gap-1.5">
+              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Buy</span>
+              <span className="text-[12px] font-bold text-emerald-400 tabular-nums">
+                ${filteredTrades
+                  .filter((t: Trade) => t.action.toLowerCase() === "buy")
+                  .reduce((sum: number, t: Trade) => sum + parseFloat(t.amount) * parseFloat(t.price), 0)
+                  .toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </div>
+            <div className="w-px h-4 bg-white/10" />
+            <div className="flex items-center gap-1.5">
+              <ArrowDownRight className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+              <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Sell</span>
+              <span className="text-[12px] font-bold text-red-400 tabular-nums">
+                ${filteredTrades
+                  .filter((t: Trade) => t.action.toLowerCase() === "sell")
+                  .reduce((sum: number, t: Trade) => sum + parseFloat(t.amount) * parseFloat(t.price), 0)
+                  .toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* action buttons */}
         <div className="flex items-center gap-2">
@@ -191,14 +219,14 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
             <button
               className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-colors ${
                 hasActiveFilters
-                  ? "bg-purple-500/20 border-purple-500/30 text-purple-400"
-                  : "bg-white/5 hover:bg-white/10 border-white/10 text-gray-400"
+                  ? "bg-amber-500/15 border-amber-500/25 text-amber-400"
+                  : "bg-white/5 hover:bg-white/8 border-white/8 text-zinc-500"
               }`}
               onClick={() => setShowFilterMenu(!showFilterMenu)}
             >
               <Filter className="w-4 h-4" />
               {hasActiveFilters && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full text-[8px] text-white flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full text-[8px] text-white flex items-center justify-center">
                   !
                 </span>
               )}
@@ -206,7 +234,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
 
             {/* Filter dropdown menu */}
             {showFilterMenu && (
-              <div className="absolute right-0 top-12 w-64 bg-[#001D3D] border border-white/20 rounded-xl shadow-2xl p-4 z-[100]">
+              <div className="absolute right-0 top-12 w-64 bg-[#0d1422] border border-white/10 rounded-xl shadow-2xl p-4 z-[100]">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="text-lg font-semibold text-white">Filters</h4>
                   <button
@@ -231,11 +259,11 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                           className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer ${
                             actionFilter === action
                               ? action === "buy"
-                                ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
                                 : action === "sell"
-                                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                                  : "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                              : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                                  ? "bg-red-500/15 text-red-400 border border-red-500/25"
+                                  : "bg-white/10 text-white border border-white/15"
+                              : "bg-white/5 text-zinc-500 border border-white/8 hover:bg-white/8"
                           }`}
                         >
                           {action.charAt(0).toUpperCase() + action.slice(1)}
@@ -253,7 +281,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                   <select
                     value={assetFilter}
                     onChange={(e) => setAssetFilter(e.target.value)}
-                    className="w-full bg-[#0a1929] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 cursor-pointer appearance-none"
+                    className="w-full bg-[#0a0e17] border border-white/8 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20 cursor-pointer appearance-none"
                   >
                     <option value="all">All Assets</option>
                     {uniqueAssets.map((asset) => (
@@ -299,7 +327,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
 
       {/* Active filters display */}
       {hasActiveFilters && (
-        <div className="flex items-center gap-2 mb-4 relative z-10">
+        <div className="flex items-center gap-2 mb-4 px-6 relative z-10">
           <span className="text-xs text-gray-400">Active filters:</span>
           {actionFilter !== "all" && (
             <span
@@ -313,7 +341,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
             </span>
           )}
           {assetFilter !== "all" && (
-            <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400">
+            <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400">
               {assetFilter}
             </span>
           )}
@@ -327,7 +355,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
       )}
 
       {/* trades list */}
-      <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar relative z-10">
+      <div className="space-y-2 flex-1 min-h-0 overflow-y-auto px-6 py-3 custom-scrollbar relative z-10">
         {isLoading ? (
           <div className="text-center py-12">
             <div className="w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -353,22 +381,15 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
             return (
               <motion.div
                 key={trade.id}
-                className={`flex items-center justify-between p-4 rounded-xl border transition-all hover:scale-[1.01] cursor-pointer group relative overflow-hidden ${
-                  isBuy
-                    ? "bg-green-500/5 border-green-500/20 hover:bg-green-500/10"
-                    : "bg-red-500/5 border-red-500/20 hover:bg-red-500/10"
-                }`}
+                className="flex items-center justify-between p-4 rounded-xl border cursor-pointer group relative overflow-hidden transition-colors hover:bg-white/[0.02]"
+                style={{ borderColor: "rgba(255,255,255,0.05)" }}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 onClick={() => setSelectedTrade(trade)}
               >
-                {/* glow effect on hover */}
                 <div
-                  className={`absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity ${
-                    isBuy
-                      ? "bg-gradient-to-r from-green-500/10 to-transparent"
-                      : "bg-gradient-to-r from-red-500/10 to-transparent"
-                  }`}
+                  className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ background: isBuy ? "rgba(16,185,129,0.04)" : "rgba(239,68,68,0.04)" }}
                 />
 
                 {/* left side: icon + info */}
@@ -442,57 +463,7 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
         )}
       </div>
 
-      {/* summary footer */}
-      {filteredTrades.length > 0 && (
-        <div className="mt-6 pt-4 border-t border-white/10 relative z-10">
-          <div className="grid grid-cols-2 gap-4">
-            {/* total buy volume */}
-            <div className="bg-green-500/5 rounded-lg p-3 border border-green-500/20">
-              <div className="flex items-center gap-2 mb-1">
-                <ArrowUpRight className="w-4 h-4 text-green-400" />
-                <span className="text-xs text-gray-400 uppercase">
-                  Buy Volume
-                </span>
-              </div>
-              <p className="text-lg font-bold text-green-400">
-                $
-                {filteredTrades
-                  .filter((t: Trade) => t.action.toLowerCase() === "buy")
-                  .reduce(
-                    (sum: number, t: Trade) =>
-                      sum + parseFloat(t.amount) * parseFloat(t.price),
-                    0,
-                  )
-                  .toLocaleString()}
-              </p>
-            </div>
 
-            {/* total sell volume */}
-            <div className="bg-red-500/5 rounded-lg p-3 border border-red-500/20">
-              <div className="flex items-center gap-2 mb-1">
-                <ArrowDownRight className="w-4 h-4 text-red-400" />
-                <span className="text-xs text-gray-400 uppercase">
-                  Sell Volume
-                </span>
-              </div>
-              <p className="text-lg font-bold text-red-400">
-                $
-                {filteredTrades
-                  .filter((t: Trade) => t.action.toLowerCase() === "sell")
-                  .reduce(
-                    (sum: number, t: Trade) =>
-                      sum + parseFloat(t.amount) * parseFloat(t.price),
-                    0,
-                  )
-                  .toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* bottom accent line */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500/30 via-purple-500/30 to-red-500/30 blur-sm" />
 
       {/* Trade Detail Modal */}
       {selectedTrade &&
@@ -504,31 +475,36 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
           const agent = findAgentById(agents, selectedTrade.agent_id);
           const logoUrl = getTokenLogo(selectedTrade.asset);
 
+          const cardStyle = {
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.06)",
+          };
+          const accentColor = isBuy ? "#10b981" : "#ef4444";
+
           return (
             <div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4"
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[200] p-4"
               onClick={closeModal}
             >
               <div
-                className="bg-[#001D3D] border border-white/20 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+                className="rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+                style={{ background: "#0a0e17", border: "1px solid rgba(255,255,255,0.08)" }}
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Modal Header */}
                 <div
-                  className={`flex items-center justify-between p-6 border-b border-white/10 ${
-                    isBuy ? "bg-green-500/5" : "bg-red-500/5"
-                  }`}
+                  className="flex items-center justify-between p-6"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className={`w-14 h-14 rounded-full flex items-center justify-center ${
-                        isBuy ? "bg-green-500/20" : "bg-red-500/20"
-                      }`}
+                      className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${accentColor}18`, border: `1px solid ${accentColor}30` }}
                     >
                       {isBuy ? (
-                        <ArrowUpRight className="w-7 h-7 text-green-400" />
+                        <ArrowUpRight className="w-6 h-6" style={{ color: accentColor }} />
                       ) : (
-                        <ArrowDownRight className="w-7 h-7 text-red-400" />
+                        <ArrowDownRight className="w-6 h-6" style={{ color: accentColor }} />
                       )}
                     </div>
                     <div className="flex items-center gap-3">
@@ -536,107 +512,80 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                         <img
                           src={logoUrl}
                           alt={selectedTrade.asset}
-                          className="w-10 h-10 rounded-full bg-white/10 shadow-lg"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                          }}
+                          className="w-9 h-9 rounded-full"
+                          style={{ background: "rgba(255,255,255,0.06)" }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-sm font-bold text-white shadow-lg">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                          style={{ background: "rgba(255,255,255,0.08)" }}
+                        >
                           {selectedTrade.asset.slice(0, 2)}
                         </div>
                       )}
                       <div>
-                        <h2
-                          className={`text-xl font-bold ${isBuy ? "text-green-400" : "text-red-400"}`}
-                        >
+                        <h2 className="text-lg font-bold" style={{ color: accentColor }}>
                           {selectedTrade.action.toUpperCase()}
                         </h2>
-                        <p className="text-sm font-semibold text-white">
-                          {selectedTrade.asset}
-                        </p>
+                        <p className="text-sm font-semibold text-white">{selectedTrade.asset}</p>
                       </div>
                     </div>
                   </div>
                   <button
                     onClick={closeModal}
-                    className="w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/[0.05]"
+                    style={{ border: "1px solid rgba(255,255,255,0.08)" }}
                   >
-                    <X className="w-5 h-5 text-gray-400" />
+                    <X className="w-4 h-4 text-zinc-500" />
                   </button>
                 </div>
 
                 {/* Modal Content */}
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-3">
                   {/* Total Value */}
-                  <div
-                    className={`rounded-xl p-4 border ${
-                      isBuy
-                        ? "bg-green-500/10 border-green-500/20"
-                        : "bg-red-500/10 border-red-500/20"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <DollarSign
-                        className={`w-5 h-5 ${isBuy ? "text-green-400" : "text-red-400"}`}
-                      />
-                      <span className="text-sm text-gray-400">Total Value</span>
+                  <div className="rounded-xl p-4" style={{ background: `${accentColor}0f`, border: `1px solid ${accentColor}25` }}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <DollarSign className="w-4 h-4 text-zinc-500" />
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Total Value</span>
                     </div>
-                    <p
-                      className={`text-3xl font-bold ${isBuy ? "text-green-400" : "text-red-400"}`}
-                    >
-                      $
-                      {totalValue.toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                      })}
+                    <p className="text-3xl font-bold" style={{ color: accentColor }}>
+                      ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </p>
                   </div>
 
                   {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl p-4" style={cardStyle}>
                       <div className="flex items-center gap-2 mb-2">
-                        <Coins className="w-4 h-4 text-amber-400" />
-                        <span className="text-xs text-gray-400">Amount</span>
+                        <Coins className="w-3.5 h-3.5 text-zinc-600" />
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Amount</span>
                       </div>
-                      <p className="text-xl font-bold text-white">
-                        {amount.toLocaleString(undefined, {
-                          maximumFractionDigits: 8,
-                        })}
+                      <p className="text-lg font-bold text-white">
+                        {amount.toLocaleString(undefined, { maximumFractionDigits: 8 })}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {selectedTrade.asset}
-                      </p>
+                      <p className="text-xs text-zinc-600 mt-0.5">{selectedTrade.asset}</p>
                     </div>
-
-                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <div className="rounded-xl p-4" style={cardStyle}>
                       <div className="flex items-center gap-2 mb-2">
-                        <TrendingUp className="w-4 h-4 text-blue-400" />
-                        <span className="text-xs text-gray-400">Price</span>
+                        <TrendingUp className="w-3.5 h-3.5 text-zinc-600" />
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Price</span>
                       </div>
-                      <p className="text-xl font-bold text-white">
-                        $
-                        {price.toLocaleString(undefined, {
-                          maximumFractionDigits: 8,
-                        })}
+                      <p className="text-lg font-bold text-white">
+                        ${price.toLocaleString(undefined, { maximumFractionDigits: 8 })}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        per {selectedTrade.asset}
-                      </p>
+                      <p className="text-xs text-zinc-600 mt-0.5">per {selectedTrade.asset}</p>
                     </div>
                   </div>
 
                   {/* Agent Info */}
-                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="rounded-xl p-4" style={cardStyle}>
                     <div className="flex items-center gap-2 mb-3">
-                      <Activity className="w-4 h-4 text-purple-400" />
-                      <span className="text-xs text-gray-400 uppercase">
-                        Executed By
-                      </span>
+                      <Activity className="w-3.5 h-3.5 text-zinc-600" />
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Executed By</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden shadow-lg">
+                      <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>
                         <img
                           src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(agent?.name || selectedTrade.agent_id)}`}
                           alt={agent?.name || "Agent"}
@@ -644,37 +593,27 @@ export default function RecentTrades({ tournamentId }: RecentTradesProps) {
                         />
                       </div>
                       <div>
-                        <p className="font-bold text-white">
-                          {agent?.name ||
-                            `Agent ${selectedTrade.agent_id.slice(0, 8)}...`}
+                        <p className="font-semibold text-sm text-white">
+                          {agent?.name || `Agent ${selectedTrade.agent_id.slice(0, 8)}...`}
                         </p>
-                        <p className="text-xs text-gray-400">
-                          {agent?.strategy_type || ""}
-                        </p>
+                        <p className="text-xs text-zinc-600">{agent?.strategy_type || ""}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Trade ID */}
-                  <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="rounded-xl p-4" style={cardStyle}>
                     <div className="flex items-center gap-2 mb-2">
-                      <Hash className="w-4 h-4 text-gray-400" />
-                      <span className="text-xs text-gray-400 uppercase">
-                        Trade ID
-                      </span>
+                      <Hash className="w-3.5 h-3.5 text-zinc-600" />
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Trade ID</span>
                     </div>
-                    <p className="text-sm text-white font-mono break-all">
-                      {selectedTrade.id}
-                    </p>
+                    <p className="text-xs text-zinc-400 font-mono break-all">{selectedTrade.id}</p>
                   </div>
 
                   {/* Timestamp */}
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-2 text-[11px] text-zinc-600 pt-1">
                     <Calendar className="w-3 h-3" />
-                    <span>
-                      Executed:{" "}
-                      {new Date(selectedTrade.timestamp).toLocaleString()}
-                    </span>
+                    <span>Executed: {new Date(selectedTrade.timestamp).toLocaleString()}</span>
                   </div>
                 </div>
               </div>
