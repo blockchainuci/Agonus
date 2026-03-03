@@ -12,8 +12,27 @@ import {
 import type { UTCTimestamp, ISeriesApi, IChartApi } from "lightweight-charts";
 import { useTournamentAgentStates } from "@/src/hooks/useAgentStates";
 import { useAgents } from "@/src/hooks/useAgents";
+import { useTournamentTrades } from "@/src/hooks/useTrades";
 import { findAgentById } from "@/src/util/findAgentById";
 import { getAgentColor } from "@/src/util/agentColor";
+
+// ── AgentAvatarLegend — tiny avatar with initials fallback ───────────────────
+function AgentAvatarLegend({ avatarUrl, name, color }: { avatarUrl?: string; name: string; color: string }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase() || name.slice(0, 2).toUpperCase();
+  return (
+    <div
+      className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 text-[8px] font-bold"
+      style={{ background: `${color}25`, border: `1px solid ${color}60` }}
+    >
+      {avatarUrl && !imgError ? (
+        <img src={avatarUrl} alt={name} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+      ) : (
+        <span style={{ color }}>{initials}</span>
+      )}
+    </div>
+  );
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +75,7 @@ export default function AgentPerformanceChart({
   const { data: agentStates, isLoading: statesLoading } =
     useTournamentAgentStates(tournamentId);
   const { data: agents, isLoading: agentsLoading } = useAgents();
+  const { data: trades } = useTournamentTrades(tournamentId);
 
   const [performanceLines, setPerformanceLines] = useState<AgentPerformanceLine[]>([]);
 
@@ -64,14 +84,24 @@ export default function AgentPerformanceChart({
 
     const now = Math.floor(Date.now() / 1000) as UTCTimestamp;
     const N = 90;
-    const startTime = (now as number) - N * 300;
+    const startTime = (now as number) - N * 300; // 7.5 hours window
 
-    const firstPortfolio = (agentStates[0] as any)?.portfolio;
     const portfolioVals = agentStates.map((s) => parseFloat(s.portfolio_value_usd));
+
+    // starting_val may arrive as a string from Python's Decimal serialiser —
+    // always use parseFloat so "500" and 500 both work.
+    const startingValRaw = (agentStates[0] as any)?.portfolio?.starting_val;
+    const startingVal = parseFloat(startingValRaw);
     const commonStart: number =
-      typeof firstPortfolio?.starting_val === "number" && firstPortfolio.starting_val > 0
-        ? firstPortfolio.starting_val
-        : Math.min(...portfolioVals) * 0.72;
+      !isNaN(startingVal) && startingVal > 0
+        ? startingVal
+        : Math.max(...portfolioVals); // fallback: highest value ≈ starting capital
+
+    // Build a per-agent trade count so no-trade agents get a flat line
+    const tradeCountByAgent: Record<string, number> = {};
+    for (const t of trades ?? []) {
+      tradeCountByAgent[t.agent_id] = (tradeCountByAgent[t.agent_id] ?? 0) + 1;
+    }
 
     const lines: AgentPerformanceLine[] = agentStates.map((state, index) => {
       const agent = findAgentById(agents, state.agent_id);
@@ -84,25 +114,38 @@ export default function AgentPerformanceChart({
         return x - Math.floor(x);
       };
 
-      const walk: number[] = new Array(N + 1).fill(0);
-      for (let i = 1; i <= N; i++) walk[i] = walk[i - 1] + (rng(i) - 0.5);
-      const W_N = walk[N];
-      const bridge = walk.slice(0, N).map((w, i) => w - (i / N) * W_N);
-      const peak = Math.max(...bridge.map(Math.abs), 0.0001);
-      const normBridge = bridge.map((v) => v / peak);
+      let data: TimeSeriesPoint[];
 
-      const totalChange = finalValue - commonStart;
-      const noiseAmp = Math.max(Math.abs(totalChange) * 0.38, commonStart * 0.04);
+      const hasTrades = (tradeCountByAgent[state.agent_id] ?? 0) > 0;
 
-      const data: TimeSeriesPoint[] = normBridge.map((noise, i) => {
-        const t = i / (N - 1);
-        const trend = commonStart + totalChange * t;
-        return {
-          time: (startTime + i * 300) as UTCTimestamp,
-          value: Math.max(1, trend + noise * noiseAmp),
-        };
-      });
-      data.push({ time: now, value: finalValue });
+      if (!hasTrades) {
+        // No trades → agent only held cash; flat line at actual current value
+        data = [
+          { time: startTime as UTCTimestamp, value: finalValue },
+          { time: now,                       value: finalValue },
+        ];
+      } else {
+        // Brownian bridge random walk — visually believable, anchored to real start/end
+        const walk: number[] = new Array(N + 1).fill(0);
+        for (let i = 1; i <= N; i++) walk[i] = walk[i - 1] + (rng(i) - 0.5);
+        const W_N = walk[N];
+        const bridge = walk.slice(0, N).map((w, i) => w - (i / N) * W_N);
+        const peak = Math.max(...bridge.map(Math.abs), 0.0001);
+        const normBridge = bridge.map((v) => v / peak);
+
+        const totalChange = finalValue - commonStart;
+        const noiseAmp = Math.max(Math.abs(totalChange) * 0.38, commonStart * 0.04);
+
+        data = normBridge.map((noise, i) => {
+          const t = i / (N - 1);
+          const trend = commonStart + totalChange * t;
+          return {
+            time: (startTime + i * 300) as UTCTimestamp,
+            value: Math.max(1, trend + noise * noiseAmp),
+          };
+        });
+        data.push({ time: now, value: finalValue });
+      }
 
       return {
         agentId: state.agent_id,
@@ -116,7 +159,7 @@ export default function AgentPerformanceChart({
     });
 
     setPerformanceLines(lines);
-  }, [agentStates, agents]);
+  }, [agentStates, agents, trades]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -151,9 +194,15 @@ export default function AgentPerformanceChart({
           vertLines: { color: "rgba(255,255,255,0.05)" },
           horzLines: { color: "rgba(255,255,255,0.05)" },
         },
+        // Lock the view — always show the full tournament range
+        handleScroll: false,
+        handleScale: false,
         timeScale: {
           timeVisible: true,
           borderColor: "rgba(255,255,255,0.1)" as string,
+          fixLeftEdge: true,
+          fixRightEdge: true,
+          lockVisibleTimeRangeOnResize: true,
         },
         rightPriceScale: {
           borderColor: "rgba(255,255,255,0.1)" as string,
@@ -199,6 +248,7 @@ export default function AgentPerformanceChart({
             ? window.innerHeight - 100
             : (chartContainerRef.current.clientHeight || 300),
         });
+        chart.timeScale().fitContent();
       });
       ro.observe(ctn);
 
@@ -333,21 +383,11 @@ export default function AgentPerformanceChart({
         >
           {performanceLines.map((line) => (
             <div key={line.agentId} className="flex items-center gap-1.5 flex-shrink-0">
-              <div
-                className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 border"
-                style={{ borderColor: line.color + "80", background: line.color + "20" }}
-              >
-                {line.avatarUrl ? (
-                  <img
-                    src={line.avatarUrl}
-                    alt={line.agentName}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                  />
-                ) : (
-                  <div className="w-full h-full" style={{ background: line.color }} />
-                )}
-              </div>
+              <AgentAvatarLegend
+                avatarUrl={line.avatarUrl}
+                name={line.agentName}
+                color={line.color}
+              />
               <span className="text-[11px] text-zinc-400 whitespace-nowrap">{line.agentName}</span>
             </div>
           ))}

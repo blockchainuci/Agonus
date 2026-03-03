@@ -2,19 +2,205 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import NavbarAccount from './NavbarAccount';
 import MarketBlips from './MarketBlips';
 import { useTournamentStore } from '@/src/store/useTournamentStore';
 import type { TournamentStatus } from '@/src/store/useTournamentStore';
 import { useTournaments } from '@/src/hooks/useTournaments';
+import type { Tournament } from '@/src/types';
 
 function normalizeStatus(status?: string): TournamentStatus {
   const s = (status || '').toLowerCase();
   if (s === 'live') return 'LIVE';
   if (s === 'completed' || s === 'ended') return 'ENDED';
   return 'UPCOMING';
+}
+
+// ── Single tournament row ─────────────────────────────────────────────────────
+function TournamentRow({
+  t,
+  active,
+  onClick,
+}: {
+  t: Tournament;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-4 py-3 hover:bg-white/5 transition-colors ${active ? 'bg-white/[0.06]' : ''}`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className={`font-semibold truncate text-sm ${active ? 'text-[#FFD700]' : 'text-white'}`}>
+            {t.name || `Tournament ${String(t.id).slice(0, 8)}`}
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            ${Number(t.prize_pool).toLocaleString()} ·{' '}
+            {t.end_date
+              ? new Date(t.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : 'TBD'}
+          </p>
+        </div>
+        {active && (
+          <span className="w-1.5 h-1.5 rounded-full bg-[#FFD700] flex-shrink-0" />
+        )}
+      </div>
+    </button>
+  );
+}
+
+// ── Section label ─────────────────────────────────────────────────────────────
+function SectionLabel({
+  label,
+  color,
+  live = false,
+  count,
+  collapsible = false,
+  collapsed,
+  onToggle,
+}: {
+  label: string;
+  color: string;
+  live?: boolean;
+  count?: number;
+  collapsible?: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
+}) {
+  const inner = (
+    <div className="flex items-center gap-2">
+      {live && <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />}
+      <span className={`text-[10px] font-bold uppercase tracking-[0.12em] ${color}`}>{label}</span>
+      {count !== undefined && count > 0 && (
+        <span className="text-[10px] text-gray-600">({count})</span>
+      )}
+      {collapsible && (
+        <ChevronDown
+          className={`w-3 h-3 ml-auto transition-transform ${collapsed ? '' : 'rotate-180'}`}
+          style={{ color: '#6b7280' }}
+        />
+      )}
+    </div>
+  );
+
+  if (collapsible) {
+    return (
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center px-4 py-2 hover:bg-white/[0.03] transition-colors"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="px-4 py-2"
+      style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+    >
+      {inner}
+    </div>
+  );
+}
+
+// ── Grouped dropdown content (reused in both desktop & mobile) ────────────────
+function GroupedTournamentList({
+  tournaments,
+  selectedId,
+  onSelect,
+}: {
+  tournaments: Tournament[];
+  selectedId: string;
+  onSelect: (id: string, name: string) => void;
+}) {
+  const [endedOpen, setEndedOpen] = useState(false);
+
+  const live     = tournaments.filter((t) => normalizeStatus(t.status) === 'LIVE');
+  const upcoming = tournaments.filter((t) => normalizeStatus(t.status) === 'UPCOMING');
+  const ended    = tournaments.filter((t) => normalizeStatus(t.status) === 'ENDED');
+
+  return (
+    <div>
+      {/* LIVE */}
+      {live.length > 0 && (
+        <>
+          <SectionLabel label="Live" color="text-green-400" live />
+          {live.map((t) => (
+            <TournamentRow
+              key={t.id}
+              t={t}
+              active={String(t.id) === selectedId}
+              onClick={() => onSelect(String(t.id), t.name)}
+            />
+          ))}
+        </>
+      )}
+
+      {/* UPCOMING */}
+      {upcoming.length > 0 && (
+        <>
+          <SectionLabel
+            label="Upcoming"
+            color="text-blue-400"
+            count={upcoming.length}
+          />
+          {upcoming.map((t) => (
+            <TournamentRow
+              key={t.id}
+              t={t}
+              active={String(t.id) === selectedId}
+              onClick={() => onSelect(String(t.id), t.name)}
+            />
+          ))}
+        </>
+      )}
+
+      {/* ENDED — collapsible */}
+      {ended.length > 0 && (
+        <>
+          <SectionLabel
+            label="Ended"
+            color="text-gray-500"
+            count={ended.length}
+            collapsible
+            collapsed={!endedOpen}
+            onToggle={() => setEndedOpen((v) => !v)}
+          />
+          <AnimatePresence initial={false}>
+            {endedOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.18, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
+                {ended.map((t) => (
+                  <TournamentRow
+                    key={t.id}
+                    t={t}
+                    active={String(t.id) === selectedId}
+                    onClick={() => onSelect(String(t.id), t.name)}
+                  />
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
+
+      {/* Empty */}
+      {tournaments.length === 0 && (
+        <p className="px-4 py-6 text-sm text-gray-600 text-center">No tournaments</p>
+      )}
+    </div>
+  );
 }
 
 
@@ -30,12 +216,10 @@ export default function DashboardNavbar() {
   const backendT = tournaments?.find((t) => String(t.id) === String(selectedTournamentId));
   const currentStatus = normalizeStatus(backendT?.status);
 
-  // Sync status into the store whenever the selected tournament changes
   useEffect(() => {
     if (backendT) setTournamentStatus(normalizeStatus(backendT.status));
   }, [backendT?.status, setTournamentStatus]);
 
-  // Auto-select first tournament on load
   useEffect(() => {
     if (tournaments && tournaments.length > 0 && !selectedTournamentId) {
       setTournamentId(String(tournaments[0].id), tournaments[0].name);
@@ -48,6 +232,12 @@ export default function DashboardNavbar() {
       })
     : 'TBD';
 
+  function handleSelect(id: string, name: string) {
+    setTournamentId(id, name);
+    setDropdownOpen(false);
+    setMobileOpen(false);
+  }
+
   return (
     <nav className="fixed top-0 w-full z-50 text-white border-b border-white/10 bg-[#0A2540]">
       <div className="w-full px-8 py-3">
@@ -58,11 +248,11 @@ export default function DashboardNavbar() {
             <MarketBlips />
           </Link>
 
-          {/* Centre: flat tournament info strip */}
+          {/* Centre: tournament info strip */}
           <div className="hidden md:flex flex-1 justify-center">
             <div className="relative flex items-center gap-4 text-sm">
 
-              {/* Tournament name — clickable to open picker */}
+              {/* Tournament name — opens grouped dropdown */}
               <button
                 onClick={() => setDropdownOpen((v) => !v)}
                 className="flex items-center gap-1.5 group"
@@ -70,21 +260,18 @@ export default function DashboardNavbar() {
                 <span className="text-white font-semibold group-hover:text-[#FFD700] transition-colors">
                   {backendT?.name ?? 'Select Tournament'}
                 </span>
-                <svg
-                  className={`w-3 h-3 text-gray-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
-                  fill="currentColor" viewBox="0 0 20 20"
-                >
-                  <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                </svg>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-gray-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
+                />
               </button>
 
               <span className="text-white/20">|</span>
 
-              {/* Status — coloured text, no box */}
+              {/* Status */}
               <span className={`font-semibold text-xs uppercase tracking-wide ${
-                currentStatus === 'LIVE'     ? 'text-green-400' :
-                currentStatus === 'ENDED'    ? 'text-gray-400'  :
-                                               'text-blue-400'
+                currentStatus === 'LIVE'  ? 'text-green-400' :
+                currentStatus === 'ENDED' ? 'text-gray-400'  :
+                                            'text-blue-400'
               }`}>
                 {currentStatus === 'LIVE' && (
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 mr-1.5 animate-pulse" />
@@ -100,55 +287,36 @@ export default function DashboardNavbar() {
                   </span>
                   <span className="text-white/20 hidden lg:inline">|</span>
                   <span className="text-gray-500 hidden lg:inline">
-                    Ends {formattedEnd}
+                    {currentStatus === 'ENDED' ? 'Ended' : 'Ends'} {formattedEnd}
                   </span>
                 </>
               )}
 
-              {/* Dropdown */}
+              {/* Grouped dropdown */}
               <AnimatePresence>
                 {dropdownOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-80 bg-[#0d1f35] border border-white/10 rounded-xl shadow-2xl z-50 max-h-[60vh] overflow-y-auto"
-                  >
-                    {(tournaments ?? []).map((t) => {
-                      const st = normalizeStatus(t.status);
-                      const active = String(t.id) === String(selectedTournamentId);
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() => {
-                            setTournamentId(String(t.id), t.name);
-                            setDropdownOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-3 hover:bg-white/5 transition-colors first:rounded-t-xl last:rounded-b-xl ${active ? 'bg-white/5' : ''}`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <p className={`font-semibold truncate text-sm ${active ? 'text-[#FFD700]' : 'text-white'}`}>
-                                {t.name || `Tournament ${String(t.id).slice(0, 8)}`}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                ${Number(t.prize_pool).toLocaleString()} ·{' '}
-                                {t.end_date
-                                  ? new Date(t.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                  : 'TBD'}
-                              </p>
-                            </div>
-                            <span className={`text-[10px] font-semibold uppercase tracking-wide flex-shrink-0 ${
-                              st === 'LIVE' ? 'text-green-400' : st === 'ENDED' ? 'text-gray-500' : 'text-blue-400'
-                            }`}>
-                              {st}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </motion.div>
+                  <>
+                    {/* Backdrop */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setDropdownOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-80 bg-[#0d1f35] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden"
+                    >
+                      <div className="max-h-[60vh] overflow-y-auto">
+                        <GroupedTournamentList
+                          tournaments={tournaments ?? []}
+                          selectedId={selectedTournamentId ?? ''}
+                          onSelect={handleSelect}
+                        />
+                      </div>
+                    </motion.div>
+                  </>
                 )}
               </AnimatePresence>
             </div>
@@ -179,34 +347,14 @@ export default function DashboardNavbar() {
               transition={{ duration: 0.2 }}
               className="md:hidden mt-3 pb-3 border-t border-white/10 pt-3 space-y-3 overflow-hidden"
             >
-              {/* Tournament picker in mobile menu */}
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500 uppercase px-2">Tournament</p>
-                {(tournaments ?? []).map((t) => {
-                  const st = normalizeStatus(t.status);
-                  const active = String(t.id) === String(selectedTournamentId);
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        setTournamentId(String(t.id), t.name);
-                        setMobileOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg transition flex items-center justify-between gap-2 ${
-                        active ? 'bg-white/10 text-[#FFD700]' : 'text-gray-300 hover:bg-white/5'
-                      }`}
-                    >
-                      <span className="text-sm truncate">{t.name}</span>
-                      <span className={`text-[10px] font-semibold uppercase flex-shrink-0 ${
-                        st === 'LIVE' ? 'text-green-400' : st === 'ENDED' ? 'text-gray-500' : 'text-blue-400'
-                      }`}>
-                        {st}
-                      </span>
-                    </button>
-                  );
-                })}
+              <div>
+                <p className="text-xs text-gray-500 uppercase px-2 mb-1">Tournament</p>
+                <GroupedTournamentList
+                  tournaments={tournaments ?? []}
+                  selectedId={selectedTournamentId ?? ''}
+                  onSelect={handleSelect}
+                />
               </div>
-
               <div className="pt-2 px-2">
                 <NavbarAccount />
               </div>
