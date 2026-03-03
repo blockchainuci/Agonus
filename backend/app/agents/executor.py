@@ -90,10 +90,10 @@ class TradingAgent(BaseAgent):
         self.tournament_uuid = tournament_uuid
         self.database_tool = database_tool
         self.strategy_type = strategy_type
-        
+
         # Load agent configuration from provided config or use defaults based on strategy_type
         self.agent_config = get_agent_config(strategy_type, agent_config)
-        
+
         # Override model_name if specified in config, otherwise use parameter
         self.model_name = self.agent_config.get("model_name", model_name)
 
@@ -158,10 +158,10 @@ class TradingAgent(BaseAgent):
 
     def _build_agent_executor(self) -> AgentExecutor:
         """Build LangChain ReAct agent with trading tools using per-agent configuration."""
-        
+
         # Get allowed tokens from config for tool descriptions
         allowed_tokens_str = get_allowed_tokens_string(self.agent_config)
-        
+
         # Define all available tools
         all_tools = [
             Tool(
@@ -179,8 +179,8 @@ class TradingAgent(BaseAgent):
                 func=self._get_technical_indicator_wrapper,
                 description=(
                     "Compute a technical indicator using MathTool. "
-                    "Input JSON: {\"token\":\"BTC\",\"indicator\":\"rsi\",\"timeframe\":\"1h\","
-                    "\"period\":14,\"lookback\":null,\"params\":{}}. "
+                    'Input JSON: {"token":"BTC","indicator":"rsi","timeframe":"1h",'
+                    '"period":14,"lookback":null,"params":{}}. '
                     "Supported indicators: rsi, sma, ema, macd, bbands, atr, volatility. "
                     "For macd params: fast, slow, signal. For bbands params: stddev."
                 ),
@@ -242,12 +242,10 @@ class TradingAgent(BaseAgent):
                 ),
             ),
         ]
-        
+
         # Filter tools based on agent configuration
         tools = filter_tools_by_config(all_tools, self.agent_config)
-        logger.info(
-            f"Agent {self.agent_id} tools enabled: {[t.name for t in tools]}"
-        )
+        logger.info(f"Agent {self.agent_id} tools enabled: {[t.name for t in tools]}")
 
         # Create OpenAI LLM with per-agent temperature
         temperature = self.agent_config.get("temperature", 0.7)
@@ -325,7 +323,7 @@ class TradingAgent(BaseAgent):
             error_msg = f"Trade execution error: {str(e)}"
             logger.error(error_msg)
             return error_msg
-        
+
     def _execute_research_token_wrapper(self, input_str: str) -> str:
         """
         Wrapper for executing research token from LangChain tool.
@@ -370,7 +368,6 @@ class TradingAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Research tool error: {e}")
             return f"Research tool error: {str(e)}"
-
 
     def _get_technical_indicator_wrapper(self, input_str: str) -> str:
         """
@@ -421,50 +418,6 @@ class TradingAgent(BaseAgent):
             error_msg = f"Error computing indicator: {e}"
             logger.error(error_msg)
             return error_msg
-    def _execute_research_token_wrapper(self, input_str: str) -> str:
-        """
-        Wrapper for executing research token from LangChain tool.
-
-        Args:
-            input_str: "ETH" or "ETH 7d"
-
-        Returns:
-            Research summary string
-        """
-        from .tools.research_tool import research_result_to_dict
-
-        try:
-            parts = input_str.split()
-            if len(parts) < 1:
-                return "Error: Invalid format. Expected 'TOKEN' or 'TOKEN RECENCY'"
-
-            token = parts[0].upper()
-            recency = parts[1] if len(parts) > 1 else "7d"
-
-            # Call sync research method
-            research_result = self.research_tool.research_token(
-                token_symbol=token,
-                recency=recency,
-            )
-
-            # Persist result to DB (convert dataclass to dict)
-            if self.database_tool and self.agent_uuid:
-                result_dict = research_result_to_dict(research_result)
-                self._run_async(
-                    self.database_tool.save_research_result(
-                        agent_uuid=self.agent_uuid,
-                        query=f"Research {token}",
-                        result=result_dict,
-                        recency=recency,
-                        related_tokens=[token],
-                    )
-                )
-
-            return research_result.summary_markdown
-
-        except Exception as e:
-            logger.error(f"Research tool error: {e}")
-            return f"Research tool error: {str(e)}"
 
     def _create_plan_step_wrapper(self, input_str: str) -> str:
         """Parse: 'ACTION_TYPE EXECUTE_AT_ISO PAYLOAD_JSON'"""
@@ -493,7 +446,9 @@ class TradingAgent(BaseAgent):
     def _list_plan_steps_wrapper(self, _input: str) -> str:
         """List active (planned) plan steps for this agent."""
         try:
-            result = self._run_async(self.plan_tool.list_plan_steps(statuses=["planned"]))
+            result = self._run_async(
+                self.plan_tool.list_plan_steps(statuses=["planned"])
+            )
             return json.dumps(result, indent=2) if result else "No plan steps found."
         except Exception as e:
             error_msg = f"Error listing plan steps: {e}"
@@ -722,7 +677,7 @@ class TradingAgent(BaseAgent):
         # Run agent
         try:
             current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            
+
             # Prepend agent context to the task so the LLM knows who it is
             agent_context = (
                 f"=== AGENT CONTEXT ===\n"
@@ -737,8 +692,10 @@ class TradingAgent(BaseAgent):
                 f"Current Time: {current_time}\n\n"
                 f"=== YOUR TASK ===\n"
             )
-            full_input = agent_context + task
-            
+            # Guard against None tasks recovered from state or passed in
+            # Ensure we always concatenate strings
+            full_input = agent_context + (task or "")
+
             result = self.executor.invoke(
                 {
                     "input": full_input,

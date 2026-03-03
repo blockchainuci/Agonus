@@ -11,11 +11,9 @@ router = APIRouter()
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
 ALGORITHM = "HS256"
 
-# Load admin addresses from env
-raw_addresses = os.getenv("ADMIN_ADDRESSES", "")
-ADMIN_ADDRESSES = {
-    addr.strip().lower() for addr in raw_addresses.split(",") if addr.strip()
-}
+def get_admin_addresses() -> set[str]:
+    raw = os.getenv("ADMIN_ADDRESSES", "")
+    return {addr.strip().lower() for addr in raw.split(",") if addr.strip()}
 
 
 class WalletSignIn(BaseModel):
@@ -47,9 +45,10 @@ def wallet_auth(data: WalletSignIn) -> dict:
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
 
-    # Determine role
-    role = "admin" if data.address.lower() in ADMIN_ADDRESSES else "user"
-    print(f"[AUTH] Wallet: {data.address.lower()}, ADMIN_ADDRESSES: {ADMIN_ADDRESSES}, Role: {role}")
+    # Determine role — read fresh from env so no restart needed after .env changes
+    admin_addresses = get_admin_addresses()
+    role = "admin" if data.address.lower() in admin_addresses else "user"
+    print(f"[AUTH] Wallet: {data.address.lower()}, ADMIN_ADDRESSES: {admin_addresses}, Role: {role}")
 
     # Generate JWT
     expire = datetime.utcnow() + timedelta(hours=24)

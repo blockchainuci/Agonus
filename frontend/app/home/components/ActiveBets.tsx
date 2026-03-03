@@ -19,6 +19,7 @@ import type { Bet } from "@/src/types/bets";
 
 interface ActiveBetsProps {
   tournamentId: string;
+  agentId?: string | null;
 }
 
 type UiStatus = "active" | "won" | "lost";
@@ -35,7 +36,7 @@ const statusIcon = (uiStatus: UiStatus) => {
   return Clock;
 };
 
-export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
+export default function ActiveBets({ tournamentId, agentId }: ActiveBetsProps) {
   const [filter, setFilter] = useState<"active" | "past">("active");
   const { isConnected } = useAccount();
   const { isAuthenticated, isSigningIn, signInError, signIn } = useWalletAuth();
@@ -70,7 +71,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
   const { switchChain, isPending: isSwitching } = useSwitchChain();
 
   const handleClaim = useCallback(async () => {
-    if (!contractTournamentId || wrongNetwork) return;
+    if (contractTournamentId == null || wrongNetwork) return;
     try {
       setClaimState("confirming");
       setClaimError(null);
@@ -141,9 +142,9 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
     refreshMyBets(tournamentId);
   }, [isConnected, isAuthenticated, refreshMyBets, tournamentId]);
 
-  const scopedBets = myBets.filter(
-    (b) => String(b.tournament_id) === String(tournamentId),
-  );
+  const scopedBets = myBets
+    .filter((b) => String(b.tournament_id) === String(tournamentId))
+    .filter((b) => !agentId || String(b.agent_id) === String(agentId));
 
   // Determine bet status based on tournament state, not just backend settled field
   const winnerId = tournament?.winner_agent_id;
@@ -166,7 +167,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
   const displayed = filter === "active" ? active : past;
 
   return (
-    <div className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 p-6 h-[720px] flex flex-col">
+    <div className="bg-gradient-to-br from-[#001D3D]/60 to-[#003566]/40 backdrop-blur-md rounded-2xl border border-white/10 p-6 h-full flex flex-col">
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -176,7 +177,9 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
           <div>
             <h3 className="text-lg font-bold text-white">Your Bets</h3>
             <p className="text-xs text-gray-400">
-              {tournament?.name || "Loading..."}
+              {agentId
+                ? agentMap.get(agentId)?.name ?? "Selected Agent"
+                : tournament?.name ?? "Loading..."}
             </p>
           </div>
         </div>
@@ -394,7 +397,7 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
       {isConnected &&
         isAuthenticated &&
         isTournamentSettled &&
-        contractTournamentId &&
+        contractTournamentId != null &&
         scopedBets.length > 0 && (
           <div className="mt-4 shrink-0">
             {claimStatusLoading ? (
@@ -483,12 +486,13 @@ export default function ActiveBets({ tournamentId }: ActiveBetsProps) {
                 )}
               </div>
             ) : (
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/20">
                 <div className="flex items-center gap-2">
-                  <XCircle className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-400">
-                    No winnings to claim for this tournament.
-                  </p>
+                  <XCircle className="w-4 h-4 text-red-400" />
+                  <div>
+                    <p className="text-sm font-semibold text-red-400">Bet Lost</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Your agent did not win this tournament.</p>
+                  </div>
                 </div>
               </div>
             )}

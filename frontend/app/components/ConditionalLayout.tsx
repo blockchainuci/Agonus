@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import LandingNavbar from "./nav/LandingNavbar";
-import DashboardNavbar from "./nav/DashboardNavbar";
 import InfoNavbar from "./nav/InfoNavbar";
 import Footer from "./Footer";
 
@@ -31,14 +30,8 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (isDashboardRoute) {
-    // Dashboard route: use DashboardNavbar with section scroll
-    return (
-      <>
-        <DashboardNavbar />
-        <main className="min-h-screen pt-16">{children}</main>
-        <Footer />
-      </>
-    );
+    // Dashboard route: full-screen app — no navbar, no scroll, page owns its own layout
+    return <>{children}</>;
   }
 
   if (infoTitle) {

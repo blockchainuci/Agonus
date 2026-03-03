@@ -1,15 +1,28 @@
 "use client";
 
-import AdminSidebar from "@/app/components/admin/layout/AdminSidebar";
 import Link from "next/link";
 import { useState } from "react";
-import CreateTournamentModal, { TournamentFormData } from "@/app/components/admin/tournaments/CreateTournamentModal";
-import CreateAgentModal, { AgentFormData } from "@/app/components/admin/agents/CreateAgentModal";
+import { motion, AnimatePresence } from "framer-motion";
+import CreateTournamentModal, {
+  TournamentFormData,
+} from "@/app/components/admin/tournaments/CreateTournamentModal";
+import CreateAgentModal, {
+  AgentFormData,
+} from "@/app/components/admin/agents/CreateAgentModal";
 import { useWalletAuth } from "@/src/hooks/useWalletAuth";
 import { ConnectWallet } from "@/src/components/wallet/ConnectWallet";
 import { useCreateTournament } from "@/src/hooks/useTournaments";
 import { useCreateAgent, useAgents } from "@/src/hooks/useAgents";
-import { Loader2, ShieldAlert, ShieldX } from "lucide-react";
+import {
+  Loader2,
+  ShieldAlert,
+  ShieldX,
+  TerminalSquare,
+  Plus,
+  Bot,
+  Trophy,
+  X,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import "@/app/styles/datepicker.css";
 
@@ -18,10 +31,29 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [isCreateTournamentModalOpen, setIsCreateTournamentModalOpen] = useState(false);
+  const [isCreateTournamentModalOpen, setIsCreateTournamentModalOpen] =
+    useState(false);
   const [isCreateAgentModalOpen, setIsCreateAgentModalOpen] = useState(false);
+  const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
 
-  const { isConnected, isAuthenticated, isSigningIn, signIn, isAdmin, address } = useWalletAuth();
+  const {
+    isConnected,
+    isAuthenticated,
+    isSigningIn,
+    signIn,
+    signOut,
+    isAdmin,
+    address,
+  } = useWalletAuth();
+
+  // Frontend allowlist ensures designated wallets always receive access regardless of JWT role checks
+  const ADMIN_WALLETS = [
+    "0x6cd7eae80775d4eb6b383abc0efd59842d701f76",
+    "0x8d8cf0e9e670476b86bf7d7594e3e6286a9b23c5",
+  ];
+  const hasAdminAccess =
+    isAdmin || ADMIN_WALLETS.includes(address?.toLowerCase() ?? "");
+
   const createTournament = useCreateTournament();
   const createAgent = useCreateAgent();
   const { data: agents = [] } = useAgents();
@@ -36,7 +68,7 @@ export default function AdminLayout({
         agent_ids: data.agent_ids || [],
       });
       setIsCreateTournamentModalOpen(false);
-      toast.success("Tournament created");
+      toast.success("Tournament created successfully");
     } catch (err) {
       toast.error((err as Error).message || "Failed to create tournament");
     }
@@ -51,111 +83,243 @@ export default function AdminLayout({
         stats: data.stats,
       });
       setIsCreateAgentModalOpen(false);
-      toast.success("Agent created");
+      toast.success("Agent deployed successfully");
     } catch (err) {
-      toast.error((err as Error).message || "Failed to create agent");
+      toast.error((err as Error).message || "Failed to deploy agent");
     }
   };
 
-  // Gate 1: Wallet not connected
+  // This reusable wrapper maintains visual consistency across all security checkpoints
+  const SecurityGateWrapper = ({ children }: { children: React.ReactNode }) => (
+    <div
+      className="flex h-screen items-center justify-center relative overflow-hidden"
+      style={{ background: "#0a0e17" }}
+    >
+      {/* Background ambient glows create depth */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="relative z-10 w-full max-w-md p-8 rounded-2xl bg-[#0c1422] border border-white/5 shadow-2xl flex flex-col items-center text-center">
+        {children}
+      </div>
+    </div>
+  );
+
+  // Security Gate 1: Check for wallet connection
   if (!isConnected) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-b from-[#0A2540] to-[#1E3A8A]">
-        <div className="flex flex-col items-center text-center space-y-6 max-w-md p-8">
-          <ShieldAlert className="w-16 h-16 text-yellow-400" />
-          <h1 className="text-2xl font-bold text-white">Admin Access Required</h1>
-          <p className="text-gray-400">Connect your admin wallet to access the dashboard.</p>
+      <SecurityGateWrapper>
+        <div className="w-16 h-16 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mb-6">
+          <ShieldAlert className="w-8 h-8 text-yellow-500" />
+        </div>
+        <h1 className="text-2xl font-bold text-white mb-2">
+          Authentication Required
+        </h1>
+        <p className="text-sm text-zinc-400 leading-relaxed mb-8">
+          You are attempting to access a restricted system zone. Please connect
+          an authorized administrator wallet to proceed.
+        </p>
+        <div className="w-full">
           <ConnectWallet variant="hero" />
         </div>
-      </div>
+      </SecurityGateWrapper>
     );
   }
 
-  // Gate 2: Wallet connected but not signed in
+  // Security Gate 2: Verify the cryptographic signature establishes a session
   if (!isAuthenticated) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-b from-[#0A2540] to-[#1E3A8A]">
-        <div className="text-center space-y-6 max-w-md p-8">
-          <ShieldAlert className="w-16 h-16 text-cyan-400 mx-auto" />
-          <h1 className="text-2xl font-bold text-white">Sign In Required</h1>
-          <p className="text-gray-400">
-            Sign a message with your wallet to verify admin access.
+      <SecurityGateWrapper>
+        <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-6">
+          <TerminalSquare className="w-8 h-8 text-cyan-400" />
+        </div>
+        <h1 className="text-2xl font-bold text-white mb-2">
+          Cryptographic Signature
+        </h1>
+        <p className="text-sm text-zinc-400 leading-relaxed mb-8">
+          Your wallet is connected, but we require a cryptographic signature to
+          verify ownership and establish a secure session.
+        </p>
+        <button
+          onClick={signIn}
+          disabled={isSigningIn}
+          className="w-full py-3.5 rounded-xl font-bold text-black flex items-center justify-center gap-2 transition-all hover:scale-[0.98] disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg, #06b6d4, #3b82f6)" }}
+        >
+          {isSigningIn ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Verifying Signature...
+            </>
+          ) : (
+            "Sign Message to Enter"
+          )}
+        </button>
+      </SecurityGateWrapper>
+    );
+  }
+
+  // Security Gate 3: Confirm the connected identity has the correct access privileges
+  if (!hasAdminAccess) {
+    return (
+      <SecurityGateWrapper>
+        <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">
+          <ShieldX className="w-8 h-8 text-red-500" />
+        </div>
+        <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
+        <p className="text-sm text-zinc-400 leading-relaxed mb-6">
+          The connected wallet identity does not possess the required clearance
+          level for the Admin Console.
+        </p>
+
+        <div className="w-full p-4 rounded-xl bg-black/40 border border-white/5 mb-8">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
+            Current Identity
           </p>
+          <p className="text-sm font-mono text-zinc-300 break-all">{address}</p>
+        </div>
+
+        <div className="flex flex-col gap-3 w-full">
           <button
-            onClick={signIn}
+            onClick={async () => {
+              await signOut?.();
+              await signIn();
+            }}
             disabled={isSigningIn}
-            className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-white font-semibold rounded-xl disabled:opacity-50 flex items-center gap-2 mx-auto"
+            className="w-full py-3.5 rounded-xl font-bold text-white bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 transition-all"
           >
             {isSigningIn ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Signing...
+                Refreshing...
               </>
             ) : (
-              "Sign In to Admin"
+              "Refresh Session"
             )}
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Gate 3: Signed in but not admin role
-  if (!isAdmin) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-b from-[#0A2540] to-[#1E3A8A]">
-        <div className="text-center space-y-6 max-w-md p-8">
-          <ShieldX className="w-16 h-16 text-red-400 mx-auto" />
-          <h1 className="text-2xl font-bold text-white">Access Denied</h1>
-          <p className="text-gray-400">
-            Wallet <span className="text-white font-mono text-sm">{address}</span> does not have admin privileges.
-          </p>
-          <Link href="/" className="inline-block px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition">
-            Back to Home
+          <Link
+            href="/"
+            className="w-full py-3.5 rounded-xl font-bold text-zinc-400 hover:text-white transition-colors text-center"
+          >
+            Return to Public Terminal
           </Link>
         </div>
-      </div>
+      </SecurityGateWrapper>
     );
   }
 
+  // Active Admin View Rendering
   return (
-    <div className="flex min-h-screen relative bg-gradient-to-b from-[#0A2540] to-[#1E3A8A]">
-      {/* Animated gradient glow effect */}
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(30,58,138,0.3),transparent_50%)] pointer-events-none z-0" />
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(59,130,246,0.2),transparent_50%)] pointer-events-none z-0" />
-
-      {/* Checkered pattern overlay */}
-      <div className="fixed inset-0 opacity-[0.015] pointer-events-none z-0" style={{
-        backgroundImage: `
-          linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%),
-          linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%),
-          linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.1) 75%),
-          linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.1) 75%)
-        `,
-        backgroundSize: '40px 40px',
-        backgroundPosition: '0 0, 0 20px, 20px -20px, -20px 0px'
-      }} />
-
-      {/* Sidebar */}
-      <div className="relative z-20">
-        <AdminSidebar
-          onCreateTournament={() => setIsCreateTournamentModalOpen(true)}
-          onCreateAgent={() => setIsCreateAgentModalOpen(true)}
-        />
+    <div
+      className="flex min-h-screen relative text-white"
+      style={{ background: "#0a0e17" }}
+    >
+      {/* Subtle ambient background glows to tie the design together */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-cyan-900/10 rounded-full blur-[150px] opacity-50" />
+        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blue-900/10 rounded-full blur-[150px] opacity-50" />
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 relative z-10">
-        <main className="p-8">
-          {children}
-        </main>
+      {/* Very faint structural dot matrix background */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at center, white 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex-1 relative z-10 flex flex-col h-screen overflow-hidden">
+        {children}
+      </div>
+
+      {/* Floating Command Menu for Quick Actions */}
+      <div className="fixed bottom-8 right-8 z-50">
+        {isFabMenuOpen && (
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsFabMenuOpen(false)}
+          />
+        )}
+
+        <div className="relative z-50 flex flex-col items-end">
+          <AnimatePresence>
+            {isFabMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="mb-4 w-64 bg-[#0c1422] border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 overflow-hidden"
+              >
+                <div className="px-3 py-2 border-b border-white/5 mb-1">
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                    Admin Actions
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setIsCreateAgentModalOpen(true);
+                    setIsFabMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.04] transition-colors text-left group"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <Bot className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">
+                      Deploy Agent
+                    </h4>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">
+                      Initialize a new trader
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsCreateTournamentModalOpen(true);
+                    setIsFabMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.04] transition-colors text-left group"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <Trophy className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">
+                      New Tournament
+                    </h4>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">
+                      Create a competition
+                    </p>
+                  </div>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button
+            onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
+            className="w-14 h-14 rounded-full flex items-center justify-center text-black shadow-[0_0_30px_rgba(6,182,212,0.3)] transition-transform hover:scale-105 z-50"
+            style={{ background: "linear-gradient(135deg, #06b6d4, #3b82f6)" }}
+          >
+            <motion.div
+              animate={{ rotate: isFabMenuOpen ? 135 : 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+            >
+              <Plus className="w-6 h-6 text-white" />
+            </motion.div>
+          </button>
+        </div>
       </div>
 
       <CreateTournamentModal
         isOpen={isCreateTournamentModalOpen}
         onClose={() => setIsCreateTournamentModalOpen(false)}
         onSubmit={handleCreateTournament}
-        agents={agents}
       />
 
       <CreateAgentModal

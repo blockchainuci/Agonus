@@ -110,13 +110,15 @@ async def initialize_agents_for_tournament(
         if not agent:
             raise ValueError(f"Agent not found: {agent_id}")
 
-        # Create initial portfolio
+        agent_config = agent.stats.get("config", {}) if agent.stats else {}
+        starting_cash = agent_config.get("starting_cash", 500.0)
+        
         portfolio = Portfolio(
             agent_id=str(agent_id),
-            cash=500.0,
+            cash=starting_cash,
             holdings={},
-            starting_val=500.0,
-            total_value=500.0,
+            starting_val=starting_cash,
+            total_value=starting_cash,
         )
 
         # Save agent-state entry in DB

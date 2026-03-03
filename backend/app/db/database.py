@@ -47,6 +47,7 @@ else:
         max_overflow=MAX_OVERFLOW,
         pool_timeout=30,  # Wait 30s for a connection before failing
         pool_recycle=1800,  # Refresh connections every 30 mins
+        pool_pre_ping=True,  # Test connection validity before using (prevents stale cache)
         # 2. Neon / Asyncpg requirements
         connect_args=connect_args,
     )

@@ -33,6 +33,39 @@ from app.db.models import Agent, Tournament, AgentState, Trade, StatusEnum
 # AGENT DEFINITIONS
 # ============================================================================
 
+# Basic trading tools (conservative agents)
+BASIC_TOOLS = [
+    "get_market_price",
+    "get_portfolio_status",
+    "execute_trade",
+]
+
+# Standard tools (balanced agents)
+STANDARD_TOOLS = [
+    "get_market_price",
+    "get_market_sentiment",
+    "get_technical_indicator",
+    "get_portfolio_status",
+    "execute_trade",
+    "create_plan_step",
+    "list_plan_steps",
+    "cancel_plan_step",
+    "reschedule_plan_step",
+]
+
+# Full toolkit (aggressive/research agents)
+FULL_TOOLS = STANDARD_TOOLS + ["research_token"]
+
+# Major cap tokens only (conservative)
+MAJOR_TOKENS = ["ETH", "BTC", "WETH", "CBBTC"]
+
+# Altcoin focus (momentum/trend)
+ALTCOIN_TOKENS = ["SOL", "AVAX", "SUI", "LINK"]
+
+# All tokens (balanced)
+ALL_TOKENS = MAJOR_TOKENS + ALTCOIN_TOKENS + ["BNB", "DOGE", "XRP", "TRX", "TBTC"]
+
+
 AGENTS = [
     {
         "name": "AlphaBot",
@@ -42,6 +75,14 @@ AGENTS = [
         "stats": {
             "risk_score": 0.8,
             "description": "High-risk momentum trader. Chases trends aggressively.",
+            "config": {
+                "temperature": 0.85,
+                "model_name": "gpt-4o-mini",
+                "allowed_tokens": ["ETH", "SOL", "AVAX", "SUI", "LINK"],
+                "allowed_tools": FULL_TOOLS,
+                "max_position_size_pct": 0.25,
+                "min_confidence_threshold": 0.45,
+            },
         },
     },
     {
@@ -52,6 +93,14 @@ AGENTS = [
         "stats": {
             "risk_score": 0.2,
             "description": "Conservative value investor. Prioritizes capital preservation.",
+            "config": {
+                "temperature": 0.2,
+                "model_name": "gpt-4o-mini",
+                "allowed_tokens": ["ETH", "BTC"],
+                "allowed_tools": BASIC_TOOLS,
+                "max_position_size_pct": 0.05,
+                "min_confidence_threshold": 0.8,
+            },
         },
     },
     {
@@ -62,6 +111,14 @@ AGENTS = [
         "stats": {
             "risk_score": 0.5,
             "description": "Balanced swing trader. Captures medium-term moves.",
+            "config": {
+                "temperature": 0.6,
+                "model_name": "gpt-4o-mini",
+                "allowed_tokens": ALL_TOKENS,
+                "allowed_tools": STANDARD_TOOLS,
+                "max_position_size_pct": 0.18,
+                "min_confidence_threshold": 0.6,
+            },
         },
     },
     {
@@ -72,6 +129,14 @@ AGENTS = [
         "stats": {
             "risk_score": 0.7,
             "description": "Trend follower. Rides momentum until reversal signals.",
+            "config": {
+                "temperature": 0.9,
+                "model_name": "gpt-4o-mini",
+                "allowed_tokens": ["SOL", "AVAX", "SUI", "LINK", "ETH"],
+                "allowed_tools": FULL_TOOLS,
+                "max_position_size_pct": 0.30,
+                "min_confidence_threshold": 0.4,
+            },
         },
     },
     {
@@ -82,6 +147,14 @@ AGENTS = [
         "stats": {
             "risk_score": 0.6,
             "description": "Contrarian trader. Buys dips and sells rips.",
+            "config": {
+                "temperature": 0.35,
+                "model_name": "gpt-4o-mini",
+                "allowed_tokens": ALL_TOKENS,
+                "allowed_tools": BASIC_TOOLS,
+                "max_position_size_pct": 0.15,
+                "min_confidence_threshold": 0.75,
+            },
         },
     },
     {
@@ -92,6 +165,14 @@ AGENTS = [
         "stats": {
             "risk_score": 0.5,
             "description": "Sentiment analyzer. Trades based on market mood.",
+            "config": {
+                "temperature": 0.7,
+                "model_name": "gpt-4o-mini",
+                "allowed_tokens": ALL_TOKENS,
+                "allowed_tools": FULL_TOOLS,
+                "max_position_size_pct": 0.20,
+                "min_confidence_threshold": 0.6,
+            },
         },
     },
 ]

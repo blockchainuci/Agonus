@@ -37,7 +37,7 @@ export function ClaimWinnings({
   const claimWinningsOnchain = useClaimWinningsOnchain();
 
   const isBusy = txStatus === 'pending' || txStatus === 'confirming';
-  const missingContract = !contractTournamentId;
+  const missingContract = contractTournamentId == null;
   const disabled = alreadyClaimed || wrongNetwork || isBusy || missingContract;
 
   async function handleClaim() {
@@ -50,7 +50,7 @@ export function ClaimWinnings({
       txToast.error("You already claimed your winnings.");
       return;
     }
-    if (!contractTournamentId) {
+    if (contractTournamentId == null) {
       txToast.error("Tournament is not linked on-chain yet.");
       return;
     }

@@ -17,7 +17,7 @@ const Letter = ({ letter, count, reverse }: LetterProps) => {
     return (
       <div
         key={i}
-        className="block"
+        className="cube-block"
         style={
           {
             '--index': i,

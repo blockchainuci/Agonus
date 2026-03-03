@@ -23,8 +23,8 @@ const BLIPS: Blip[] = [
 
 export default function MarketBlips({
   className = '',
-  width = 120,
-  height = 44,
+  width = 160,
+  height = 56,
   label = 'Agonus',
 }: {
   className?: string;
@@ -37,14 +37,14 @@ export default function MarketBlips({
   return (
     <div
       className={[
-        'relative overflow-hidden rounded-xl border border-white/10 bg-white/5',
+        'relative overflow-hidden rounded-2xl border-2 border-[#FFD700]/30 bg-white/5',
         'backdrop-blur-md',
         className,
       ].join(' ')}
       style={{ width, height }}
       aria-hidden="true"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700]/10 via-transparent to-blue-500/10" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700]/15 via-transparent to-blue-500/10" />
 
       {BLIPS.map((b, i) => (
         <motion.div
@@ -83,7 +83,7 @@ export default function MarketBlips({
       <div className="absolute inset-0 opacity-[0.18] bg-[linear-gradient(to_right,#ffffff10_1px,transparent_1px),linear-gradient(to_bottom,#ffffff10_1px,transparent_1px)] bg-[size:12px_12px]" />
 
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] to-[#FFA500] tracking-wide">
+        <span className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] to-[#FFA500] tracking-widest drop-shadow-sm">
           {label}
         </span>
       </div>

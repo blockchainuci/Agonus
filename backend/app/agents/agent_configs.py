@@ -399,8 +399,19 @@ BEHAVIORAL TRAITS:
 
 # All supported tokens (for reference and expansion)
 ALL_SUPPORTED_TOKENS = [
-    "ETH", "WETH", "BTC", "CBBTC", "TBTC",
-    "SOL", "BNB", "DOGE", "XRP", "AVAX", "TRX", "SUI", "LINK"
+    "ETH",
+    "WETH",
+    "BTC",
+    "CBBTC",
+    "TBTC",
+    "SOL",
+    "BNB",
+    "DOGE",
+    "XRP",
+    "AVAX",
+    "TRX",
+    "SUI",
+    "LINK",
 ]
 
 # Major cap tokens only
@@ -467,7 +478,7 @@ AGENT_CONFIGS: Dict[str, Dict[str, Any]] = {
     "conservative": {
         "temperature": 0.2,
         "model_name": "gpt-4o-mini",
-        "allowed_tokens": MAJOR_TOKENS + MID_CAP_TOKENS,  # BTC, ETH + quality alts
+        "allowed_tokens": (MAJOR_TOKENS or []) + (MID_CAP_TOKENS or []),  # BTC, ETH + quality alts
         "allowed_tools": BASIC_TRADING_TOOLS,
         "personality_guidelines": CONSERVATIVE_GUIDELINES,
         "max_position_size_pct": 0.05,
@@ -537,7 +548,7 @@ AGENT_CONFIGS: Dict[str, Dict[str, Any]] = {
     "value": {
         "temperature": 0.3,
         "model_name": "gpt-4o-mini",
-        "allowed_tokens": MAJOR_TOKENS + MID_CAP_TOKENS,  # Majors + quality alts
+        "allowed_tokens": (MAJOR_TOKENS or []) + (MID_CAP_TOKENS or []),  # Majors + quality alts
         "allowed_tools": BASIC_TRADING_TOOLS,
         "personality_guidelines": CONSERVATIVE_GUIDELINES,
         "max_position_size_pct": 0.10,
@@ -567,55 +578,59 @@ AGENT_CONFIGS: Dict[str, Dict[str, Any]] = {
 }
 
 
-def get_agent_config(strategy_type: str, custom_config: Dict[str, Any] | None = None) -> Dict[str, Any]:
+def get_agent_config(
+    strategy_type: str, custom_config: Dict[str, Any] | None = None
+) -> Dict[str, Any]:
     """
     Get agent configuration by strategy type, with optional custom overrides.
-    
+
     Args:
         strategy_type: The strategy type (e.g., "conservative", "momentum")
         custom_config: Optional custom configuration to merge
-        
+
     Returns:
         Complete agent configuration dictionary
     """
     config = DEFAULT_AGENT_CONFIG.copy()
-    
+
     if strategy_type in AGENT_CONFIGS:
         config.update(AGENT_CONFIGS[strategy_type])
-    
+
     if custom_config is not None:
         config.update(custom_config)
-    
+
     return config
 
 
-def build_system_prompt(config: Dict[str, Any], allowed_tools: Optional[List[str]] = None) -> str:
+def build_system_prompt(
+    config: Dict[str, Any], allowed_tools: Optional[List[str]] = None
+) -> str:
     """
     Build the complete system prompt for an agent with conditional sections.
-    
+
     Args:
         config: Agent configuration dictionary
         allowed_tools: List of tool names the agent can use (determines which sections to include)
-        
+
     Returns:
         Complete system prompt string
     """
-    guidelines = config.get("personality_guidelines", BALANCED_GUIDELINES)
+    guidelines = config.get("personality_guidelines") or BALANCED_GUIDELINES
     allowed_tokens = get_allowed_tokens_string(config)
-    
+
     allowed_set = set(allowed_tools) if allowed_tools else set()
-    
+
     has_planning = "create_plan_step" in allowed_set
     has_research = "research_token" in allowed_set
-    
+
     optional_planning = PLANNING_SECTION if has_planning else ""
     optional_research = RESEARCH_SECTION if has_research else ""
-    
+
     if has_planning:
         optional_examples = PLANNING_EXAMPLES
     else:
         optional_examples = BASIC_EXAMPLES
-    
+
     prompt = REACT_BASE_TEMPLATE.format(
         personality_specific_guidelines=guidelines,
         allowed_tokens=allowed_tokens,
@@ -623,18 +638,18 @@ def build_system_prompt(config: Dict[str, Any], allowed_tools: Optional[List[str
         optional_research_section=optional_research,
         optional_examples=optional_examples,
     )
-    
+
     return prompt
 
 
 def filter_tools_by_config(all_tools: List[Any], config: Dict[str, Any]) -> List[Any]:
     """
     Filter tools based on agent configuration.
-    
+
     Args:
         all_tools: List of all available Tool objects
         config: Agent configuration with 'allowed_tools' key
-        
+
     Returns:
         Filtered list of tools the agent is allowed to use
     """
@@ -645,10 +660,10 @@ def filter_tools_by_config(all_tools: List[Any], config: Dict[str, Any]) -> List
 def get_allowed_tokens_string(config: Dict[str, Any]) -> str:
     """
     Get comma-separated string of allowed tokens for prompt insertion.
-    
+
     Args:
         config: Agent configuration with 'allowed_tokens' key
-        
+
     Returns:
         Comma-separated token list string
     """

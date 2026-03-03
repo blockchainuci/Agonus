@@ -52,7 +52,7 @@ export function useClaimStatus(contractTournamentId?: number | null) {
   const { address } = useAccount();
 
   const enabled =
-    !!contractTournamentId &&
+    contractTournamentId != null &&
     !!address &&
     !!AGONUS_CONTRACT_ADDRESS &&
     AGONUS_CONTRACT_ADDRESS.startsWith("0x");
@@ -63,7 +63,7 @@ export function useClaimStatus(contractTournamentId?: number | null) {
     abi: AGONUS_ABI,
     functionName: "hasClaimed",
     args: enabled ? [BigInt(contractTournamentId!), address!] : undefined,
-    query: { enabled },
+    query: { enabled, refetchInterval: 30000 },
   });
 
   const calculatePayout = useReadContract({
@@ -72,7 +72,7 @@ export function useClaimStatus(contractTournamentId?: number | null) {
     abi: AGONUS_ABI,
     functionName: "calculatePayout",
     args: enabled ? [BigInt(contractTournamentId!), address!] : undefined,
-    query: { enabled },
+    query: { enabled, refetchInterval: 30000 },
   });
 
   const claimed = hasClaimed.data as boolean | undefined;

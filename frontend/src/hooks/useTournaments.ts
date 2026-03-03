@@ -26,6 +26,7 @@ export function useTournaments() {
       console.log('Tournaments data:', data);
       return data;
     },
+    refetchInterval: 30000,
   });
 }
 
@@ -39,6 +40,7 @@ export function useTournament(tournamentId: ID) {
       return res.json();
     },
     enabled: !!tournamentId,
+    refetchInterval: 30000,
   });
 }
 

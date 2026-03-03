@@ -250,7 +250,7 @@ body {
 
 
 /* === Cube style === */
-.block {
+.cube-block {
   --ratio: calc(var(--index) / 60);
   --delay: calc((var(--ratio) * 625ms) + 625ms);
   transform-style: preserve-3d;

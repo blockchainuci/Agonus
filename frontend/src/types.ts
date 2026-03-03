@@ -20,11 +20,28 @@ export interface Agent {
   created_at: ISODate;
 }
 
+// Raw portfolio object as stored in DB and returned by /tournaments/{id}/agents
+export interface AgentPortfolio {
+  agent_id?: string;
+  cash: number;
+  holdings: Record<string, number>; // token -> quantity, e.g. { "ETH": 0.5, "BTC": 0.02 }
+  holdings_val?: number;
+  total_value?: number;
+  starting_val?: number;
+  unrealized_pnl?: number;
+  realized_pnl?: number;
+  num_trades?: number;
+  num_winning_trades?: number;
+  num_losing_trades?: number;
+  win_rate?: number;
+  roi?: number;
+}
+
 // ** NEW ** - Required for Leaderboard & Live state
 export interface AgentState {
   agent_id: ID;
   tournament_id: ID;
-  portfolio: Record<string, number>; // Asset -> Quantity
+  portfolio: AgentPortfolio;
   portfolio_value_usd: DecimalString;
   rank: number;
   trades_count: number;
